@@ -1,0 +1,386 @@
+<html>
+<head>
+<title>NodeDefinition.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+NodeDefinition.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Builder</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">BaseNode</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidDefinitionException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">NodeInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* This class provides a fluent interface for defining a node.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">NodeDefinition </span><span class="s0">implements </span><span class="s3">NodeParentInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$normalization</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$validation</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$defaultValue</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$default </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$required </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$deprecationMessage </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$merge</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$allowEmptyValue </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$nullEquivalent</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$trueEquivalent </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$falseEquivalent </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$pathSeparator </span><span class="s1">= </span><span class="s3">BaseNode</span><span class="s1">::</span><span class="s3">DEFAULT_PATH_SEPARATOR</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$parent</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$attributes </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">NodeParentInterface </span><span class="s7">$parent </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s7">$parent</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the parent node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setParent</span><span class="s1">(</span><span class="s3">NodeParentInterface </span><span class="s7">$parent</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s7">$parent</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets info message.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">info</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$info</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">attribute</span><span class="s1">(</span><span class="s8">'info'</span><span class="s0">, </span><span class="s7">$info</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets example configuration.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array $example</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">example</span><span class="s1">(</span><span class="s7">$example</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">attribute</span><span class="s1">(</span><span class="s8">'example'</span><span class="s0">, </span><span class="s7">$example</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an attribute on the node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">attribute</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the parent node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NodeParentInterface|NodeBuilder|NodeDefinition|ArrayNodeDefinition|VariableNodeDefinition|null The builder of the parent node</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">end</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates the node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $forceRootNode Whether to force this node as the root node</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NodeInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getNode</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$forceRootNode </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$forceRootNode</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">-&gt;</span><span class="s3">before </span><span class="s1">= </span><span class="s3">ExprBuilder</span><span class="s1">::</span><span class="s3">buildExpressions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">-&gt;</span><span class="s3">before</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">-&gt;</span><span class="s3">rules </span><span class="s1">= </span><span class="s3">ExprBuilder</span><span class="s1">::</span><span class="s3">buildExpressions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">-&gt;</span><span class="s3">rules</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$node </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createNode</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setAttributes</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$node</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the default value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value The default value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">defaultValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">default </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the node as required.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isRequired</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">required </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the node as deprecated.</span>
+     <span class="s4">*</span>
+     <span class="s4">* You can use %node% and %path% placeholders in your message to display,</span>
+     <span class="s4">* respectively, the node name and its complete path.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message </span><span class="s1">= </span><span class="s8">'The child node &quot;%node%&quot; at path &quot;%path%&quot; is deprecated.'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deprecationMessage </span><span class="s1">= </span><span class="s7">$message</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the equivalent value used when the node contains null.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">treatNullLike</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nullEquivalent </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the equivalent value used when the node contains true.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">treatTrueLike</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">trueEquivalent </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the equivalent value used when the node contains false.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">treatFalseLike</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">falseEquivalent </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets null as the default value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">defaultNull</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets true as the default value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">defaultTrue</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets false as the default value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">defaultFalse</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an expression to run before the normalization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ExprBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">beforeNormalization</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">()-&gt;</span><span class="s3">before</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Denies the node value being empty.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">cannotBeEmpty</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">allowEmptyValue </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an expression to run for the validation.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The expression receives the value of the node and must return it. It can</span>
+     <span class="s4">* modify it.</span>
+     <span class="s4">* An exception should be thrown when the node is not valid.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ExprBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">validate</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">()-&gt;</span><span class="s3">rule</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets whether the node can be overwritten.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">cannotBeOverwritten</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$deny </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">()-&gt;</span><span class="s3">denyOverwrite</span><span class="s1">(</span><span class="s7">$deny</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the builder for validation rules.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ValidationBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">validation</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ValidationBuilder</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the builder for merging rules.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">MergeBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">merge</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge </span><span class="s1">= </span><span class="s0">new </span><span class="s3">MergeBuilder</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the builder for normalization rules.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NormalizationBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">normalization</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization </span><span class="s1">= </span><span class="s0">new </span><span class="s3">NormalizationBuilder</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Instantiate and configure the node according to this definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NodeInterface The node instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidDefinitionException When the definition is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">createNode</span><span class="s1">()</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Set PathSeparator to use.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPathSeparator</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$separator</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this </span><span class="s0">instanceof </span><span class="s3">ParentNodeDefinitionInterface</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getChildNodeDefinitions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$child</span><span class="s1">) {</span>
+                <span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">setPathSeparator</span><span class="s1">(</span><span class="s7">$separator</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pathSeparator </span><span class="s1">= </span><span class="s7">$separator</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

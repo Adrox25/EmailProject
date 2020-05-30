@@ -1,0 +1,617 @@
+<html>
+<head>
+<title>ProgressBar.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ProgressBar.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Helper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleOutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleSectionOutput</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Terminal</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* The ProgressBar provides helpers to display progress output.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Chris Jones </span><span class="s6">&lt;leeked</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">ProgressBar</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$barWidth </span><span class="s1">= </span><span class="s8">28</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$barChar</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$emptyBarChar </span><span class="s1">= </span><span class="s9">'-'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$progressChar </span><span class="s1">= </span><span class="s9">'&gt;'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$format</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$internalFormat</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$redrawFreq </span><span class="s1">= </span><span class="s8">1</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$writeCount</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$lastWriteTime</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$minSecondsBetweenRedraws </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$maxSecondsBetweenRedraws </span><span class="s1">= </span><span class="s8">1</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$output</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$step </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$max</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$startTime</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$stepWidth</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$percent </span><span class="s1">= </span><span class="s8">0.0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$formatLineCount</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$messages </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$overwrite </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$terminal</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$previousMessage</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$formatters</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$formats</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int $max Maximum steps (0 if unknown)</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$max </span><span class="s1">= </span><span class="s8">0</span><span class="s0">, </span><span class="s3">float </span><span class="s7">$minSecondsBetweenRedraws </span><span class="s1">= </span><span class="s8">0.1</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$output </span><span class="s0">instanceof </span><span class="s3">ConsoleOutputInterface</span><span class="s1">) {</span>
+            <span class="s7">$output </span><span class="s1">= </span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">getErrorOutput</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s1">= </span><span class="s7">$output</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setMaxSteps</span><span class="s1">(</span><span class="s7">$max</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">terminal </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Terminal</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">&lt; </span><span class="s7">$minSecondsBetweenRedraws</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redrawFreq </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">minSecondsBetweenRedraws </span><span class="s1">= </span><span class="s7">$minSecondsBetweenRedraws</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()) {</span>
+            <span class="s2">// disable overwrite when output does not support ANSI codes.</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+            <span class="s2">// set a reasonable redraw frequency so output isn't flooded</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redrawFreq </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">= </span><span class="s3">time</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a placeholder formatter for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method also allow you to override an existing placeholder.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string   $name     The placeholder name (including the delimiter char like %)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable $callable A PHP callable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">setPlaceholderFormatterDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, callable </span><span class="s7">$callable</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initPlaceholderFormatters</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$callable</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the placeholder formatter for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name The placeholder name (including the delimiter char like %)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">callable|null A PHP callable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getPlaceholderFormatterDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">): ?</span><span class="s0">callable</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initPlaceholderFormatters</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) ? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a format for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method also allow you to override an existing format.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name   The format name</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $format A format string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">setFormatDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$format</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formats </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initFormats</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$format</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the format for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name The format name</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null A format string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formats </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initFormats</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) ? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Associates a text with a named placeholder.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The text is displayed when the progress bar is rendered but only</span>
+     <span class="s4">* when the corresponding placeholder is part of the custom format line</span>
+     <span class="s4">* (by wrapping the name with %).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $message The text to associate with the placeholder</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name    The name of the placeholder</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMessage</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s9">'message'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">messages</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$message</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getMessage</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s9">'message'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">messages</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getStartTime</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getMaxSteps</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getProgress</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getStepWidth</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stepWidth</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getProgressPercent</span><span class="s1">(): </span><span class="s3">float</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">percent</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getBarOffset</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">floor</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">percent </span><span class="s1">* </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barWidth </span><span class="s1">: (</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redrawFreq </span><span class="s1">? </span><span class="s3">min</span><span class="s1">(</span><span class="s8">5</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barWidth </span><span class="s1">/ </span><span class="s8">15</span><span class="s1">) * </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeCount </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step</span><span class="s1">) % </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barWidth</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setBarWidth</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$size</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barWidth </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s8">1</span><span class="s0">, </span><span class="s7">$size</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getBarWidth</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barWidth</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setBarCharacter</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$char</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barChar </span><span class="s1">= </span><span class="s7">$char</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getBarCharacter</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barChar</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s9">'=' </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">emptyBarChar</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barChar</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setEmptyBarCharacter</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$char</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">emptyBarChar </span><span class="s1">= </span><span class="s7">$char</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getEmptyBarCharacter</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">emptyBarChar</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setProgressCharacter</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$char</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progressChar </span><span class="s1">= </span><span class="s7">$char</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getProgressCharacter</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progressChar</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setFormat</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$format</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">internalFormat </span><span class="s1">= </span><span class="s7">$format</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the redraw frequency.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|float $freq The frequency in steps</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setRedrawFrequency</span><span class="s1">(?</span><span class="s3">int </span><span class="s7">$freq</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redrawFreq </span><span class="s1">= </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$freq </span><span class="s1">? </span><span class="s3">max</span><span class="s1">(</span><span class="s8">1</span><span class="s0">, </span><span class="s7">$freq</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">minSecondsBetweenRedraws</span><span class="s1">(</span><span class="s3">float </span><span class="s7">$seconds</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">minSecondsBetweenRedraws </span><span class="s1">= </span><span class="s7">$seconds</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">maxSecondsBetweenRedraws</span><span class="s1">(</span><span class="s3">float </span><span class="s7">$seconds</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxSecondsBetweenRedraws </span><span class="s1">= </span><span class="s7">$seconds</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns an iterator that will automatically update the progress bar when iterated.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null $max Number of steps to complete the bar (0 if indeterminate), if null it will be inferred from $iterable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">iterate</span><span class="s1">(</span><span class="s3">iterable </span><span class="s7">$iterable</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$max </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s7">$max </span><span class="s1">?? (</span><span class="s3">is_countable</span><span class="s1">(</span><span class="s7">$iterable</span><span class="s1">) ? \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$iterable</span><span class="s1">) : </span><span class="s8">0</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$iterable </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">yield </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">advance</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">finish</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Starts the progress output.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null $max Number of steps to complete the bar (0 if indeterminate), null to leave unchanged</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">start</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$max </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">= </span><span class="s3">time</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">percent </span><span class="s1">= </span><span class="s8">0.0</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$max</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setMaxSteps</span><span class="s1">(</span><span class="s7">$max</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Advances the progress output X steps.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int $step Number of steps to advance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">advance</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$step </span><span class="s1">= </span><span class="s8">1</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setProgress</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">+ </span><span class="s7">$step</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets whether to overwrite the progressbar, false for new line.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setOverwrite</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$overwrite</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite </span><span class="s1">= </span><span class="s7">$overwrite</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setProgress</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$step</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">&amp;&amp; </span><span class="s7">$step </span><span class="s1">&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">= </span><span class="s7">$step</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$step </span><span class="s1">&lt; </span><span class="s8">0</span><span class="s1">) {</span>
+            <span class="s7">$step </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$redrawFreq </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redrawFreq </span><span class="s1">?? ((</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">?: </span><span class="s8">10</span><span class="s1">) / </span><span class="s8">10</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$prevPeriod </span><span class="s1">= (int) (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">/ </span><span class="s7">$redrawFreq</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$currPeriod </span><span class="s1">= (int) (</span><span class="s7">$step </span><span class="s1">/ </span><span class="s7">$redrawFreq</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">= </span><span class="s7">$step</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">percent </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? (float) </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">/ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">: </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s7">$timeInterval </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">) - </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lastWriteTime</span><span class="s0">;</span>
+
+        <span class="s2">// Draw regardless of other limits</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">=== </span><span class="s7">$step</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Throttling</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$timeInterval </span><span class="s1">&lt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">minSecondsBetweenRedraws</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Draw each step period, but not too late</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$prevPeriod </span><span class="s1">!== </span><span class="s7">$currPeriod </span><span class="s1">|| </span><span class="s7">$timeInterval </span><span class="s1">&gt;= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxSecondsBetweenRedraws</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setMaxSteps</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$max</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s8">0</span><span class="s0">, </span><span class="s7">$max</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stepWidth </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">((string) </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max</span><span class="s1">) : </span><span class="s8">4</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finishes the progress output.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">finish</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">&amp;&amp; !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite</span><span class="s1">) {</span>
+            <span class="s2">// prevent double 100% output</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setProgress</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Outputs the current progress string.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">display</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_QUIET </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setRealFormat</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">internalFormat </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">determineBestFormat</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">buildLine</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes the progress bar from the current line.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is useful if you wish to write some output</span>
+     <span class="s4">* while a progress bar is running.</span>
+     <span class="s4">* Call display() to show the progress bar again.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clear</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setRealFormat</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">internalFormat </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">determineBestFormat</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite</span><span class="s1">(</span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">setRealFormat</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$format</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// try to use the _nomax variant if available</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">.</span><span class="s9">'_nomax'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">.</span><span class="s9">'_nomax'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s7">$format</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatLineCount </span><span class="s1">= </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Overwrites a previous message to the output.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">overwrite</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">previousMessage </span><span class="s1">=== </span><span class="s7">$message</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$originalMessage </span><span class="s1">= </span><span class="s7">$message</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">previousMessage</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s0">instanceof </span><span class="s3">ConsoleSectionOutput</span><span class="s1">) {</span>
+                    <span class="s7">$lines </span><span class="s1">= </span><span class="s3">floor</span><span class="s1">(</span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">) / </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">terminal</span><span class="s1">-&gt;</span><span class="s3">getWidth</span><span class="s1">()) + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatLineCount </span><span class="s1">+ </span><span class="s8">1</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">(</span><span class="s7">$lines</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s2">// Erase previous lines</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatLineCount </span><span class="s1">&gt; </span><span class="s8">0</span><span class="s1">) {</span>
+                        <span class="s7">$message </span><span class="s1">= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\x1B</span><span class="s9">[1A</span><span class="s0">\x1B</span><span class="s9">[2K&quot;</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatLineCount</span><span class="s1">).</span><span class="s7">$message</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s2">// Move the cursor to the beginning of the line and erase the line</span>
+                    <span class="s7">$message </span><span class="s1">= </span><span class="s9">&quot;</span><span class="s0">\x0D\x1B</span><span class="s9">[2K</span><span class="s7">$message</span><span class="s9">&quot;</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">step </span><span class="s1">&gt; </span><span class="s8">0</span><span class="s1">) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">PHP_EOL</span><span class="s1">.</span><span class="s7">$message</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">previousMessage </span><span class="s1">= </span><span class="s7">$originalMessage</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lastWriteTime </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">++</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeCount</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">determineBestFormat</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">switch </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">()) {</span>
+            <span class="s2">// OutputInterface::VERBOSITY_QUIET: display is disabled anyway</span>
+            <span class="s0">case </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERBOSE</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s9">'verbose' </span><span class="s1">: </span><span class="s9">'verbose_nomax'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERY_VERBOSE</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s9">'very_verbose' </span><span class="s1">: </span><span class="s9">'very_verbose_nomax'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_DEBUG</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s9">'debug' </span><span class="s1">: </span><span class="s9">'debug_nomax'</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">max </span><span class="s1">? </span><span class="s9">'normal' </span><span class="s1">: </span><span class="s9">'normal_nomax'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">initPlaceholderFormatters</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'bar' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">) {</span>
+                <span class="s7">$completeBars </span><span class="s1">= </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getBarOffset</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$display </span><span class="s1">= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getBarCharacter</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$completeBars</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$completeBars </span><span class="s1">&lt; </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getBarWidth</span><span class="s1">()) {</span>
+                    <span class="s7">$emptyBars </span><span class="s1">= </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getBarWidth</span><span class="s1">() - </span><span class="s7">$completeBars </span><span class="s1">- </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgressCharacter</span><span class="s1">())</span><span class="s0">;</span>
+                    <span class="s7">$display </span><span class="s1">.= </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgressCharacter</span><span class="s1">().</span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getEmptyBarCharacter</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$emptyBars</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$display</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'elapsed' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">formatTime</span><span class="s1">(</span><span class="s3">time</span><span class="s1">() - </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getStartTime</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'remaining' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getMaxSteps</span><span class="s1">()) {</span>
+                    <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'Unable to display the remaining time if the maximum number of steps is not set.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgress</span><span class="s1">()) {</span>
+                    <span class="s7">$remaining </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$remaining </span><span class="s1">= </span><span class="s3">round</span><span class="s1">((</span><span class="s3">time</span><span class="s1">() - </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getStartTime</span><span class="s1">()) / </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgress</span><span class="s1">() * (</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getMaxSteps</span><span class="s1">() - </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgress</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">formatTime</span><span class="s1">(</span><span class="s7">$remaining</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'estimated' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getMaxSteps</span><span class="s1">()) {</span>
+                    <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'Unable to display the estimated time if the maximum number of steps is not set.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgress</span><span class="s1">()) {</span>
+                    <span class="s7">$estimated </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$estimated </span><span class="s1">= </span><span class="s3">round</span><span class="s1">((</span><span class="s3">time</span><span class="s1">() - </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getStartTime</span><span class="s1">()) / </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgress</span><span class="s1">() * </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getMaxSteps</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">formatTime</span><span class="s1">(</span><span class="s7">$estimated</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'memory' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">formatMemory</span><span class="s1">(</span><span class="s3">memory_get_usage</span><span class="s1">(</span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'current' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">str_pad</span><span class="s1">(</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgress</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getStepWidth</span><span class="s1">()</span><span class="s0">, </span><span class="s9">' '</span><span class="s0">, </span><span class="s3">STR_PAD_LEFT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'max' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getMaxSteps</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'percent' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bar</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">floor</span><span class="s1">(</span><span class="s7">$bar</span><span class="s1">-&gt;</span><span class="s3">getProgressPercent</span><span class="s1">() * </span><span class="s8">100</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">initFormats</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'normal' </span><span class="s1">=&gt; </span><span class="s9">' %current%/%max% [%bar%] %percent:3s%%'</span><span class="s0">,</span>
+            <span class="s9">'normal_nomax' </span><span class="s1">=&gt; </span><span class="s9">' %current% [%bar%]'</span><span class="s0">,</span>
+
+            <span class="s9">'verbose' </span><span class="s1">=&gt; </span><span class="s9">' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%'</span><span class="s0">,</span>
+            <span class="s9">'verbose_nomax' </span><span class="s1">=&gt; </span><span class="s9">' %current% [%bar%] %elapsed:6s%'</span><span class="s0">,</span>
+
+            <span class="s9">'very_verbose' </span><span class="s1">=&gt; </span><span class="s9">' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s%'</span><span class="s0">,</span>
+            <span class="s9">'very_verbose_nomax' </span><span class="s1">=&gt; </span><span class="s9">' %current% [%bar%] %elapsed:6s%'</span><span class="s0">,</span>
+
+            <span class="s9">'debug' </span><span class="s1">=&gt; </span><span class="s9">' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s%'</span><span class="s0">,</span>
+            <span class="s9">'debug_nomax' </span><span class="s1">=&gt; </span><span class="s9">' %current% [%bar%] %elapsed:6s% %memory:6s%'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">buildLine</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$regex </span><span class="s1">= </span><span class="s9">&quot;{%([a-z\-_]+)(?:\:([^%]+))?%}i&quot;</span><span class="s0">;</span>
+        <span class="s7">$callback </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$formatter </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">::</span><span class="s3">getPlaceholderFormatterDefinition</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])) {</span>
+                <span class="s7">$text </span><span class="s1">= </span><span class="s7">$formatter</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">messages</span><span class="s1">[</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]])) {</span>
+                <span class="s7">$text </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">messages</span><span class="s1">[</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">return </span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">])) {</span>
+                <span class="s7">$text </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'%'</span><span class="s1">.</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$text</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+        <span class="s7">$line </span><span class="s1">= </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// gets string length for each sub line with multiline format</span>
+        <span class="s7">$linesLength </span><span class="s1">= </span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$subLine</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">, </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$subLine</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\r</span><span class="s9">&quot;</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$linesWidth </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s7">$linesLength</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$terminalWidth </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">terminal</span><span class="s1">-&gt;</span><span class="s3">getWidth</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$linesWidth </span><span class="s1">&lt;= </span><span class="s7">$terminalWidth</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$line</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setBarWidth</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">barWidth </span><span class="s1">- </span><span class="s7">$linesWidth </span><span class="s1">+ </span><span class="s7">$terminalWidth</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

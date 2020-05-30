@@ -1,0 +1,150 @@
+<html>
+<head>
+<title>MemoryDataCollector.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+MemoryDataCollector.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* MemoryDataCollector.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">MemoryDataCollector </span><span class="s0">extends </span><span class="s3">DataCollector </span><span class="s0">implements </span><span class="s3">LateDataCollectorInterface</span>
+<span class="s1">{</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reset</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">collect</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$exception </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateMemoryUsage</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">reset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= [</span>
+            <span class="s8">'memory' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'memory_limit' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">convertToBytes</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'memory_limit'</span><span class="s1">))</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">lateCollect</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateMemoryUsage</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the memory.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The memory</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getMemory</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'memory'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the PHP memory limit.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The memory limit</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getMemoryLimit</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'memory_limit'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Updates the memory usage data.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">updateMemoryUsage</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'memory'</span><span class="s1">] = </span><span class="s3">memory_get_peak_usage</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">'memory'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int|float</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">convertToBytes</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$memoryLimit</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'-1' </span><span class="s1">=== </span><span class="s7">$memoryLimit</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">-</span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$memoryLimit </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$memoryLimit</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$max </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$memoryLimit</span><span class="s0">, </span><span class="s8">'+'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$max</span><span class="s0">, </span><span class="s8">'0x'</span><span class="s1">)) {</span>
+            <span class="s7">$max </span><span class="s1">= \</span><span class="s3">intval</span><span class="s1">(</span><span class="s7">$max</span><span class="s0">, </span><span class="s9">16</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$max</span><span class="s0">, </span><span class="s8">'0'</span><span class="s1">)) {</span>
+            <span class="s7">$max </span><span class="s1">= \</span><span class="s3">intval</span><span class="s1">(</span><span class="s7">$max</span><span class="s0">, </span><span class="s9">8</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$max </span><span class="s1">= (int) </span><span class="s7">$max</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$memoryLimit</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+            <span class="s0">case </span><span class="s8">'t'</span><span class="s1">: </span><span class="s7">$max </span><span class="s1">*= </span><span class="s9">1024</span><span class="s0">;</span>
+            <span class="s2">// no break</span>
+            <span class="s0">case </span><span class="s8">'g'</span><span class="s1">: </span><span class="s7">$max </span><span class="s1">*= </span><span class="s9">1024</span><span class="s0">;</span>
+            <span class="s2">// no break</span>
+            <span class="s0">case </span><span class="s8">'m'</span><span class="s1">: </span><span class="s7">$max </span><span class="s1">*= </span><span class="s9">1024</span><span class="s0">;</span>
+            <span class="s2">// no break</span>
+            <span class="s0">case </span><span class="s8">'k'</span><span class="s1">: </span><span class="s7">$max </span><span class="s1">*= </span><span class="s9">1024</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$max</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

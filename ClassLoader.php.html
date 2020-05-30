@@ -1,0 +1,470 @@
+<html>
+<head>
+<title>ClassLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ClassLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of Composer. 
+ * 
+ * (c) Nils Adermann &lt;naderman@naderman.de&gt; 
+ *     Jordi Boggiano &lt;j.boggiano@seld.be&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Autoload</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* ClassLoader implements a PSR-0, PSR-4 and classmap class loader.</span>
+ <span class="s4">*</span>
+ <span class="s4">*     $loader = new \Composer\Autoload\ClassLoader();</span>
+ <span class="s4">*</span>
+ <span class="s4">*     // register classes with namespaces</span>
+ <span class="s4">*     $loader-&gt;add('Symfony\Component', __DIR__.'/component');</span>
+ <span class="s4">*     $loader-&gt;add('Symfony',           __DIR__.'/framework');</span>
+ <span class="s4">*</span>
+ <span class="s4">*     // activate the autoloader</span>
+ <span class="s4">*     $loader-&gt;register();</span>
+ <span class="s4">*</span>
+ <span class="s4">*     // to enable searching the include path (eg. for PEAR packages)</span>
+ <span class="s4">*     $loader-&gt;setUseIncludePath(true);</span>
+ <span class="s4">*</span>
+ <span class="s4">* In this example, if you try to use a class in the Symfony\Component</span>
+ <span class="s4">* namespace or one of its children (Symfony\Component\Console for instance),</span>
+ <span class="s4">* the autoloader will first look for the class under the component/</span>
+ <span class="s4">* directory, and it will then fallback to the framework/ directory if not</span>
+ <span class="s4">* found before giving up.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This class is loosely based on the Symfony UniversalClassLoader.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jordi Boggiano </span><span class="s6">&lt;j.boggiano</span><span class="s4">@seld.be&gt;</span>
+ <span class="s4">* </span><span class="s5">@see    </span><span class="s4">http://www.php-fig.org/psr/psr-0/</span>
+ <span class="s4">* </span><span class="s5">@see    </span><span class="s4">http://www.php-fig.org/psr/psr-4/</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ClassLoader</span>
+<span class="s1">{</span>
+    <span class="s2">// PSR-4</span>
+    <span class="s0">private </span><span class="s7">$prefixLengthsPsr4 </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$prefixDirsPsr4 </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fallbackDirsPsr4 </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+
+    <span class="s2">// PSR-0</span>
+    <span class="s0">private </span><span class="s7">$prefixesPsr0 </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fallbackDirsPsr0 </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$useIncludePath </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$classMap </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$classMapAuthoritative </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$missingClasses </span><span class="s1">= </span><span class="s0">array</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$apcuPrefix</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">getPrefixes</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">call_user_func_array</span><span class="s1">(</span><span class="s8">'array_merge'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return array</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPrefixesPsr4</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getFallbackDirs</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getFallbackDirsPsr4</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getClassMap</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $classMap Class to filename map</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addClassMap</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$classMap</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap</span><span class="s0">, </span><span class="s7">$classMap</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap </span><span class="s1">= </span><span class="s7">$classMap</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Registers a set of PSR-0 directories for a given prefix, either</span>
+     <span class="s4">* appending or prepending to the ones previously set for this prefix.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string       $prefix  The prefix</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $paths   The PSR-0 root directories</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool         $prepend Whether to prepend the directories</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">add</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$paths</span><span class="s0">, </span><span class="s7">$prepend </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$prepend</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0 </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span>
+                    <span class="s1">(array) </span><span class="s7">$paths</span><span class="s0">,</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0</span>
+                <span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0 </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0</span><span class="s0">,</span>
+                    <span class="s1">(array) </span><span class="s7">$paths</span>
+                <span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$first </span><span class="s1">= </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">][</span><span class="s7">$prefix</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">][</span><span class="s7">$prefix</span><span class="s1">] = (array) </span><span class="s7">$paths</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$prepend</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">][</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span>
+                <span class="s1">(array) </span><span class="s7">$paths</span><span class="s0">,</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">][</span><span class="s7">$prefix</span><span class="s1">]</span>
+            <span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">][</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">][</span><span class="s7">$prefix</span><span class="s1">]</span><span class="s0">,</span>
+                <span class="s1">(array) </span><span class="s7">$paths</span>
+            <span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Registers a set of PSR-4 directories for a given namespace, either</span>
+     <span class="s4">* appending or prepending to the ones previously set for this namespace.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string       $prefix  The prefix/namespace, with trailing '\\'</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $paths   The PSR-4 base directories</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool         $prepend Whether to prepend the directories</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addPsr4</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$paths</span><span class="s0">, </span><span class="s7">$prepend </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s2">// Register directories for the root namespace.</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$prepend</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4 </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span>
+                    <span class="s1">(array) </span><span class="s7">$paths</span><span class="s0">,</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4</span>
+                <span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4 </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4</span><span class="s0">,</span>
+                    <span class="s1">(array) </span><span class="s7">$paths</span>
+                <span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">])) {</span>
+            <span class="s2">// Register directories for a new namespace.</span>
+            <span class="s7">$length </span><span class="s1">= </span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">!== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$length </span><span class="s1">- </span><span class="s9">1</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">&quot;A non-empty PSR-4 prefix must end with a namespace separator.&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixLengthsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]][</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s7">$length</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = (array) </span><span class="s7">$paths</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$prepend</span><span class="s1">) {</span>
+            <span class="s2">// Prepend directories for an already registered namespace.</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span>
+                <span class="s1">(array) </span><span class="s7">$paths</span><span class="s0">,</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">]</span>
+            <span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s2">// Append directories for an already registered namespace.</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">]</span><span class="s0">,</span>
+                <span class="s1">(array) </span><span class="s7">$paths</span>
+            <span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Registers a set of PSR-0 directories for a given prefix,</span>
+     <span class="s4">* replacing any others previously set for this prefix.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string       $prefix The prefix</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $paths  The PSR-0 base directories</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">set</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$paths</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0 </span><span class="s1">= (array) </span><span class="s7">$paths</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]][</span><span class="s7">$prefix</span><span class="s1">] = (array) </span><span class="s7">$paths</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Registers a set of PSR-4 directories for a given namespace,</span>
+     <span class="s4">* replacing any others previously set for this namespace.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string       $prefix The prefix/namespace, with trailing '\\'</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $paths  The PSR-4 base directories</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPsr4</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$paths</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4 </span><span class="s1">= (array) </span><span class="s7">$paths</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$length </span><span class="s1">= </span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">!== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$length </span><span class="s1">- </span><span class="s9">1</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">&quot;A non-empty PSR-4 prefix must end with a namespace separator.&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixLengthsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]][</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s7">$length</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = (array) </span><span class="s7">$paths</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Turns on searching the include path for class files.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $useIncludePath</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setUseIncludePath</span><span class="s1">(</span><span class="s7">$useIncludePath</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">useIncludePath </span><span class="s1">= </span><span class="s7">$useIncludePath</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Can be used to check if the autoloader uses the include path to check</span>
+     <span class="s4">* for classes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getUseIncludePath</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">useIncludePath</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Turns off searching the prefix and fallback directories for classes</span>
+     <span class="s4">* that have not been registered with the class map.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $classMapAuthoritative</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setClassMapAuthoritative</span><span class="s1">(</span><span class="s7">$classMapAuthoritative</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMapAuthoritative </span><span class="s1">= </span><span class="s7">$classMapAuthoritative</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Should class lookup fail if not found in the current class map?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isClassMapAuthoritative</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMapAuthoritative</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* APCu prefix to use to cache found/not-found classes, if the extension is enabled.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $apcuPrefix</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setApcuPrefix</span><span class="s1">(</span><span class="s7">$apcuPrefix</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">apcuPrefix </span><span class="s1">= </span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'apcu_fetch'</span><span class="s1">) &amp;&amp; </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'apc.enabled'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">) ? </span><span class="s7">$apcuPrefix </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* The APCu prefix in use, or null if APCu caching is not enabled.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getApcuPrefix</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">apcuPrefix</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Registers this instance as an autoloader.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $prepend Whether to prepend the autoloader or not</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">register</span><span class="s1">(</span><span class="s7">$prepend </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">spl_autoload_register</span><span class="s1">(</span><span class="s0">array</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'loadClass'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$prepend</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Unregisters this instance as an autoloader.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">unregister</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s3">spl_autoload_unregister</span><span class="s1">(</span><span class="s0">array</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'loadClass'</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads the given class or interface.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param  </span><span class="s4">string    $class The name of the class</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool|null True if loaded, null otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">loadClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findFile</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) {</span>
+            <span class="s3">includeFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finds the path to the file where the class is defined.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $class The name of the class</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|false The path if found, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">findFile</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// class map lookup</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMap</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">classMapAuthoritative </span><span class="s1">|| </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">missingClasses</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">apcuPrefix</span><span class="s1">) {</span>
+            <span class="s7">$file </span><span class="s1">= </span><span class="s3">apcu_fetch</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">apcuPrefix</span><span class="s1">.</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$hit</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$hit</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findFileWithExtension</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'.php'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Search for Hack files if we are running on HHVM</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$file </span><span class="s1">&amp;&amp; </span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'HHVM_VERSION'</span><span class="s1">)) {</span>
+            <span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findFileWithExtension</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'.hh'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">apcuPrefix</span><span class="s1">) {</span>
+            <span class="s3">apcu_add</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">apcuPrefix</span><span class="s1">.</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s2">// Remember that this class does not exist.</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">missingClasses</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">findFileWithExtension</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$ext</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// PSR-4 lookup</span>
+        <span class="s7">$logicalPathPsr4 </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) . </span><span class="s7">$ext</span><span class="s0">;</span>
+
+        <span class="s7">$first </span><span class="s1">= </span><span class="s7">$class</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixLengthsPsr4</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">])) {</span>
+            <span class="s7">$subPath </span><span class="s1">= </span><span class="s7">$class</span><span class="s0">;</span>
+            <span class="s0">while </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$lastPos </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$subPath</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)) {</span>
+                <span class="s7">$subPath </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$subPath</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$lastPos</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$search </span><span class="s1">= </span><span class="s7">$subPath </span><span class="s1">. </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$search</span><span class="s1">])) {</span>
+                    <span class="s7">$pathEnd </span><span class="s1">= </span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">. </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$logicalPathPsr4</span><span class="s0">, </span><span class="s7">$lastPos </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixDirsPsr4</span><span class="s1">[</span><span class="s7">$search</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$dir</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$dir </span><span class="s1">. </span><span class="s7">$pathEnd</span><span class="s1">)) {</span>
+                            <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// PSR-4 fallback dirs</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr4 </span><span class="s0">as </span><span class="s7">$dir</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$dir </span><span class="s1">. </span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">. </span><span class="s7">$logicalPathPsr4</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// PSR-0 lookup</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$pos </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)) {</span>
+            <span class="s2">// namespaced class name</span>
+            <span class="s7">$logicalPathPsr0 </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$logicalPathPsr4</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$pos </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span>
+                <span class="s1">. </span><span class="s3">strtr</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$logicalPathPsr4</span><span class="s0">, </span><span class="s7">$pos </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'_'</span><span class="s0">, </span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s2">// PEAR-like class name</span>
+            <span class="s7">$logicalPathPsr0 </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'_'</span><span class="s0">, </span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) . </span><span class="s7">$ext</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">])) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixesPsr0</span><span class="s1">[</span><span class="s7">$first</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$prefix </span><span class="s1">=&gt; </span><span class="s7">$dirs</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">)) {</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$dirs </span><span class="s0">as </span><span class="s7">$dir</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$dir </span><span class="s1">. </span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">. </span><span class="s7">$logicalPathPsr0</span><span class="s1">)) {</span>
+                            <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// PSR-0 fallback dirs</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackDirsPsr0 </span><span class="s0">as </span><span class="s7">$dir</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$dir </span><span class="s1">. </span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">. </span><span class="s7">$logicalPathPsr0</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// PSR-0 include paths.</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">useIncludePath </span><span class="s1">&amp;&amp; </span><span class="s7">$file </span><span class="s1">= </span><span class="s3">stream_resolve_include_path</span><span class="s1">(</span><span class="s7">$logicalPathPsr0</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Scope isolated include.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Prevents access to $this/self from included files.</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">includeFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span>
+<span class="s1">{</span>
+    <span class="s0">include </span><span class="s7">$file</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

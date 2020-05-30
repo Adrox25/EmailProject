@@ -1,0 +1,158 @@
+<html>
+<head>
+<title>ParseException.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ParseException.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Exception class thrown when an error occurs during parsing.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ParseException </span><span class="s0">extends </span><span class="s3">RuntimeException</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$parsedFile</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$parsedLine</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$snippet</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$rawMessage</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string          $message    The error message</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int             $parsedLine The line where the error occurred</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null     $snippet    The snippet of code near the problem</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null     $parsedFile The file name where the error occurred</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\Exception|null $previous   The previous exception</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$parsedLine </span><span class="s1">= -</span><span class="s8">1</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$snippet </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$parsedFile </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$previous </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedFile </span><span class="s1">= </span><span class="s7">$parsedFile</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedLine </span><span class="s1">= </span><span class="s7">$parsedLine</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">snippet </span><span class="s1">= </span><span class="s7">$snippet</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rawMessage </span><span class="s1">= </span><span class="s7">$message</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateRepr</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$previous</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the snippet of code near the error.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The snippet of code</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getSnippet</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">snippet</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the snippet of code near the error.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$snippet</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">snippet </span><span class="s1">= </span><span class="s7">$snippet</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateRepr</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the filename where the error occurred.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method returns null if a string is parsed.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The filename</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getParsedFile</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedFile</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the filename where the error occurred.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setParsedFile</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$parsedFile</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedFile </span><span class="s1">= </span><span class="s7">$parsedFile</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateRepr</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the line where the error occurred.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The file line</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getParsedLine</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedLine</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the line where the error occurred.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$parsedLine</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedLine </span><span class="s1">= </span><span class="s7">$parsedLine</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateRepr</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">updateRepr</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rawMessage</span><span class="s0">;</span>
+
+        <span class="s7">$dot </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'.' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$dot </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedFile</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">' in %s'</span><span class="s0">, </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedFile</span><span class="s0">, </span><span class="s3">JSON_UNESCAPED_SLASHES </span><span class="s1">| </span><span class="s3">JSON_UNESCAPED_UNICODE</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedLine </span><span class="s1">&gt;= </span><span class="s8">0</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">' at line %d'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parsedLine</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">snippet</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">' (near &quot;%s&quot;)'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">snippet</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$dot</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">.= </span><span class="s9">'.'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

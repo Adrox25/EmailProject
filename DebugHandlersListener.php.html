@@ -1,0 +1,173 @@
+<html>
+<head>
+<title>DebugHandlersListener.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DebugHandlersListener.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">ConsoleEvents</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ConsoleEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleOutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">FileLinkFormatter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">KernelEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Configures errors and exceptions handlers.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DebugHandlersListener </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$exceptionHandler</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$logger</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$levels</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$throwAt</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$scream</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fileLinkFormat</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$scope</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$firstCall </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$hasTerminatedWithException</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable|null                 $exceptionHandler A handler that must support \Throwable instances that will be called on Exception</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|int                     $levels           An array map of E_* to LogLevel::* or an integer bit field of E_* constants</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null                      $throwAt          Thrown errors in a bit field of E_* constants, or null to keep the current value</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                          $scream           Enables/disables screaming mode, where even silenced errors are logged</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|FileLinkFormatter|null $fileLinkFormat   The format for links to source files</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                          $scope            Enables/disables scoping mode</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$exceptionHandler </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">LoggerInterface </span><span class="s7">$logger </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$levels </span><span class="s1">= </span><span class="s3">E_ALL</span><span class="s0">, </span><span class="s1">?</span><span class="s3">int </span><span class="s7">$throwAt </span><span class="s1">= </span><span class="s3">E_ALL</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$scream </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$fileLinkFormat </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$scope </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= </span><span class="s7">$exceptionHandler</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">= </span><span class="s7">$logger</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels </span><span class="s1">= </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$levels </span><span class="s1">? </span><span class="s3">E_ALL </span><span class="s1">: </span><span class="s7">$levels</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">throwAt </span><span class="s1">= \</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$throwAt</span><span class="s1">) ? </span><span class="s7">$throwAt </span><span class="s1">: (</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$throwAt </span><span class="s1">? </span><span class="s3">null </span><span class="s1">: (</span><span class="s7">$throwAt </span><span class="s1">? </span><span class="s3">E_ALL </span><span class="s1">: </span><span class="s3">null</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scream </span><span class="s1">= </span><span class="s7">$scream</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormat </span><span class="s1">= </span><span class="s7">$fileLinkFormat</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scope </span><span class="s1">= </span><span class="s7">$scope</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Configures the error handler.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">configure</span><span class="s1">(</span><span class="s3">object </span><span class="s7">$event </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">ConsoleEvent </span><span class="s1">&amp;&amp; !\</span><span class="s3">in_array</span><span class="s1">(\</span><span class="s3">PHP_SAPI</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'cli'</span><span class="s0">, </span><span class="s8">'phpdbg'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">KernelEvent </span><span class="s1">? !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">firstCall </span><span class="s1">: !</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">firstCall </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasTerminatedWithException </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s7">$handler </span><span class="s1">= </span><span class="s3">set_exception_handler</span><span class="s1">(</span><span class="s8">'var_dump'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$handler </span><span class="s1">= \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$handler</span><span class="s1">) ? </span><span class="s7">$handler</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s3">restore_exception_handler</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">|| </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">throwAt</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$handler </span><span class="s0">instanceof </span><span class="s3">ErrorHandler</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                    <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">setDefaultLogger</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels</span><span class="s1">)) {</span>
+                        <span class="s7">$levels </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels </span><span class="s0">as </span><span class="s7">$type </span><span class="s1">=&gt; </span><span class="s7">$log</span><span class="s1">) {</span>
+                            <span class="s7">$levels </span><span class="s1">|= </span><span class="s7">$type</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$levels </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scream</span><span class="s1">) {</span>
+                        <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">screamAt</span><span class="s1">(</span><span class="s7">$levels</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scope</span><span class="s1">) {</span>
+                        <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">scopeAt</span><span class="s1">(</span><span class="s7">$levels </span><span class="s1">&amp; ~</span><span class="s3">E_USER_DEPRECATED </span><span class="s1">&amp; ~</span><span class="s3">E_DEPRECATED</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">scopeAt</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">throwAt</span><span class="s1">) {</span>
+                    <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">throwAt</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">throwAt</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">KernelEvent</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$kernel </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getKernel</span><span class="s1">()</span><span class="s0">, </span><span class="s8">'terminateWithException'</span><span class="s1">)) {</span>
+                    <span class="s7">$request </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s7">$hasRun </span><span class="s1">= &amp;</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasTerminatedWithException</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= </span><span class="s0">static function </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$kernel</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$hasRun</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasRun</span><span class="s1">) {</span>
+                            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s7">$hasRun </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                        <span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">terminateWithException</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">ConsoleEvent </span><span class="s1">&amp;&amp; </span><span class="s7">$app </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getCommand</span><span class="s1">()-&gt;</span><span class="s3">getApplication</span><span class="s1">()) {</span>
+                <span class="s7">$output </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getOutput</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$output </span><span class="s0">instanceof </span><span class="s3">ConsoleOutputInterface</span><span class="s1">) {</span>
+                    <span class="s7">$output </span><span class="s1">= </span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">getErrorOutput</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= </span><span class="s0">static function </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$app</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">) {</span>
+                    <span class="s7">$app</span><span class="s1">-&gt;</span><span class="s3">renderThrowable</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$handler </span><span class="s0">instanceof </span><span class="s3">ErrorHandler</span><span class="s1">) {</span>
+                <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">setExceptionHandler</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$events </span><span class="s1">= [</span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">REQUEST </span><span class="s1">=&gt; [</span><span class="s8">'configure'</span><span class="s0">, </span><span class="s9">2048</span><span class="s1">]]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'Symfony\Component\Console\ConsoleEvents::COMMAND'</span><span class="s1">)) {</span>
+            <span class="s7">$events</span><span class="s1">[</span><span class="s3">ConsoleEvents</span><span class="s1">::</span><span class="s3">COMMAND</span><span class="s1">] = [</span><span class="s8">'configure'</span><span class="s0">, </span><span class="s9">2048</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$events</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

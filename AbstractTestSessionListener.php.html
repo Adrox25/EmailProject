@@ -1,0 +1,139 @@
+<html>
+<head>
+<title>AbstractTestSessionListener.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AbstractTestSessionListener.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Cookie</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">Session</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">SessionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">RequestEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ResponseEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* TestSessionListener.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Saves session in test environment.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Bulat Shakirzyanov </span><span class="s6">&lt;mallluhuct</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">AbstractTestSessionListener </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$sessionId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$sessionOptions</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$sessionOptions </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionOptions </span><span class="s1">= </span><span class="s7">$sessionOptions</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelRequest</span><span class="s1">(</span><span class="s3">RequestEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// bootstrap the session</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$session </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSession</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$cookies </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()-&gt;</span><span class="s3">cookies</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$cookies</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">())) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionId </span><span class="s1">= </span><span class="s7">$cookies</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">setId</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if session was initialized and saves if current request is master</span>
+     <span class="s4">* Runs on 'kernel.response' in test environment.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">onKernelResponse</span><span class="s1">(</span><span class="s3">ResponseEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$request </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">hasSession</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$session </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getSession</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$wasStarted </span><span class="s1">= </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">isStarted</span><span class="s1">()) {</span>
+            <span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">save</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$session </span><span class="s0">instanceof </span><span class="s3">Session </span><span class="s1">? !</span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">isEmpty</span><span class="s1">() || (</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionId </span><span class="s1">&amp;&amp; </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">() !== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionId</span><span class="s1">) : </span><span class="s7">$wasStarted</span><span class="s1">) {</span>
+            <span class="s7">$params </span><span class="s1">= </span><span class="s3">session_get_cookie_params</span><span class="s1">() + [</span><span class="s8">'samesite' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionOptions </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s8">'cookie_'</span><span class="s1">)) {</span>
+                    <span class="s7">$params</span><span class="s1">[</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s9">7</span><span class="s1">)] = </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCookies</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$cookie</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">() === </span><span class="s7">$cookie</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">() &amp;&amp; </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">] === </span><span class="s7">$cookie</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">() &amp;&amp; </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'domain'</span><span class="s1">] == </span><span class="s7">$cookie</span><span class="s1">-&gt;</span><span class="s3">getDomain</span><span class="s1">()) {</span>
+                    <span class="s0">return;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">setCookie</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Cookie</span><span class="s1">(</span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">()</span><span class="s0">, </span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'lifetime'</span><span class="s1">] ? </span><span class="s9">0 </span><span class="s1">: </span><span class="s3">time</span><span class="s1">() + </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'lifetime'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'domain'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'secure'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'httponly'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'samesite'</span><span class="s1">] ?: </span><span class="s3">null</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionId </span><span class="s1">= </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">REQUEST </span><span class="s1">=&gt; [</span><span class="s8">'onKernelRequest'</span><span class="s0">, </span><span class="s9">192</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">RESPONSE </span><span class="s1">=&gt; [</span><span class="s8">'onKernelResponse'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">128</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the session object.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">SessionInterface|null A SessionInterface instance or null if no session is available</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">getSession</span><span class="s1">()</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

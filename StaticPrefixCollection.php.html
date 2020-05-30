@@ -1,0 +1,227 @@
+<html>
+<head>
+<title>StaticPrefixCollection.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+StaticPrefixCollection.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Matcher</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCollection</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Prefix tree of routes preserving routes order.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Frank de Jonge </span><span class="s6">&lt;info</span><span class="s4">@frankdejonge.nl&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">StaticPrefixCollection</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$prefix</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$staticPrefixes </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$prefixes </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array[]|self[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$items </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix </span><span class="s1">= </span><span class="s8">'/'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">= </span><span class="s7">$prefix</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPrefix</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array[]|self[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRoutes</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a route to a group.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|self $route</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addRoute</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">list</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$staticPrefix</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCommonPrefix</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">; </span><span class="s9">0 </span><span class="s1">&lt;= </span><span class="s7">$i</span><span class="s0">; </span><span class="s1">--</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s7">$item </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$commonPrefix</span><span class="s0">, </span><span class="s7">$commonStaticPrefix</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCommonPrefix</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">=== </span><span class="s7">$commonPrefix</span><span class="s1">) {</span>
+                <span class="s2">// the new route and a previous one have no common prefix, let's see if they are exclusive to each others</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">!== </span><span class="s7">$staticPrefix </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) {</span>
+                    <span class="s2">// the new route and the previous one have exclusive static prefixes</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">=== </span><span class="s7">$staticPrefix </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) {</span>
+                    <span class="s2">// the new route and the previous one have no static prefix</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] !== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] &amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) {</span>
+                    <span class="s2">// the previous route is non-static and has no static prefix</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$prefix </span><span class="s1">!== </span><span class="s7">$staticPrefix </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">=== </span><span class="s7">$staticPrefix</span><span class="s1">) {</span>
+                    <span class="s2">// the new route is non-static and has no static prefix</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$item </span><span class="s0">instanceof </span><span class="s3">self </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] === </span><span class="s7">$commonPrefix</span><span class="s1">) {</span>
+                <span class="s2">// the new route is a child of a previous one, let's nest it</span>
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s2">// the new route and a previous one have a common prefix, let's merge them</span>
+                <span class="s7">$child </span><span class="s1">= </span><span class="s0">new </span><span class="s3">self</span><span class="s1">(</span><span class="s7">$commonPrefix</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) = </span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">getCommonPrefix</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) = </span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">getCommonPrefix</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">items </span><span class="s1">= [</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">]</span><span class="s0">;</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$commonStaticPrefix</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$commonPrefix</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$child</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// No optimised case was found, in this case we simple add the route for possible</span>
+        <span class="s2">// grouping when new routes are added.</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">staticPrefixes</span><span class="s1">[] = </span><span class="s7">$staticPrefix</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefixes</span><span class="s1">[] = </span><span class="s7">$prefix</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[] = </span><span class="s7">$route</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Linearizes back a set of nested routes into a collection.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">populateCollection</span><span class="s1">(</span><span class="s3">RouteCollection </span><span class="s7">$routes</span><span class="s1">): </span><span class="s3">RouteCollection</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items </span><span class="s0">as </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$route </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">populateCollection</span><span class="s1">(</span><span class="s7">$routes</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(...</span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$routes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the full and static common prefixes between two route patterns.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The static prefix stops at last at the first opening bracket.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getCommonPrefix</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$anotherPrefix</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$baseLength </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$end </span><span class="s1">= </span><span class="s3">min</span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$anotherPrefix</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$staticLength </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s3">set_error_handler</span><span class="s1">([</span><span class="s3">__CLASS__</span><span class="s0">, </span><span class="s8">'handleError'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s7">$baseLength</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$end </span><span class="s1">&amp;&amp; </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] === </span><span class="s7">$anotherPrefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'(' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) {</span>
+                <span class="s7">$staticLength </span><span class="s1">= </span><span class="s7">$staticLength </span><span class="s1">?? </span><span class="s7">$i</span><span class="s0">;</span>
+                <span class="s0">for </span><span class="s1">(</span><span class="s7">$j </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">+ </span><span class="s7">$i</span><span class="s0">, </span><span class="s7">$n </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; </span><span class="s7">$j </span><span class="s1">&lt; </span><span class="s7">$end </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$n</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$j</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] !== </span><span class="s7">$anotherPrefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">]) {</span>
+                        <span class="s0">break </span><span class="s9">2</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">'(' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">]) {</span>
+                        <span class="s1">++</span><span class="s7">$n</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">')' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">]) {</span>
+                        <span class="s1">--</span><span class="s7">$n</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] &amp;&amp; (++</span><span class="s7">$j </span><span class="s1">=== </span><span class="s7">$end </span><span class="s1">|| </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] !== </span><span class="s7">$anotherPrefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">])) {</span>
+                        <span class="s1">--</span><span class="s7">$j</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$n</span><span class="s1">) {</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">((</span><span class="s8">'?' </span><span class="s1">=== (</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">) || </span><span class="s8">'?' </span><span class="s1">=== (</span><span class="s7">$anotherPrefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">)) &amp;&amp; (</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">) !== (</span><span class="s7">$anotherPrefix</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">)) {</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+                <span class="s7">$subPattern </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$i</span><span class="s0">, </span><span class="s7">$j </span><span class="s1">- </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$prefix </span><span class="s1">!== </span><span class="s7">$anotherPrefix </span><span class="s1">&amp;&amp; !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^\(\[[^\]]++\]\+\+\)$/'</span><span class="s0">, </span><span class="s7">$subPattern</span><span class="s1">) &amp;&amp; !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'{(?&lt;!'</span><span class="s1">.</span><span class="s7">$subPattern</span><span class="s1">.</span><span class="s8">')}'</span><span class="s0">, </span><span class="s8">''</span><span class="s1">)) {</span>
+                    <span class="s2">// sub-patterns of variable length are not considered as common prefixes because their greediness would break in-order matching</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+                <span class="s7">$i </span><span class="s1">= </span><span class="s7">$j </span><span class="s1">- </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] &amp;&amp; (++</span><span class="s7">$i </span><span class="s1">=== </span><span class="s7">$end </span><span class="s1">|| </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] !== </span><span class="s7">$anotherPrefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])) {</span>
+                <span class="s1">--</span><span class="s7">$i</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$end </span><span class="s1">&amp;&amp; </span><span class="s9">0b10 </span><span class="s1">=== (\</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) &gt;&gt; </span><span class="s9">6</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'//u'</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">' '</span><span class="s1">.</span><span class="s7">$anotherPrefix</span><span class="s1">)) {</span>
+            <span class="s0">do </span><span class="s1">{</span>
+                <span class="s2">// Prevent cutting in the middle of an UTF-8 characters</span>
+                <span class="s1">--</span><span class="s7">$i</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s9">0b10 </span><span class="s1">=== (\</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) &gt;&gt; </span><span class="s9">6</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$staticLength </span><span class="s1">?? </span><span class="s7">$i</span><span class="s1">)]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">handleError</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$msg</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$msg</span><span class="s0">, </span><span class="s8">'Compilation failed: lookbehind assertion is not fixed length'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

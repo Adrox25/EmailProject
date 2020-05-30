@@ -1,0 +1,231 @@
+<html>
+<head>
+<title>KernelBrowser.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+KernelBrowser.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">BrowserKit</span><span class="s1">\</span><span class="s3">CookieJar</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">BrowserKit</span><span class="s1">\</span><span class="s3">History</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpKernelBrowser</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Profiler</span><span class="s1">\</span><span class="s3">Profile </span><span class="s0">as </span><span class="s3">HttpProfile</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Simulates a browser and makes requests to a Kernel object.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">KernelBrowser </span><span class="s0">extends </span><span class="s3">HttpKernelBrowser</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$hasPerformedRequest </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$profiler </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$reboot </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">KernelInterface </span><span class="s7">$kernel</span><span class="s0">, array </span><span class="s7">$server </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">History </span><span class="s7">$history </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">CookieJar </span><span class="s7">$cookieJar </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$kernel</span><span class="s0">, </span><span class="s7">$server</span><span class="s0">, </span><span class="s7">$history</span><span class="s0">, </span><span class="s7">$cookieJar</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the container.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ContainerInterface|null Returns null when the Kernel has been shutdown or not started yet</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getContainer</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the kernel.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">KernelInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getKernel</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the profile associated with the current Response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">HttpProfile|false A Profile instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getProfile</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">response </span><span class="s1">|| !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'profiler'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'profiler'</span><span class="s1">)-&gt;</span><span class="s3">loadProfileFromResponse</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">response</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Enables the profiler for the very next request.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If the profiler is not enabled, the call to this method does nothing.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">enableProfiler</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'profiler'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Disables kernel reboot between requests.</span>
+     <span class="s4">*</span>
+     <span class="s4">* By default, the Client reboots the Kernel for each request. This method</span>
+     <span class="s4">* allows to keep the same kernel across requests.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">disableReboot</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reboot </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Enables kernel reboot between requests.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">enableReboot</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reboot </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Request $request A Request instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Response A Response instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// avoid shutting down the Kernel if no request has been performed yet</span>
+        <span class="s2">// WebTestCase::createClient() boots the Kernel but do not handle a request</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasPerformedRequest </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reboot</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">shutdown</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasPerformedRequest </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">boot</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'profiler'</span><span class="s1">)-&gt;</span><span class="s3">enable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">doRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Request $request A Request instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Response A Response instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doRequestInProcess</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$response </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">doRequestInProcess</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the script to execute when the request must be insulated.</span>
+     <span class="s4">*</span>
+     <span class="s4">* It assumes that the autoloader is named 'autoload.php' and that it is</span>
+     <span class="s4">* stored in the same directory as the kernel (this is the case for the</span>
+     <span class="s4">* Symfony Standard Edition). If this is not your case, create your own</span>
+     <span class="s4">* client and override this method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Request $request A Request instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The script content</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getScript</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$kernel </span><span class="s1">= </span><span class="s3">var_export</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$request </span><span class="s1">= </span><span class="s3">var_export</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$errorReporting </span><span class="s1">= </span><span class="s3">error_reporting</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$requires </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">get_declared_classes</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'ComposerAutoloaderInit'</span><span class="s1">)) {</span>
+                <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$file </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">, </span><span class="s9">2</span><span class="s1">).</span><span class="s8">'/autoload.php'</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                    <span class="s7">$requires </span><span class="s1">.= </span><span class="s8">'require_once '</span><span class="s1">.</span><span class="s3">var_export</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">true</span><span class="s1">).</span><span class="s8">&quot;;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$requires</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'Composer autoloader not found.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$requires </span><span class="s1">.= </span><span class="s8">'require_once '</span><span class="s1">.</span><span class="s3">var_export</span><span class="s1">((</span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionObject</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">))-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">).</span><span class="s8">&quot;;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+
+        <span class="s7">$profilerCode </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler</span><span class="s1">) {</span>
+            <span class="s7">$profilerCode </span><span class="s1">= </span><span class="s8">'$kernel-&gt;getContainer()-&gt;get(</span><span class="s0">\'</span><span class="s8">profiler</span><span class="s0">\'</span><span class="s8">)-&gt;enable();'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$code </span><span class="s1">= </span><span class="s3">&lt;&lt;&lt;EOF 
+</span><span class="s8">&lt;?php 
+ 
+error_reporting(</span><span class="s7">$errorReporting</span><span class="s8">); 
+ 
+</span><span class="s7">$requires</span>
+
+<span class="s8">\$kernel = unserialize(</span><span class="s7">$kernel</span><span class="s8">); 
+\$kernel-&gt;boot(); 
+</span><span class="s7">$profilerCode</span>
+
+<span class="s8">\$request = unserialize(</span><span class="s7">$request</span><span class="s8">);</span>
+<span class="s3">EOF</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$code</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHandleScript</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

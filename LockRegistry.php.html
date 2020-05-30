@@ -1,0 +1,178 @@
+<html>
+<head>
+<title>LockRegistry.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+LockRegistry.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">ItemInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* LockRegistry is used internally by existing adapters to protect against cache stampede.</span>
+ <span class="s4">*</span>
+ <span class="s4">* It does so by wrapping the computation of items in a pool of locks.</span>
+ <span class="s4">* Foreach each apps, there can be at most 20 concurrent processes that</span>
+ <span class="s4">* compute items at the same time and only one per cache-key.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">LockRegistry</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$openedFiles </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$lockedFiles </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* The number of items in this list controls the max number of concurrent processes.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static </span><span class="s7">$files </span><span class="s1">= [</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'AbstractAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'AbstractTagAwareAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'AdapterInterface.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'ApcuAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'ArrayAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'ChainAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'DoctrineAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'FilesystemAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'FilesystemTagAwareAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'MemcachedAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'NullAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'PdoAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'PhpArrayAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'PhpFilesAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'ProxyAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Psr16Adapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'RedisAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'RedisTagAwareAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'TagAwareAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'TagAwareAdapterInterface.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'TraceableAdapter.php'</span><span class="s0">,</span>
+        <span class="s3">__DIR__</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'Adapter'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">'TraceableTagAwareAdapter.php'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Defines a set of existing files that will be used as keys to acquire locks.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The previously defined set of files</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">setFiles</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$files</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$previousFiles </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$files</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$files </span><span class="s1">= </span><span class="s7">$files</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$openedFiles </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) {</span>
+                <span class="s3">flock</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$openedFiles </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lockedFiles </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$previousFiles</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">compute</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$callback</span><span class="s0">, </span><span class="s3">ItemInterface </span><span class="s7">$item</span><span class="s0">, </span><span class="s3">bool </span><span class="s1">&amp;</span><span class="s7">$save</span><span class="s0">, </span><span class="s3">CacheInterface </span><span class="s7">$pool</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Closure </span><span class="s7">$setMetadata </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">LoggerInterface </span><span class="s7">$logger </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$files </span><span class="s1">? </span><span class="s3">crc32</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()) % \</span><span class="s3">count</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$files</span><span class="s1">) : -</span><span class="s9">1</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$key </span><span class="s1">&lt; </span><span class="s9">0 </span><span class="s1">|| (</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lockedFiles</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) || !</span><span class="s7">$lock </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">open</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$callback</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s2">// race to get the lock in non-blocking mode</span>
+                <span class="s7">$locked </span><span class="s1">= </span><span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_EX </span><span class="s1">| </span><span class="s3">LOCK_NB</span><span class="s0">, </span><span class="s7">$wouldBlock</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$locked </span><span class="s1">|| !</span><span class="s7">$wouldBlock</span><span class="s1">) {</span>
+                    <span class="s7">$logger </span><span class="s1">&amp;&amp; </span><span class="s7">$logger</span><span class="s1">-&gt;</span><span class="s3">info</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Lock %s, now computing item &quot;{key}&quot;'</span><span class="s0">, </span><span class="s7">$locked </span><span class="s1">? </span><span class="s8">'acquired' </span><span class="s1">: </span><span class="s8">'not supported'</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()])</span><span class="s0">;</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s7">$lockedFiles</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+                    <span class="s7">$value </span><span class="s1">= </span><span class="s7">$callback</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$save</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$setMetadata</span><span class="s1">) {</span>
+                            <span class="s7">$setMetadata</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s7">$pool</span><span class="s1">-&gt;</span><span class="s3">save</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s7">$save </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s2">// if we failed the race, retry locking in blocking mode to wait for the winner</span>
+                <span class="s7">$logger </span><span class="s1">&amp;&amp; </span><span class="s7">$logger</span><span class="s1">-&gt;</span><span class="s3">info</span><span class="s1">(</span><span class="s8">'Item &quot;{key}&quot; is locked, waiting for it to be released'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()])</span><span class="s0">;</span>
+                <span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_SH</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lockedFiles</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">static </span><span class="s7">$signalingException</span><span class="s0">, </span><span class="s7">$signalingCallback</span><span class="s0">;</span>
+            <span class="s7">$signalingException </span><span class="s1">= </span><span class="s7">$signalingException </span><span class="s1">?? </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s8">&quot;O:9:</span><span class="s0">\&quot;</span><span class="s8">Exception</span><span class="s0">\&quot;</span><span class="s8">:1:{s:16:</span><span class="s0">\&quot;\0</span><span class="s8">Exception</span><span class="s0">\0</span><span class="s8">trace</span><span class="s0">\&quot;</span><span class="s8">;a:0:{}}&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$signalingCallback </span><span class="s1">= </span><span class="s7">$signalingCallback </span><span class="s1">?? </span><span class="s0">function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$signalingException</span><span class="s1">) { </span><span class="s0">throw </span><span class="s7">$signalingException</span><span class="s0">; </span><span class="s1">}</span><span class="s0">;</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$pool</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$signalingCallback</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$logger </span><span class="s1">&amp;&amp; </span><span class="s7">$logger</span><span class="s1">-&gt;</span><span class="s3">info</span><span class="s1">(</span><span class="s8">'Item &quot;{key}&quot; retrieved after lock was released'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()])</span><span class="s0">;</span>
+                <span class="s7">$save </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$signalingException </span><span class="s1">!== </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$logger </span><span class="s1">&amp;&amp; </span><span class="s7">$logger</span><span class="s1">-&gt;</span><span class="s3">info</span><span class="s1">(</span><span class="s8">'Item &quot;{key}&quot; not found while lock was released, now retrying'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">open</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$h </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$openedFiles</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$h</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">function </span><span class="s1">() {})</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$h </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$files</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'r+'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$openedFiles</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$h </span><span class="s1">?: @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$files</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'r'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,897 @@
+<html>
+<head>
+<title>YamlFileLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+YamlFileLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Alias</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ArgumentInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">BoundArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">IteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ServiceLocatorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">TaggedIteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ChildDefinition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Extension</span><span class="s1">\</span><span class="s3">ExtensionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s1">\</span><span class="s3">Expression</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParseException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Parser </span><span class="s0">as </span><span class="s3">YamlParser</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Tag</span><span class="s1">\</span><span class="s3">TaggedValue</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* YamlFileLoader loads YAML files service definitions.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">YamlFileLoader </span><span class="s0">extends </span><span class="s3">FileLoader</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$serviceKeywords </span><span class="s1">= [</span>
+        <span class="s8">'alias' </span><span class="s1">=&gt; </span><span class="s8">'alias'</span><span class="s0">,</span>
+        <span class="s8">'parent' </span><span class="s1">=&gt; </span><span class="s8">'parent'</span><span class="s0">,</span>
+        <span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s8">'class'</span><span class="s0">,</span>
+        <span class="s8">'shared' </span><span class="s1">=&gt; </span><span class="s8">'shared'</span><span class="s0">,</span>
+        <span class="s8">'synthetic' </span><span class="s1">=&gt; </span><span class="s8">'synthetic'</span><span class="s0">,</span>
+        <span class="s8">'lazy' </span><span class="s1">=&gt; </span><span class="s8">'lazy'</span><span class="s0">,</span>
+        <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">'public'</span><span class="s0">,</span>
+        <span class="s8">'abstract' </span><span class="s1">=&gt; </span><span class="s8">'abstract'</span><span class="s0">,</span>
+        <span class="s8">'deprecated' </span><span class="s1">=&gt; </span><span class="s8">'deprecated'</span><span class="s0">,</span>
+        <span class="s8">'factory' </span><span class="s1">=&gt; </span><span class="s8">'factory'</span><span class="s0">,</span>
+        <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s8">'file'</span><span class="s0">,</span>
+        <span class="s8">'arguments' </span><span class="s1">=&gt; </span><span class="s8">'arguments'</span><span class="s0">,</span>
+        <span class="s8">'properties' </span><span class="s1">=&gt; </span><span class="s8">'properties'</span><span class="s0">,</span>
+        <span class="s8">'configurator' </span><span class="s1">=&gt; </span><span class="s8">'configurator'</span><span class="s0">,</span>
+        <span class="s8">'calls' </span><span class="s1">=&gt; </span><span class="s8">'calls'</span><span class="s0">,</span>
+        <span class="s8">'tags' </span><span class="s1">=&gt; </span><span class="s8">'tags'</span><span class="s0">,</span>
+        <span class="s8">'decorates' </span><span class="s1">=&gt; </span><span class="s8">'decorates'</span><span class="s0">,</span>
+        <span class="s8">'decoration_inner_name' </span><span class="s1">=&gt; </span><span class="s8">'decoration_inner_name'</span><span class="s0">,</span>
+        <span class="s8">'decoration_priority' </span><span class="s1">=&gt; </span><span class="s8">'decoration_priority'</span><span class="s0">,</span>
+        <span class="s8">'decoration_on_invalid' </span><span class="s1">=&gt; </span><span class="s8">'decoration_on_invalid'</span><span class="s0">,</span>
+        <span class="s8">'autowire' </span><span class="s1">=&gt; </span><span class="s8">'autowire'</span><span class="s0">,</span>
+        <span class="s8">'autoconfigure' </span><span class="s1">=&gt; </span><span class="s8">'autoconfigure'</span><span class="s0">,</span>
+        <span class="s8">'bind' </span><span class="s1">=&gt; </span><span class="s8">'bind'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$prototypeKeywords </span><span class="s1">= [</span>
+        <span class="s8">'resource' </span><span class="s1">=&gt; </span><span class="s8">'resource'</span><span class="s0">,</span>
+        <span class="s8">'namespace' </span><span class="s1">=&gt; </span><span class="s8">'namespace'</span><span class="s0">,</span>
+        <span class="s8">'exclude' </span><span class="s1">=&gt; </span><span class="s8">'exclude'</span><span class="s0">,</span>
+        <span class="s8">'parent' </span><span class="s1">=&gt; </span><span class="s8">'parent'</span><span class="s0">,</span>
+        <span class="s8">'shared' </span><span class="s1">=&gt; </span><span class="s8">'shared'</span><span class="s0">,</span>
+        <span class="s8">'lazy' </span><span class="s1">=&gt; </span><span class="s8">'lazy'</span><span class="s0">,</span>
+        <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">'public'</span><span class="s0">,</span>
+        <span class="s8">'abstract' </span><span class="s1">=&gt; </span><span class="s8">'abstract'</span><span class="s0">,</span>
+        <span class="s8">'deprecated' </span><span class="s1">=&gt; </span><span class="s8">'deprecated'</span><span class="s0">,</span>
+        <span class="s8">'factory' </span><span class="s1">=&gt; </span><span class="s8">'factory'</span><span class="s0">,</span>
+        <span class="s8">'arguments' </span><span class="s1">=&gt; </span><span class="s8">'arguments'</span><span class="s0">,</span>
+        <span class="s8">'properties' </span><span class="s1">=&gt; </span><span class="s8">'properties'</span><span class="s0">,</span>
+        <span class="s8">'configurator' </span><span class="s1">=&gt; </span><span class="s8">'configurator'</span><span class="s0">,</span>
+        <span class="s8">'calls' </span><span class="s1">=&gt; </span><span class="s8">'calls'</span><span class="s0">,</span>
+        <span class="s8">'tags' </span><span class="s1">=&gt; </span><span class="s8">'tags'</span><span class="s0">,</span>
+        <span class="s8">'autowire' </span><span class="s1">=&gt; </span><span class="s8">'autowire'</span><span class="s0">,</span>
+        <span class="s8">'autoconfigure' </span><span class="s1">=&gt; </span><span class="s8">'autoconfigure'</span><span class="s0">,</span>
+        <span class="s8">'bind' </span><span class="s1">=&gt; </span><span class="s8">'bind'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$instanceofKeywords </span><span class="s1">= [</span>
+        <span class="s8">'shared' </span><span class="s1">=&gt; </span><span class="s8">'shared'</span><span class="s0">,</span>
+        <span class="s8">'lazy' </span><span class="s1">=&gt; </span><span class="s8">'lazy'</span><span class="s0">,</span>
+        <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">'public'</span><span class="s0">,</span>
+        <span class="s8">'properties' </span><span class="s1">=&gt; </span><span class="s8">'properties'</span><span class="s0">,</span>
+        <span class="s8">'configurator' </span><span class="s1">=&gt; </span><span class="s8">'configurator'</span><span class="s0">,</span>
+        <span class="s8">'calls' </span><span class="s1">=&gt; </span><span class="s8">'calls'</span><span class="s0">,</span>
+        <span class="s8">'tags' </span><span class="s1">=&gt; </span><span class="s8">'tags'</span><span class="s0">,</span>
+        <span class="s8">'autowire' </span><span class="s1">=&gt; </span><span class="s8">'autowire'</span><span class="s0">,</span>
+        <span class="s8">'bind' </span><span class="s1">=&gt; </span><span class="s8">'bind'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$defaultsKeywords </span><span class="s1">= [</span>
+        <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">'public'</span><span class="s0">,</span>
+        <span class="s8">'tags' </span><span class="s1">=&gt; </span><span class="s8">'tags'</span><span class="s0">,</span>
+        <span class="s8">'autowire' </span><span class="s1">=&gt; </span><span class="s8">'autowire'</span><span class="s0">,</span>
+        <span class="s8">'autoconfigure' </span><span class="s1">=&gt; </span><span class="s8">'autoconfigure'</span><span class="s0">,</span>
+        <span class="s8">'bind' </span><span class="s1">=&gt; </span><span class="s8">'bind'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$yamlParser</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$anonymousServicesCount</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$anonymousServicesSuffix</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$autoRegisterAliasesForSinglyImplementedInterfaces </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locator</span><span class="s1">-&gt;</span><span class="s3">locate</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$content </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loadFile</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">fileExists</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// empty file</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$content</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// imports</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseImports</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// parameters</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'parameters'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'parameters'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;parameters&quot; key should contain an array in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'parameters'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setParameter</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// extensions</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loadFromExtensions</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// services</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">anonymousServicesCount </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">anonymousServicesSuffix </span><span class="s1">= </span><span class="s8">'~'</span><span class="s1">.</span><span class="s3">ContainerBuilder</span><span class="s1">::</span><span class="s3">hash</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setCurrentDir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinitions</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">registerAliasesForSinglyImplementedInterfaces</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">supports</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$type </span><span class="s1">&amp;&amp; \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s3">pathinfo</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">PATHINFO_EXTENSION</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'yaml'</span><span class="s0">, </span><span class="s8">'yml'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'yaml'</span><span class="s0">, </span><span class="s8">'yml'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseImports</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$content</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'imports'</span><span class="s1">])) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'imports'</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;imports&quot; key should contain an array in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$defaultDirectory </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'imports'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$import</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$import</span><span class="s1">)) {</span>
+                <span class="s7">$import </span><span class="s1">= [</span><span class="s8">'resource' </span><span class="s1">=&gt; </span><span class="s7">$import</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$import</span><span class="s1">[</span><span class="s8">'resource'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'An import should provide a resource in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setCurrentDir</span><span class="s1">(</span><span class="s7">$defaultDirectory</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">import</span><span class="s1">(</span><span class="s7">$import</span><span class="s1">[</span><span class="s8">'resource'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$import</span><span class="s1">[</span><span class="s8">'type'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$import</span><span class="s1">[</span><span class="s8">'ignore_errors'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseDefinitions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$content</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">])) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;services&quot; key should contain an array in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'_instanceof'</span><span class="s0">, </span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">])) {</span>
+            <span class="s7">$instanceof </span><span class="s1">= </span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">][</span><span class="s8">'_instanceof'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">][</span><span class="s8">'_instanceof'</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$instanceof</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Service &quot;_instanceof&quot; key must be an array, &quot;%s&quot; given in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$instanceof</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$instanceof </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$service</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$service </span><span class="s1">|| !\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Type definition &quot;%s&quot; must be a non-empty array within &quot;_instanceof&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">) &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s8">'@'</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Type definition &quot;%s&quot; cannot be an alias within &quot;_instanceof&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$defaults </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefaults</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$service</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$defaults</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseDefaults</span><span class="s1">(</span><span class="s0">array </span><span class="s1">&amp;</span><span class="s7">$content</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'_defaults'</span><span class="s0">, </span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$defaults </span><span class="s1">= </span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">][</span><span class="s8">'_defaults'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">[</span><span class="s8">'services'</span><span class="s1">][</span><span class="s8">'_defaults'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Service &quot;_defaults&quot; key must be an array, &quot;%s&quot; given in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$defaults </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$default</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$defaultsKeywords</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The configuration key &quot;%s&quot; cannot be used to define a default value in &quot;%s&quot;. Allowed keys are &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$defaultsKeywords</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'tags'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$tags </span><span class="s1">= </span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'tags'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;tags&quot; in &quot;_defaults&quot; must be an array in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tags </span><span class="s0">as </span><span class="s7">$tag</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">)) {</span>
+                    <span class="s7">$tag </span><span class="s1">= [</span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s7">$tag</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">])) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;tags&quot; entry in &quot;_defaults&quot; is missing a &quot;name&quot; key in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$name </span><span class="s1">= </span><span class="s7">$tag</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">) || </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$name</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The tag name in &quot;_defaults&quot; must be a non-empty string in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tag </span><span class="s0">as </span><span class="s7">$attribute </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$value</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Tag &quot;%s&quot;, attribute &quot;%s&quot; in &quot;_defaults&quot; must be of a scalar-type in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$attribute</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;bind&quot; in &quot;_defaults&quot; must be an array in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$argument </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">][</span><span class="s7">$argument</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">BoundArgument</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">BoundArgument</span><span class="s1">::</span><span class="s3">DEFAULTS_BINDING</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$defaults</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">isUsingShortSyntax</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$service</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$service </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">) &amp;&amp; (</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$key </span><span class="s1">|| (</span><span class="s8">'$' </span><span class="s1">!== </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)))) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $service</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When tags are invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$service</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, array </span><span class="s7">$defaults</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^_[a-zA-Z0-9_]*$/'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Service names that start with an underscore are reserved. Rename the &quot;%s&quot; service or define it in XML instead.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">) &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s8">'@'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$alias </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Alias</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])) {</span>
+                <span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">) &amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isUsingShortSyntax</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">)) {</span>
+            <span class="s7">$service </span><span class="s1">= [</span><span class="s8">'arguments' </span><span class="s1">=&gt; </span><span class="s7">$service</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$service</span><span class="s1">) {</span>
+            <span class="s7">$service </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A service definition must be an array or a string starting with &quot;@&quot; but &quot;%s&quot; found for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">checkDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'alias'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$alias </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Alias</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'alias'</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])) {</span>
+                <span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])) {</span>
+                <span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$service </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'alias'</span><span class="s0">, </span><span class="s8">'public'</span><span class="s0">, </span><span class="s8">'deprecated'</span><span class="s1">])) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The configuration key &quot;%s&quot; is unsupported for the service &quot;%s&quot; which is defined as an alias in &quot;%s&quot;. Allowed configuration keys for service aliases are &quot;alias&quot;, &quot;public&quot; and &quot;deprecated&quot;.'</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'deprecated' </span><span class="s1">=== </span><span class="s7">$key</span><span class="s1">) {</span>
+                    <span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof</span><span class="s1">) {</span>
+            <span class="s7">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ChildDefinition</span><span class="s1">(</span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'parent'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The service &quot;%s&quot; cannot use the &quot;parent&quot; option in the same file where &quot;_instanceof&quot; configuration is defined as using both is not supported. Move your child definitions to a separate file.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$defaults </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'tags' </span><span class="s1">=== </span><span class="s7">$k</span><span class="s1">) {</span>
+                    <span class="s2">// since tags are never inherited from parents, there is no confusion</span>
+                    <span class="s2">// thus we can safely add them as defaults to ChildDefinition</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'bind' </span><span class="s1">=== </span><span class="s7">$k</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Attribute &quot;bind&quot; on service &quot;%s&quot; cannot be inherited from &quot;_defaults&quot; when a &quot;parent&quot; is set. Move your child definitions to a separate file.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">])) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Attribute &quot;%s&quot; on service &quot;%s&quot; cannot be inherited from &quot;_defaults&quot; when a &quot;parent&quot; is set. Move your child definitions to a separate file or define this attribute explicitly.'</span><span class="s0">, </span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'parent'</span><span class="s1">] &amp;&amp; </span><span class="s8">'@' </span><span class="s1">=== </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'parent'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The value of the &quot;parent&quot; option for the &quot;%s&quot; service must be the id of the service without the &quot;@&quot; prefix (replace &quot;%s&quot; with &quot;%s&quot;).'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'parent'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'parent'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ChildDefinition</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'parent'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Definition</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])) {</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'autowire'</span><span class="s1">])) {</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'autowire'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'autoconfigure'</span><span class="s1">])) {</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutoconfigured</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'autoconfigure'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setChanges</span><span class="s1">([])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setClass</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'shared'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setShared</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'shared'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'synthetic'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setSynthetic</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'synthetic'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setLazy</span><span class="s1">((bool) </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">])) {</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s8">'proxy'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'interface' </span><span class="s1">=&gt; </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">]])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'abstract'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setAbstract</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'abstract'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'deprecated'</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">)) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'deprecated'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'factory'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseCallable</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'factory'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'factory'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setFile</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'arguments'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'arguments'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'properties'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setProperties</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'properties'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'configurator'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setConfigurator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseCallable</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'configurator'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'configurator'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'calls'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'calls'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;calls&quot; must be an array for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'calls'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$call</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">) &amp;&amp; (!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">) || !</span><span class="s7">$call </span><span class="s0">instanceof </span><span class="s3">TaggedValue</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid method call for service &quot;%s&quot;: expected map or array, &quot;%s&quot; given in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$call </span><span class="s0">instanceof </span><span class="s3">TaggedValue </span><span class="s1">? </span><span class="s8">'!'</span><span class="s1">.</span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">() : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid method call for service &quot;%s&quot;, did you forgot a leading dash before &quot;%s: ...&quot; in &quot;%s&quot;?'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">[</span><span class="s8">'method'</span><span class="s1">])) {</span>
+                    <span class="s7">$method </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s8">'method'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s7">$args </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s8">'arguments'</span><span class="s1">] ?? []</span><span class="s0">;</span>
+                    <span class="s7">$returnsClone </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s8">'returns_clone'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">) &amp;&amp; \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s3">key</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">))) {</span>
+                        <span class="s7">$method </span><span class="s1">= </span><span class="s3">key</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$args </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s7">$method</span><span class="s1">]</span><span class="s0">;</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$args </span><span class="s0">instanceof </span><span class="s3">TaggedValue</span><span class="s1">) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s8">'returns_clone' </span><span class="s1">!== </span><span class="s7">$args</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()) {</span>
+                                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported tag &quot;!%s&quot;, did you mean &quot;!returns_clone&quot; for service &quot;%s&quot; in &quot;%s&quot;?'</span><span class="s0">, </span><span class="s7">$args</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+
+                            <span class="s7">$returnsClone </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                            <span class="s7">$args </span><span class="s1">= </span><span class="s7">$args</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s7">$returnsClone </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid call for service &quot;%s&quot;: the method must be defined as the first index of an array or as the only key of a map in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$method </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s7">$args </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ?? []</span><span class="s0">;</span>
+                        <span class="s7">$returnsClone </span><span class="s1">= </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">2</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$args</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The second parameter for function call &quot;%s&quot; must be an array of its arguments for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$method</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$args </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$args</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">addMethodCall</span><span class="s1">(</span><span class="s7">$method</span><span class="s0">, </span><span class="s7">$args</span><span class="s0">, </span><span class="s7">$returnsClone</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$tags </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'tags'</span><span class="s1">]) ? </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'tags'</span><span class="s1">] : []</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;tags&quot; must be an array for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'tags'</span><span class="s1">])) {</span>
+            <span class="s7">$tags </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$tags</span><span class="s0">, </span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'tags'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tags </span><span class="s0">as </span><span class="s7">$tag</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">)) {</span>
+                <span class="s7">$tag </span><span class="s1">= [</span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s7">$tag</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;tags&quot; entry is missing a &quot;name&quot; key for service &quot;%s&quot; in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s7">$tag</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">) || </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$name</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The tag name for service &quot;%s&quot; in &quot;%s&quot; must be a non-empty string.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tag </span><span class="s0">as </span><span class="s7">$attribute </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$value</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;tags&quot; attribute must be of a scalar-type for service &quot;%s&quot;, tag &quot;%s&quot;, attribute &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$attribute</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$tag</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$decorates </span><span class="s1">= </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decorates'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$decorates </span><span class="s1">&amp;&amp; </span><span class="s8">'@' </span><span class="s1">=== </span><span class="s7">$decorates</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The value of the &quot;decorates&quot; option for the &quot;%s&quot; service must be the id of the service without the &quot;@&quot; prefix (replace &quot;%s&quot; with &quot;%s&quot;).'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decorates'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$decorates</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$decorationOnInvalid </span><span class="s1">= \</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'decoration_on_invalid'</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">) ? </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decoration_on_invalid'</span><span class="s1">] : </span><span class="s8">'exception'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'exception' </span><span class="s1">=== </span><span class="s7">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'ignore' </span><span class="s1">=== </span><span class="s7">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">NULL_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'null' </span><span class="s1">=== </span><span class="s7">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid value &quot;%s&quot; for attribute &quot;decoration_on_invalid&quot; on service &quot;%s&quot;. Did you mean null (without quotes) in &quot;%s&quot;?'</span><span class="s0">, </span><span class="s7">$decorationOnInvalid</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid value &quot;%s&quot; for attribute &quot;decoration_on_invalid&quot; on service &quot;%s&quot;. Did you mean &quot;exception&quot;, &quot;ignore&quot; or null in &quot;%s&quot;?'</span><span class="s0">, </span><span class="s7">$decorationOnInvalid</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$renameId </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decoration_inner_name'</span><span class="s1">]) ? </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decoration_inner_name'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$priority </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decoration_priority'</span><span class="s1">]) ? </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'decoration_priority'</span><span class="s1">] : </span><span class="s9">0</span><span class="s0">;</span>
+
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setDecoratedService</span><span class="s1">(</span><span class="s7">$decorates</span><span class="s0">, </span><span class="s7">$renameId</span><span class="s0">, </span><span class="s7">$priority</span><span class="s0">, </span><span class="s7">$invalidBehavior</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'autowire'</span><span class="s1">])) {</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'autowire'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">]) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">])) {</span>
+            <span class="s2">// deep clone, to avoid multiple process of the same instance in the passes</span>
+            <span class="s7">$bindings </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">]) ? </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">])) : []</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">])) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">])) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;bind&quot; must be an array for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$bindings </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$bindings</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'bind'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$bindingType </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">? </span><span class="s3">BoundArgument</span><span class="s1">::</span><span class="s3">INSTANCEOF_BINDING </span><span class="s1">: </span><span class="s3">BoundArgument</span><span class="s1">::</span><span class="s3">SERVICE_BINDING</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$bindings </span><span class="s0">as </span><span class="s7">$argument </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">BoundArgument</span><span class="s1">) {</span>
+                        <span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$argument</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">BoundArgument</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$bindingType</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setBindings</span><span class="s1">(</span><span class="s7">$bindings</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'autoconfigure'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$definition </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutoconfigured</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'autoconfigure'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'autoconfigure'</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The service &quot;%s&quot; cannot have a &quot;parent&quot; and also have &quot;autoconfigure&quot;. Try setting &quot;autoconfigure: false&quot; for the service.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'namespace'</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">) &amp;&amp; !\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'resource'</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;resource&quot; attribute must be set when the &quot;namespace&quot; attribute is set for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'resource'</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'resource'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;resource&quot; attribute must be of type string for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$exclude </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'exclude'</span><span class="s1">]) ? </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'exclude'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$namespace </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'namespace'</span><span class="s1">]) ? </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'namespace'</span><span class="s1">] : </span><span class="s7">$id</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">registerClasses</span><span class="s1">(</span><span class="s7">$definition</span><span class="s0">, </span><span class="s7">$namespace</span><span class="s0">, </span><span class="s7">$service</span><span class="s1">[</span><span class="s8">'resource'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$exclude</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a callable.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array $callable A callable reference</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When errors occur</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|array|Reference A parsed callable</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseCallable</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$parameter</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$callable </span><span class="s1">&amp;&amp; </span><span class="s8">'@' </span><span class="s1">=== </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, </span><span class="s8">':'</span><span class="s1">)) {</span>
+                    <span class="s0">return </span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'__invoke'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The value of the &quot;%s&quot; option for the &quot;%s&quot; service must be the id of the service without the &quot;@&quot; prefix (replace &quot;%s&quot; with &quot;%s&quot; in &quot;%s&quot;).'</span><span class="s0">, </span><span class="s7">$parameter</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$callable</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$callable</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'factory' </span><span class="s1">=== </span><span class="s7">$parameter </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) &amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s7">$callable</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;%s&quot; must contain an array with two elements for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$parameter</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;%s&quot; must be a string or an array for service &quot;%s&quot; in &quot;%s&quot;. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$parameter</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads a YAML file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $file</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The file content</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException when the given file is not a local file or when it does not exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">loadFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">'Symfony\Component\Yaml\Parser'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'Unable to load YAML config files as the Symfony Yaml Component is not installed.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">stream_is_local</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'This is not a local file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The file &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">yamlParser</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">yamlParser </span><span class="s1">= </span><span class="s0">new </span><span class="s3">YamlParser</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$configuration </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">yamlParser</span><span class="s1">-&gt;</span><span class="s3">parseFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CONSTANT </span><span class="s1">| </span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CUSTOM_TAGS</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The file &quot;%s&quot; does not contain valid YAML: '</span><span class="s1">.</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validate</span><span class="s1">(</span><span class="s7">$configuration</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validates a YAML file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When service file is not valid</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">validate</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s1">): ?</span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$content</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$content</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The service file &quot;%s&quot; is not valid. It should contain an array. Check your YAML syntax.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$content </span><span class="s0">as </span><span class="s7">$namespace </span><span class="s1">=&gt; </span><span class="s7">$data</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'imports'</span><span class="s0">, </span><span class="s8">'parameters'</span><span class="s0">, </span><span class="s8">'services'</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasExtension</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s1">)) {</span>
+                <span class="s7">$extensionNamespaces </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s3">ExtensionInterface </span><span class="s7">$ext</span><span class="s1">) { </span><span class="s0">return </span><span class="s7">$ext</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">()</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getExtensions</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'There is no extension able to load the configuration for &quot;%s&quot; (in &quot;%s&quot;). Looked for namespace &quot;%s&quot;, found &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$namespace</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$namespace</span><span class="s0">, </span><span class="s7">$extensionNamespaces </span><span class="s1">? </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;%s&quot;'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s7">$extensionNamespaces</span><span class="s1">)) : </span><span class="s8">'none'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$content</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Resolves services.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|string|Reference|ArgumentInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isParameter </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">TaggedValue</span><span class="s1">) {</span>
+            <span class="s7">$argument </span><span class="s1">= </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'iterator' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;!iterator&quot; tag only accepts sequences in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$argument </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$isParameter</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s0">return new </span><span class="s3">IteratorArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">InvalidArgumentException </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;!iterator&quot; tag only accepts arrays of &quot;@service&quot; references in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'service_locator' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;!service_locator&quot; tag only accepts maps in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$argument </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$isParameter</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s0">return new </span><span class="s3">ServiceLocatorArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">InvalidArgumentException </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;!service_locator&quot; tag only accepts maps of &quot;@service&quot; references in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'tagged'</span><span class="s0">, </span><span class="s8">'tagged_iterator'</span><span class="s0">, </span><span class="s8">'tagged_locator'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s7">$forLocator </span><span class="s1">= </span><span class="s8">'tagged_locator' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'tag'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'tag'</span><span class="s1">]) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$diff </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'tag'</span><span class="s0">, </span><span class="s8">'index_by'</span><span class="s0">, </span><span class="s8">'default_index_method'</span><span class="s0">, </span><span class="s8">'default_priority_method'</span><span class="s1">])) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;!%s&quot; tag contains unsupported key &quot;%s&quot;; supported ones are &quot;tag&quot;, &quot;index_by&quot;, &quot;default_index_method&quot;, and &quot;default_priority_method&quot;.'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s7">$diff</span><span class="s1">)))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$argument </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TaggedIteratorArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'tag'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'index_by'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'default_index_method'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$forLocator</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'default_priority_method'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) &amp;&amp; </span><span class="s7">$argument</span><span class="s1">) {</span>
+                    <span class="s7">$argument </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TaggedIteratorArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$forLocator</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;!%s&quot; tags only accept a non empty string or an array with a key &quot;tag&quot; in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$forLocator</span><span class="s1">) {</span>
+                    <span class="s7">$argument </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ServiceLocatorArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$argument</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'service' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$isParameter</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Using an anonymous service in a parameter is not allowed in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$isLoadingInstanceof </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s7">$instanceof </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= []</span><span class="s0">;</span>
+
+                <span class="s7">$id </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'.%d_%s'</span><span class="s0">, </span><span class="s1">++</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">anonymousServicesCount</span><span class="s0">, </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/^.*</span><span class="s0">\\\\</span><span class="s8">/'</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">]) ? </span><span class="s7">$argument</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">] : </span><span class="s8">''</span><span class="s1">).</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">anonymousServicesSuffix</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Creating an alias using the tag &quot;!service&quot; is not allowed in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">= </span><span class="s7">$isLoadingInstanceof</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= </span><span class="s7">$instanceof</span><span class="s0">;</span>
+
+                <span class="s0">return new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported tag &quot;!%s&quot;.'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$value</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServices</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$isParameter</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">'@='</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">Expression</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;@=&quot; expression syntax cannot be used without the ExpressionLanguage component. Try running &quot;composer require symfony/expression-language&quot;.'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return new </span><span class="s3">Expression</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">2</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">'@'</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">'@@'</span><span class="s1">)) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">'@!'</span><span class="s1">)) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_UNINITIALIZED_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">'@?'</span><span class="s1">)) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$invalidBehavior</span><span class="s1">) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$invalidBehavior</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads from Extensions.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">loadFromExtensions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$content</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$content </span><span class="s0">as </span><span class="s7">$namespace </span><span class="s1">=&gt; </span><span class="s7">$values</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'imports'</span><span class="s0">, </span><span class="s8">'parameters'</span><span class="s0">, </span><span class="s8">'services'</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$values</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$values</span><span class="s1">) {</span>
+                <span class="s7">$values </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">loadFromExtension</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s0">, </span><span class="s7">$values</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks the keywords used to define a service.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">checkDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, array </span><span class="s7">$definition</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof</span><span class="s1">) {</span>
+            <span class="s7">$keywords </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$instanceofKeywords</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">[</span><span class="s8">'resource'</span><span class="s1">]) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">[</span><span class="s8">'namespace'</span><span class="s1">])) {</span>
+            <span class="s7">$keywords </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$prototypeKeywords</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$keywords </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$serviceKeywords</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definition </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$keywords</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The configuration key &quot;%s&quot; is unsupported for definition &quot;%s&quot; in &quot;%s&quot;. Allowed configuration keys are &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s7">$keywords</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

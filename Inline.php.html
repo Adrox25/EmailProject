@@ -1,0 +1,795 @@
+<html>
+<head>
+<title>Inline.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Inline.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">DumpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParseException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Tag</span><span class="s1">\</span><span class="s3">TaggedValue</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Inline implements a YAML parser/dumper for the YAML inline syntax.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Inline</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">REGEX_QUOTED_STRING </span><span class="s1">= </span><span class="s7">'(?:&quot;([^&quot;</span><span class="s0">\\\\</span><span class="s7">]*+(?:</span><span class="s0">\\\\</span><span class="s7">.[^&quot;</span><span class="s0">\\\\</span><span class="s7">]*+)*+)&quot;|</span><span class="s0">\'</span><span class="s7">([^</span><span class="s0">\'</span><span class="s7">]*+(?:</span><span class="s0">\'\'</span><span class="s7">[^</span><span class="s0">\'</span><span class="s7">]*+)*+)</span><span class="s0">\'</span><span class="s7">)'</span><span class="s0">;</span>
+
+    <span class="s0">public static </span><span class="s8">$parsedLineNumber </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s8">$parsedFilename</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$exceptionOnInvalidType </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$objectSupport </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$objectForMap </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$constantSupport </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">initialize</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$parsedLineNumber </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$parsedFilename </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$exceptionOnInvalidType </span><span class="s1">= (bool) (</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_EXCEPTION_ON_INVALID_TYPE </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$objectSupport </span><span class="s1">= (bool) (</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$objectForMap </span><span class="s1">= (bool) (</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT_FOR_MAP </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$constantSupport </span><span class="s1">= (bool) (</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CONSTANT </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename </span><span class="s1">= </span><span class="s8">$parsedFilename</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$parsedLineNumber</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">= </span><span class="s8">$parsedLineNumber</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Converts a YAML string to a PHP value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value      A YAML string</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int    $flags      A bit field of PARSE_* constants to customize the YAML parser behavior</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $references Mapping of variable names to values</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed A PHP value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">parse</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, array </span><span class="s8">$references </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">initialize</span><span class="s1">(</span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$value </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">2 </span><span class="s2">/* MB_OVERLOAD_STRING */ </span><span class="s1">&amp; (int) </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s7">'mbstring.func_overload'</span><span class="s1">)) {</span>
+            <span class="s8">$mbEncoding </span><span class="s1">= </span><span class="s3">mb_internal_encoding</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s3">mb_internal_encoding</span><span class="s1">(</span><span class="s7">'ASCII'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s8">$tag </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseTag</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s0">case </span><span class="s7">'['</span><span class="s1">:</span>
+                    <span class="s8">$result </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseSequence</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'{'</span><span class="s1">:</span>
+                    <span class="s8">$result </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseMapping</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">default</span><span class="s1">:</span>
+                    <span class="s8">$result </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// some comments are allowed at the end</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/\s+#.*$/A'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">))) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Unexpected characters near &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$tag </span><span class="s1">&amp;&amp; </span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$tag</span><span class="s1">) {</span>
+                <span class="s0">return new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$result</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$result</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$mbEncoding</span><span class="s1">)) {</span>
+                <span class="s3">mb_internal_encoding</span><span class="s1">(</span><span class="s8">$mbEncoding</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps a given PHP variable to a YAML string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value The PHP variable to convert</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int   $flags A bit field of Yaml::DUMP_* constants to customize the dumped YAML string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The YAML string representing the PHP value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">DumpException When trying to dump PHP resource</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s1">\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">DUMP_EXCEPTION_ON_INVALID_TYPE </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">DumpException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Unable to dump PHP resources in a YAML file (&quot;%s&quot;).'</span><span class="s0">, </span><span class="s3">get_resource_type</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dumpNull</span><span class="s1">(</span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DateTimeInterface</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s8">$value</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s7">'c'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s3">TaggedValue</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">'!'</span><span class="s1">.</span><span class="s8">$value</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">().</span><span class="s7">' '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">DUMP_OBJECT </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">'!php/object '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">DUMP_OBJECT_AS_MAP </span><span class="s1">&amp; </span><span class="s8">$flags </span><span class="s1">&amp;&amp; (</span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">stdClass </span><span class="s1">|| </span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayObject</span><span class="s1">)) {</span>
+                    <span class="s8">$output </span><span class="s1">= []</span><span class="s0">;</span>
+
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$val</span><span class="s1">) {</span>
+                        <span class="s8">$output</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'%s: %s'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$val</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'{ %s }'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">', '</span><span class="s0">, </span><span class="s8">$output</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">DUMP_EXCEPTION_ON_INVALID_TYPE </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">DumpException</span><span class="s1">(</span><span class="s7">'Object support when dumping a YAML file has been disabled.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dumpNull</span><span class="s1">(</span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s1">\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dumpArray</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dumpNull</span><span class="s1">(</span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">true </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">'true'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">'false'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">ctype_digit</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">) ? </span><span class="s7">&quot;'</span><span class="s8">$value</span><span class="s7">'&quot; </span><span class="s1">: (int) </span><span class="s8">$value</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s8">$locale </span><span class="s1">= </span><span class="s3">setlocale</span><span class="s1">(</span><span class="s3">LC_NUMERIC</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$locale</span><span class="s1">) {</span>
+                    <span class="s3">setlocale</span><span class="s1">(</span><span class="s3">LC_NUMERIC</span><span class="s0">, </span><span class="s7">'C'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_float</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)) {</span>
+                    <span class="s8">$repr </span><span class="s1">= (string) </span><span class="s8">$value</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">is_infinite</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)) {</span>
+                        <span class="s8">$repr </span><span class="s1">= </span><span class="s3">str_ireplace</span><span class="s1">(</span><span class="s7">'INF'</span><span class="s0">, </span><span class="s7">'.Inf'</span><span class="s0">, </span><span class="s8">$repr</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">floor</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">) == </span><span class="s8">$value </span><span class="s1">&amp;&amp; </span><span class="s8">$repr </span><span class="s1">== </span><span class="s8">$value</span><span class="s1">) {</span>
+                        <span class="s2">// Preserve float data type since storing a whole number will result in integer value.</span>
+                        <span class="s8">$repr </span><span class="s1">= </span><span class="s7">'!!float '</span><span class="s1">.</span><span class="s8">$repr</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$repr </span><span class="s1">= \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">) ? </span><span class="s7">&quot;'</span><span class="s8">$value</span><span class="s7">'&quot; </span><span class="s1">: (string) </span><span class="s8">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$locale</span><span class="s1">) {</span>
+                    <span class="s3">setlocale</span><span class="s1">(</span><span class="s3">LC_NUMERIC</span><span class="s0">, </span><span class="s8">$locale</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s8">$repr</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'' </span><span class="s1">== </span><span class="s8">$value</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;''&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">self</span><span class="s1">::</span><span class="s3">isBinaryString</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s7">'!!binary '</span><span class="s1">.</span><span class="s3">base64_encode</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">Escaper</span><span class="s1">::</span><span class="s3">requiresDoubleQuoting</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s3">Escaper</span><span class="s1">::</span><span class="s3">escapeWithDoubleQuotes</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">Escaper</span><span class="s1">::</span><span class="s3">requiresSingleQuoting</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'{^[0-9]+[_0-9]*$}'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">getHexRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">getTimestampRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s3">Escaper</span><span class="s1">::</span><span class="s3">escapeWithSingleQuotes</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s8">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Check if given array is hash or just normal indexed array.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|\ArrayObject|\stdClass $value The PHP array or array-like object to check</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if value is hash array, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">isHash</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">stdClass </span><span class="s1">|| </span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayObject</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$expectedKey </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$val</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$key </span><span class="s1">!== </span><span class="s8">$expectedKey</span><span class="s1">++) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps a PHP array to a YAML string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $value The PHP array to dump</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int   $flags A bit field of Yaml::DUMP_* constants to customize the dumped YAML string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The YAML string representing the PHP array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">dumpArray</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s2">// array</span>
+        <span class="s0">if </span><span class="s1">((</span><span class="s8">$value </span><span class="s1">|| </span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">DUMP_EMPTY_ARRAY_AS_SEQUENCE </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) &amp;&amp; !</span><span class="s3">self</span><span class="s1">::</span><span class="s3">isHash</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)) {</span>
+            <span class="s8">$output </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">as </span><span class="s8">$val</span><span class="s1">) {</span>
+                <span class="s8">$output</span><span class="s1">[] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$val</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'[%s]'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">', '</span><span class="s0">, </span><span class="s8">$output</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// hash</span>
+        <span class="s8">$output </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$val</span><span class="s1">) {</span>
+            <span class="s8">$output</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'%s: %s'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s8">$val</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'{ %s }'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">', '</span><span class="s0">, </span><span class="s8">$output</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">dumpNull</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$flags</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">DUMP_NULL_AS_TILDE </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">'~'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">'null'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML scalar.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException When malformed inline YAML string is parsed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, array </span><span class="s8">$delimiters </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s1">&amp;</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$evaluate </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, array </span><span class="s8">$references </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'&quot;'</span><span class="s0">, </span><span class="s7">&quot;'&quot;</span><span class="s1">])) {</span>
+            <span class="s2">// quoted scalar</span>
+            <span class="s8">$output </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseQuotedScalar</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$delimiters</span><span class="s1">) {</span>
+                <span class="s8">$tmp </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s7">&quot; </span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$tmp</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Unexpected end of line, expected one of &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">''</span><span class="s0">, </span><span class="s8">$delimiters</span><span class="s1">))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$tmp</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$delimiters</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Unexpected characters (%s).'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s2">// &quot;normal&quot; string</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$delimiters</span><span class="s1">) {</span>
+                <span class="s8">$output </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$i </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s2">// remove comments</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/[ \t]+#/'</span><span class="s0">, </span><span class="s8">$output</span><span class="s0">, </span><span class="s8">$match</span><span class="s0">, </span><span class="s3">PREG_OFFSET_CAPTURE</span><span class="s1">)) {</span>
+                    <span class="s8">$output </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$output</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(.*?)('</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s7">'|'</span><span class="s0">, </span><span class="s8">$delimiters</span><span class="s1">).</span><span class="s7">')/'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$match</span><span class="s1">)) {</span>
+                <span class="s8">$output </span><span class="s1">= </span><span class="s8">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s8">$i </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$output </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Malformed inline YAML string: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// a non-quoted string cannot start with @ or ` (reserved) nor with a scalar indicator (| or &gt;)</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$output </span><span class="s1">&amp;&amp; (</span><span class="s7">'@' </span><span class="s1">=== </span><span class="s8">$output</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'`' </span><span class="s1">=== </span><span class="s8">$output</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'|' </span><span class="s1">=== </span><span class="s8">$output</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'&gt;' </span><span class="s1">=== </span><span class="s8">$output</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'%' </span><span class="s1">=== </span><span class="s8">$output</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The reserved indicator &quot;%s&quot; cannot start a plain scalar; you need to quote the scalar.'</span><span class="s0">, </span><span class="s8">$output</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$output</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$evaluate</span><span class="s1">) {</span>
+                <span class="s8">$output </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">evaluateScalar</span><span class="s1">(</span><span class="s8">$output</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$output</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML quoted scalar.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException When malformed inline YAML string is parsed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">parseQuotedScalar</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">int </span><span class="s1">&amp;</span><span class="s8">$i</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">REGEX_QUOTED_STRING</span><span class="s1">.</span><span class="s7">'/Au'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$match</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Malformed inline YAML string: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$output </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) - </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$unescaper </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Unescaper</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'&quot;' </span><span class="s1">== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+            <span class="s8">$output </span><span class="s1">= </span><span class="s8">$unescaper</span><span class="s1">-&gt;</span><span class="s3">unescapeDoubleQuotedString</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$output </span><span class="s1">= </span><span class="s8">$unescaper</span><span class="s1">-&gt;</span><span class="s3">unescapeSingleQuotedString</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$i </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$output</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML sequence.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException When malformed inline YAML string is parsed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">parseSequence</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$sequence</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">int </span><span class="s1">&amp;</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, array </span><span class="s8">$references </span><span class="s1">= []): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$output </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$len </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$sequence</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+
+        <span class="s2">// [foo, bar, ...]</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$len</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">']' </span><span class="s1">=== </span><span class="s8">$sequence</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s8">$output</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">',' </span><span class="s1">=== </span><span class="s8">$sequence</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] || </span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$sequence</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$tag </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseTag</span><span class="s1">(</span><span class="s8">$sequence</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s8">$sequence</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s0">case </span><span class="s7">'['</span><span class="s1">:</span>
+                    <span class="s2">// nested sequence</span>
+                    <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseSequence</span><span class="s1">(</span><span class="s8">$sequence</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'{'</span><span class="s1">:</span>
+                    <span class="s2">// nested mapping</span>
+                    <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseMapping</span><span class="s1">(</span><span class="s8">$sequence</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">default</span><span class="s1">:</span>
+                    <span class="s8">$isQuoted </span><span class="s1">= \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$sequence</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'&quot;'</span><span class="s0">, </span><span class="s7">&quot;'&quot;</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s8">$sequence</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s1">[</span><span class="s7">','</span><span class="s0">, </span><span class="s7">']'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s2">// the value can be an array if a reference has been resolved to an array var</span>
+                    <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">) &amp;&amp; !</span><span class="s8">$isQuoted </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">': '</span><span class="s1">)) {</span>
+                        <span class="s2">// embedded mapping?</span>
+                        <span class="s0">try </span><span class="s1">{</span>
+                            <span class="s8">$pos </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                            <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseMapping</span><span class="s1">(</span><span class="s7">'{'</span><span class="s1">.</span><span class="s8">$value</span><span class="s1">.</span><span class="s7">'}'</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$pos</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">InvalidArgumentException </span><span class="s8">$e</span><span class="s1">) {</span>
+                            <span class="s2">// no, it's not</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+
+                    <span class="s1">--</span><span class="s8">$i</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$tag </span><span class="s1">&amp;&amp; </span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$tag</span><span class="s1">) {</span>
+                <span class="s8">$value </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$output</span><span class="s1">[] = </span><span class="s8">$value</span><span class="s0">;</span>
+
+            <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Malformed inline YAML string: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$sequence</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML mapping.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|\stdClass</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException When malformed inline YAML string is parsed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">parseMapping</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$mapping</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">int </span><span class="s1">&amp;</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, array </span><span class="s8">$references </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s8">$output </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$len </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+        <span class="s8">$allowOverwrite </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s2">// {foo: bar, bar:foo, ...}</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$len</span><span class="s1">) {</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s0">case </span><span class="s7">' '</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s7">','</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">:</span>
+                    <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+                    <span class="s0">continue </span><span class="s9">2</span><span class="s0">;</span>
+                <span class="s0">case </span><span class="s7">'}'</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$objectForMap</span><span class="s1">) {</span>
+                        <span class="s0">return </span><span class="s1">(object) </span><span class="s8">$output</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">return </span><span class="s8">$output</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// key</span>
+            <span class="s8">$offsetBeforeKeyParsing </span><span class="s1">= </span><span class="s8">$i</span><span class="s0">;</span>
+            <span class="s8">$isKeyQuoted </span><span class="s1">= \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'&quot;'</span><span class="s0">, </span><span class="s7">&quot;'&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$key </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s1">[</span><span class="s7">':'</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$offsetBeforeKeyParsing </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Missing mapping key.'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'!php/const' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                <span class="s8">$key </span><span class="s1">.= </span><span class="s7">' '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s1">[</span><span class="s7">':'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+                <span class="s8">$key </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">evaluateScalar</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$i </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s7">':'</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$isKeyQuoted</span><span class="s1">) {</span>
+                <span class="s8">$evaluatedKey </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">evaluateScalar</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$key </span><span class="s1">&amp;&amp; </span><span class="s8">$evaluatedKey </span><span class="s1">!== </span><span class="s8">$key </span><span class="s1">&amp;&amp; !\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$evaluatedKey</span><span class="s1">) &amp;&amp; !\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s8">$evaluatedKey</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Implicit casting of incompatible mapping keys to strings is not supported. Quote your evaluable mapping keys instead.'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$isKeyQuoted </span><span class="s1">&amp;&amp; (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">]) || !\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">' '</span><span class="s0">, </span><span class="s7">','</span><span class="s0">, </span><span class="s7">'['</span><span class="s0">, </span><span class="s7">']'</span><span class="s0">, </span><span class="s7">'{'</span><span class="s0">, </span><span class="s7">'}'</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Colons must be followed by a space or an indication character (i.e. &quot; &quot;, &quot;,&quot;, &quot;[&quot;, &quot;]&quot;, &quot;{&quot;, &quot;}&quot;).'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                <span class="s8">$allowOverwrite </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">while </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$len</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">':' </span><span class="s1">=== </span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] || </span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] || </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                    <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$tag </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseTag</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">switch </span><span class="s1">(</span><span class="s8">$mapping</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                    <span class="s0">case </span><span class="s7">'['</span><span class="s1">:</span>
+                        <span class="s2">// nested sequence</span>
+                        <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseSequence</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s2">// Spec: Keys MUST be unique; first one wins.</span>
+                        <span class="s2">// Parser cannot abort this mapping earlier, since lines</span>
+                        <span class="s2">// are processed sequentially.</span>
+                        <span class="s2">// But overwriting is allowed when a merge node is used in current block.</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$value </span><span class="s0">as </span><span class="s8">$parsedValue</span><span class="s1">) {</span>
+                                <span class="s8">$output </span><span class="s1">+= </span><span class="s8">$parsedValue</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$allowOverwrite </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$tag</span><span class="s1">) {</span>
+                                <span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                                <span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Duplicate key &quot;%s&quot; detected.'</span><span class="s0">, </span><span class="s8">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">break;</span>
+                    <span class="s0">case </span><span class="s7">'{'</span><span class="s1">:</span>
+                        <span class="s2">// nested mapping</span>
+                        <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseMapping</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s2">// Spec: Keys MUST be unique; first one wins.</span>
+                        <span class="s2">// Parser cannot abort this mapping earlier, since lines</span>
+                        <span class="s2">// are processed sequentially.</span>
+                        <span class="s2">// But overwriting is allowed when a merge node is used in current block.</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                            <span class="s8">$output </span><span class="s1">+= </span><span class="s8">$value</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$allowOverwrite </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$tag</span><span class="s1">) {</span>
+                                <span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                                <span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Duplicate key &quot;%s&quot; detected.'</span><span class="s0">, </span><span class="s8">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">break;</span>
+                    <span class="s0">default</span><span class="s1">:</span>
+                        <span class="s8">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s8">$mapping</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s1">[</span><span class="s7">','</span><span class="s0">, </span><span class="s7">'}'</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s2">// Spec: Keys MUST be unique; first one wins.</span>
+                        <span class="s2">// Parser cannot abort this mapping earlier, since lines</span>
+                        <span class="s2">// are processed sequentially.</span>
+                        <span class="s2">// But overwriting is allowed when a merge node is used in current block.</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                            <span class="s8">$output </span><span class="s1">+= </span><span class="s8">$value</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$allowOverwrite </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$tag</span><span class="s1">) {</span>
+                                <span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                                <span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Duplicate key &quot;%s&quot; detected.'</span><span class="s0">, </span><span class="s8">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s1">--</span><span class="s8">$i</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+
+                <span class="s0">continue </span><span class="s9">2</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Malformed inline YAML string: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$mapping</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Evaluates scalars and replaces magic values.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The evaluated YAML string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException when object parsing support was disabled and the parser detected a PHP object or when a reference could not be resolved</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">evaluateScalar</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s0">, array </span><span class="s8">$references </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s8">$scalar </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$scalarLower </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'*'</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$pos </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'#'</span><span class="s1">)) {</span>
+                <span class="s8">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$pos </span><span class="s1">- </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// an unquoted *</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$value </span><span class="s1">|| </span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'A reference must contain at least one character.'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$references</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Reference &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$references</span><span class="s1">[</span><span class="s8">$value</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s7">'null' </span><span class="s1">=== </span><span class="s8">$scalarLower</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">'~' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'true' </span><span class="s1">=== </span><span class="s8">$scalarLower</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'false' </span><span class="s1">=== </span><span class="s8">$scalarLower</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'!' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]:</span>
+                <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+                    <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'!!str '</span><span class="s1">):</span>
+                        <span class="s0">return </span><span class="s1">(string) </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">6</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'! '</span><span class="s1">):</span>
+                        <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'!php/object'</span><span class="s1">):</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$objectSupport</span><span class="s1">) {</span>
+                            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">12</span><span class="s1">])) {</span>
+                                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+
+                            <span class="s0">return </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">12</span><span class="s1">)))</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$exceptionOnInvalidType</span><span class="s1">) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Object support when parsing a YAML file has been disabled.'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'!php/const'</span><span class="s1">):</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$constantSupport</span><span class="s1">) {</span>
+                            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">11</span><span class="s1">])) {</span>
+                                <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+
+                            <span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                            <span class="s0">if </span><span class="s1">(\</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">$const </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">11</span><span class="s1">)</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s3">false</span><span class="s1">))) {</span>
+                                <span class="s0">return </span><span class="s1">\</span><span class="s3">constant</span><span class="s1">(</span><span class="s8">$const</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The constant &quot;%s&quot; is not defined.'</span><span class="s0">, </span><span class="s8">$const</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$exceptionOnInvalidType</span><span class="s1">) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The string &quot;%s&quot; could not be parsed as a constant. Did you forget to pass the &quot;Yaml::PARSE_CONSTANT&quot; flag to the parser?'</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'!!float '</span><span class="s1">):</span>
+                        <span class="s0">return </span><span class="s1">(float) </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">8</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s7">'!!binary '</span><span class="s1">):</span>
+                        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">evaluateBinaryScalar</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">9</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s0">default</span><span class="s1">:</span>
+                        <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The string &quot;%s&quot; could not be parsed as it uses an unsupported built-in tag.'</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+            <span class="s2">// Optimize for returning strings.</span>
+            <span class="s2">// no break</span>
+            <span class="s0">case </span><span class="s7">'+' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'-' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'.' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]):</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'{^[+-]?[0-9][0-9_]*$}'</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">)) {</span>
+                    <span class="s8">$scalar </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s1">(string) </span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+                    <span class="s0">case </span><span class="s3">ctype_digit</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">):</span>
+                        <span class="s8">$raw </span><span class="s1">= </span><span class="s8">$scalar</span><span class="s0">;</span>
+                        <span class="s8">$cast </span><span class="s1">= (int) </span><span class="s8">$scalar</span><span class="s0">;</span>
+
+                        <span class="s0">return </span><span class="s7">'0' </span><span class="s1">== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] ? </span><span class="s3">octdec</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">) : (((string) </span><span class="s8">$raw </span><span class="s1">== (string) </span><span class="s8">$cast</span><span class="s1">) ? </span><span class="s8">$cast </span><span class="s1">: </span><span class="s8">$raw</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s7">'-' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">ctype_digit</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)):</span>
+                        <span class="s8">$raw </span><span class="s1">= </span><span class="s8">$scalar</span><span class="s0">;</span>
+                        <span class="s8">$cast </span><span class="s1">= (int) </span><span class="s8">$scalar</span><span class="s0">;</span>
+
+                        <span class="s0">return </span><span class="s7">'0' </span><span class="s1">== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ? -</span><span class="s3">octdec</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)) : ((</span><span class="s8">$raw </span><span class="s1">=== (string) </span><span class="s8">$cast</span><span class="s1">) ? </span><span class="s8">$cast </span><span class="s1">: </span><span class="s8">$raw</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">):</span>
+                    <span class="s0">case </span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">getHexRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">):</span>
+                        <span class="s8">$scalar </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s0">return </span><span class="s7">'0x' </span><span class="s1">=== </span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">0</span><span class="s1">].</span><span class="s8">$scalar</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ? </span><span class="s3">hexdec</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">) : (float) </span><span class="s8">$scalar</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s7">'.inf' </span><span class="s1">=== </span><span class="s8">$scalarLower</span><span class="s1">:</span>
+                    <span class="s0">case </span><span class="s7">'.nan' </span><span class="s1">=== </span><span class="s8">$scalarLower</span><span class="s1">:</span>
+                        <span class="s0">return </span><span class="s1">-</span><span class="s3">log</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s7">'-.inf' </span><span class="s1">=== </span><span class="s8">$scalarLower</span><span class="s1">:</span>
+                        <span class="s0">return </span><span class="s3">log</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(-|\+)?[0-9][0-9_]*(\.[0-9_]+)?$/'</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">):</span>
+                        <span class="s0">return </span><span class="s1">(float) </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">getTimestampRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">):</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_DATETIME </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+                            <span class="s2">// When no timezone is provided in the parsed date, YAML spec says we must assume UTC.</span>
+                            <span class="s0">return new </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s0">, new </span><span class="s1">\</span><span class="s3">DateTimeZone</span><span class="s1">(</span><span class="s7">'UTC'</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s8">$timeZone </span><span class="s1">= </span><span class="s3">date_default_timezone_get</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s3">date_default_timezone_set</span><span class="s1">(</span><span class="s7">'UTC'</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s8">$time </span><span class="s1">= </span><span class="s3">strtotime</span><span class="s1">(</span><span class="s8">$scalar</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s3">date_default_timezone_set</span><span class="s1">(</span><span class="s8">$timeZone</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s0">return </span><span class="s8">$time</span><span class="s0">;</span>
+                <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">(string) </span><span class="s8">$scalar</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">parseTag</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s1">&amp;</span><span class="s8">$i</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'!' </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$tagLength </span><span class="s1">= </span><span class="s3">strcspn</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">&quot; </span><span class="s0">\t\n</span><span class="s7">[]{},&quot;</span><span class="s0">, </span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$tag </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$tagLength</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$nextOffset </span><span class="s1">= </span><span class="s8">$i </span><span class="s1">+ </span><span class="s8">$tagLength </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s8">$nextOffset </span><span class="s1">+= </span><span class="s3">strspn</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">' '</span><span class="s0">, </span><span class="s8">$nextOffset</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$tag </span><span class="s1">&amp;&amp; (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$nextOffset</span><span class="s1">]) || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$nextOffset</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">']'</span><span class="s0">, </span><span class="s7">'}'</span><span class="s0">, </span><span class="s7">','</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Using the unquoted scalar value &quot;!&quot; is not supported. You must quote it.'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Is followed by a scalar and is a built-in tag</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$tag </span><span class="s1">&amp;&amp; (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$nextOffset</span><span class="s1">]) || !\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$nextOffset</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'['</span><span class="s0">, </span><span class="s7">'{'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) &amp;&amp; (</span><span class="s7">'!' </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">'str' </span><span class="s1">=== </span><span class="s8">$tag </span><span class="s1">|| </span><span class="s7">'php/const' </span><span class="s1">=== </span><span class="s8">$tag </span><span class="s1">|| </span><span class="s7">'php/object' </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s1">)) {</span>
+            <span class="s2">// Manage in {@link self::evaluateScalar()}</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$i </span><span class="s1">= </span><span class="s8">$nextOffset</span><span class="s0">;</span>
+
+        <span class="s2">// Built-in tags</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$tag </span><span class="s1">&amp;&amp; </span><span class="s7">'!' </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The built-in tag &quot;!%s&quot; is not implemented.'</span><span class="s0">, </span><span class="s8">$tag</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$tag </span><span class="s1">&amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Missing value for tag &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$tag</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$tag </span><span class="s1">|| </span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CUSTOM_TAGS </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$tag</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tags support is not enabled. Enable the &quot;Yaml::PARSE_CUSTOM_TAGS&quot; flag to use &quot;!%s&quot;.'</span><span class="s0">, </span><span class="s8">$tag</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">evaluateBinaryScalar</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$scalar</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$parsedBinaryData </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/\s/'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== (\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$parsedBinaryData</span><span class="s1">) % </span><span class="s9">4</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The normalized base64 encoded data (data without whitespace characters) length must be a multiple of four (%d bytes given).'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$parsedBinaryData</span><span class="s1">))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">Parser</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^[A-Z0-9+/]+={0,2}$#i'</span><span class="s0">, </span><span class="s8">$parsedBinaryData</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The base64 encoded data (%s) contains invalid characters.'</span><span class="s0">, </span><span class="s8">$parsedBinaryData</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$scalar</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$parsedFilename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">base64_decode</span><span class="s1">(</span><span class="s8">$parsedBinaryData</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">isBinaryString</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'//u'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">) || </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/[^\x00\x07-\x0d\x1B\x20-\xff]/'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a regex that matches a YAML date.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The regular expression</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">http://www.yaml.org/spec/1.2/spec.html#id2761573</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">getTimestampRegex</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">&lt;&lt;&lt;EOF 
+        </span><span class="s7">~^ 
+        (?P&lt;year&gt;[0-9][0-9][0-9][0-9]) 
+        -(?P&lt;month&gt;[0-9][0-9]?) 
+        -(?P&lt;day&gt;[0-9][0-9]?) 
+        (?:(?:[Tt]|[ \t]+) 
+        (?P&lt;hour&gt;[0-9][0-9]?) 
+        :(?P&lt;minute&gt;[0-9][0-9]) 
+        :(?P&lt;second&gt;[0-9][0-9]) 
+        (?:\.(?P&lt;fraction&gt;[0-9]*))? 
+        (?:[ \t]*(?P&lt;tz&gt;Z|(?P&lt;tz_sign&gt;[-+])(?P&lt;tz_hour&gt;[0-9][0-9]?) 
+        (?::(?P&lt;tz_minute&gt;[0-9][0-9]))?))?)? 
+        $~x</span>
+<span class="s3">EOF</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a regex that matches a YAML number in hexadecimal notation.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">getHexRegex</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">'~^0x[0-9a-f_]++$~i'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

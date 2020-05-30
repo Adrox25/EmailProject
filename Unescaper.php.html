@@ -1,0 +1,163 @@
+<html>
+<head>
+<title>Unescaper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Unescaper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParseException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Unescaper encapsulates unescaping rules for single and double-quoted</span>
+ <span class="s4">* YAML strings.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Matthew Lewinski </span><span class="s6">&lt;matthew</span><span class="s4">@lewinski.org&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Unescaper</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Regex fragment that matches an escaped character in a double quoted string.</span>
+     <span class="s4">*/</span>
+    <span class="s0">const </span><span class="s3">REGEX_ESCAPED_CHARACTER </span><span class="s1">= </span><span class="s7">'</span><span class="s0">\\\\</span><span class="s7">(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|.)'</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Unescapes a single quoted string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value A single quoted string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The unescaped string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">unescapeSingleQuotedString</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\'\'</span><span class="s7">'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\'</span><span class="s7">'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Unescapes a double quoted string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value A double quoted string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The unescaped string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">unescapeDoubleQuotedString</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$callback </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s8">$match</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">unescapeCharacter</span><span class="s1">(</span><span class="s8">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s2">// evaluate the string</span>
+        <span class="s0">return </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s7">'/'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">REGEX_ESCAPED_CHARACTER</span><span class="s1">.</span><span class="s7">'/u'</span><span class="s0">, </span><span class="s8">$callback</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Unescapes a character that was found in a double-quoted string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value An escaped character</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The unescaped character</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">unescapeCharacter</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">switch </span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) {</span>
+            <span class="s0">case </span><span class="s7">'0'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\x0</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'a'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\x7</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'b'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\x8</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'t'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot;</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'n'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'v'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\xB</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'f'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\xC</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'r'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\r</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'e'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\x1B</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">' '</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">' '</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'&quot;'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">'&quot;'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'/'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">'/'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'N'</span><span class="s1">:</span>
+                <span class="s2">// U+0085 NEXT LINE</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\xC2\x85</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'_'</span><span class="s1">:</span>
+                <span class="s2">// U+00A0 NO-BREAK SPACE</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\xC2\xA0</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'L'</span><span class="s1">:</span>
+                <span class="s2">// U+2028 LINE SEPARATOR</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\xE2\x80\xA8</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'P'</span><span class="s1">:</span>
+                <span class="s2">// U+2029 PARAGRAPH SEPARATOR</span>
+                <span class="s0">return </span><span class="s7">&quot;</span><span class="s0">\xE2\x80\xA9</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'x'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">utf8chr</span><span class="s1">(</span><span class="s3">hexdec</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s9">2</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'u'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">utf8chr</span><span class="s1">(</span><span class="s3">hexdec</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s9">2</span><span class="s0">, </span><span class="s9">4</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s7">'U'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">utf8chr</span><span class="s1">(</span><span class="s3">hexdec</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s9">2</span><span class="s0">, </span><span class="s9">8</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Found unknown escape character &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Get the UTF-8 character for the given code point.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">utf8chr</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$c</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">&gt; </span><span class="s8">$c </span><span class="s1">%= </span><span class="s9">0x200000</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">chr</span><span class="s1">(</span><span class="s8">$c</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0x800 </span><span class="s1">&gt; </span><span class="s8">$c</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0xC0 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&gt;&gt; </span><span class="s9">6</span><span class="s1">).\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&amp; </span><span class="s9">0x3F</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0x10000 </span><span class="s1">&gt; </span><span class="s8">$c</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0xE0 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&gt;&gt; </span><span class="s9">12</span><span class="s1">).\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&gt;&gt; </span><span class="s9">6 </span><span class="s1">&amp; </span><span class="s9">0x3F</span><span class="s1">).\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&amp; </span><span class="s9">0x3F</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0xF0 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&gt;&gt; </span><span class="s9">18</span><span class="s1">).\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&gt;&gt; </span><span class="s9">12 </span><span class="s1">&amp; </span><span class="s9">0x3F</span><span class="s1">).\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&gt;&gt; </span><span class="s9">6 </span><span class="s1">&amp; </span><span class="s9">0x3F</span><span class="s1">).\</span><span class="s3">chr</span><span class="s1">(</span><span class="s9">0x80 </span><span class="s1">| </span><span class="s8">$c </span><span class="s1">&amp; </span><span class="s9">0x3F</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

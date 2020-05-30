@@ -1,0 +1,94 @@
+<html>
+<head>
+<title>UndefinedMethodErrorEnhancer.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+UndefinedMethodErrorEnhancer.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorEnhancer</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Error</span><span class="s1">\</span><span class="s3">FatalError</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Error</span><span class="s1">\</span><span class="s3">UndefinedMethodError</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Grégoire Pineau </span><span class="s6">&lt;lyrixx</span><span class="s4">@lyrixx.info&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">UndefinedMethodErrorEnhancer </span><span class="s0">implements </span><span class="s3">ErrorEnhancerInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">enhance</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$error</span><span class="s1">): ?\</span><span class="s3">Throwable</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$error </span><span class="s0">instanceof </span><span class="s3">FatalError</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$message </span><span class="s1">= </span><span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^Call to undefined method (.*)::(.*)\(\)$/'</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$matches</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$matches</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$className </span><span class="s1">= </span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$methodName </span><span class="s1">= </span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Attempted to call an undefined method named &quot;%s&quot; of class &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$methodName</span><span class="s0">, </span><span class="s7">$className</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$className</span><span class="s1">) || </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$methods </span><span class="s1">= </span><span class="s3">get_class_methods</span><span class="s1">(</span><span class="s7">$className</span><span class="s1">)) {</span>
+            <span class="s2">// failed to get the class or its methods on which an unknown method was called (for example on an anonymous class)</span>
+            <span class="s0">return new </span><span class="s3">UndefinedMethodError</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$error</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$candidates </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$methods </span><span class="s0">as </span><span class="s7">$definedMethodName</span><span class="s1">) {</span>
+            <span class="s7">$lev </span><span class="s1">= </span><span class="s3">levenshtein</span><span class="s1">(</span><span class="s7">$methodName</span><span class="s0">, </span><span class="s7">$definedMethodName</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$lev </span><span class="s1">&lt;= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$methodName</span><span class="s1">) / </span><span class="s9">3 </span><span class="s1">|| </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$definedMethodName</span><span class="s0">, </span><span class="s7">$methodName</span><span class="s1">)) {</span>
+                <span class="s7">$candidates</span><span class="s1">[] = </span><span class="s7">$definedMethodName</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$candidates</span><span class="s1">) {</span>
+            <span class="s3">sort</span><span class="s1">(</span><span class="s7">$candidates</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$last </span><span class="s1">= </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$candidates</span><span class="s1">).</span><span class="s8">'&quot;?'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$candidates</span><span class="s1">) {</span>
+                <span class="s7">$candidates </span><span class="s1">= </span><span class="s8">'e.g. &quot;'</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s7">$candidates</span><span class="s1">).</span><span class="s8">'&quot; or &quot;'</span><span class="s1">.</span><span class="s7">$last</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$candidates </span><span class="s1">= </span><span class="s8">'&quot;'</span><span class="s1">.</span><span class="s7">$last</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$message </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">Did you mean to call &quot;</span><span class="s1">.</span><span class="s7">$candidates</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">UndefinedMethodError</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$error</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

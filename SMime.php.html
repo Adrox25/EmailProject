@@ -1,0 +1,136 @@
+<html>
+<head>
+<title>SMime.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SMime.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Crypto</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">SMimePart</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Sebastiaan Stok </span><span class="s6">&lt;s.stok</span><span class="s4">@rollerscapes.net&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">SMime</span>
+<span class="s1">{</span>
+    <span class="s0">protected function </span><span class="s3">normalizeFilePath</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'File does not exist: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">'file://'</span><span class="s1">.</span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'/'</span><span class="s0">, </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">iteratorToFile</span><span class="s1">(</span><span class="s3">iterable </span><span class="s7">$iterator</span><span class="s0">, </span><span class="s7">$stream</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$iterator </span><span class="s0">as </span><span class="s7">$chunk</span><span class="s1">) {</span>
+            <span class="s3">fwrite</span><span class="s1">(</span><span class="s7">$stream</span><span class="s0">, </span><span class="s7">$chunk</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">convertMessageToSMimePart</span><span class="s1">(</span><span class="s7">$stream</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$subtype</span><span class="s1">): </span><span class="s3">SMimePart</span>
+    <span class="s1">{</span>
+        <span class="s3">rewind</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(!</span><span class="s3">feof</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)) {</span>
+            <span class="s7">$buffer </span><span class="s1">= </span><span class="s3">fread</span><span class="s1">(</span><span class="s7">$stream</span><span class="s0">, </span><span class="s9">78</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$headers </span><span class="s1">.= </span><span class="s7">$buffer</span><span class="s0">;</span>
+
+            <span class="s2">// Detect ending of header list</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/(\r\n\r\n|\n\n)/'</span><span class="s0">, </span><span class="s7">$headers</span><span class="s0">, </span><span class="s7">$match</span><span class="s1">)) {</span>
+                <span class="s7">$headersPosEnd </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$headers</span><span class="s0">, </span><span class="s7">$headerBodySeparator </span><span class="s1">= </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getMessageHeaders</span><span class="s1">(</span><span class="s3">trim</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$headers</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$headersPosEnd</span><span class="s1">)))</span><span class="s0">;</span>
+
+        <span class="s3">fseek</span><span class="s1">(</span><span class="s7">$stream</span><span class="s0">, </span><span class="s7">$headersPosEnd </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$headerBodySeparator</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">SMimePart</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getStreamIterator</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$subtype</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getParametersFromHeader</span><span class="s1">(</span><span class="s7">$headers</span><span class="s1">[</span><span class="s8">'content-type'</span><span class="s1">]))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">getStreamIterator</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s0">while </span><span class="s1">(!</span><span class="s3">feof</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)) {</span>
+            <span class="s0">yield </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\r\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\r\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">fread</span><span class="s1">(</span><span class="s7">$stream</span><span class="s0">, </span><span class="s9">16372</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getMessageHeaders</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$headerData</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$headers </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$headerLines </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\r\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\r\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\r\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$headerData</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s7">$currentHeaderName </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s2">// Transform header lines into an associative array</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$headerLines </span><span class="s0">as </span><span class="s7">$headerLine</span><span class="s1">) {</span>
+            <span class="s2">// Empty lines between headers indicate a new mime-entity</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$headerLine</span><span class="s1">) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// Handle headers that span multiple lines</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$headerLine</span><span class="s0">, </span><span class="s8">':'</span><span class="s1">)) {</span>
+                <span class="s7">$headers</span><span class="s1">[</span><span class="s7">$currentHeaderName</span><span class="s1">] .= </span><span class="s8">' '</span><span class="s1">.</span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$headerLine</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$header </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">':'</span><span class="s0">, </span><span class="s7">$headerLine</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$currentHeaderName </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$header</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s7">$headers</span><span class="s1">[</span><span class="s7">$currentHeaderName</span><span class="s1">] = </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$header</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$headers</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getParametersFromHeader</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$header</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$params </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s3">preg_match_all</span><span class="s1">(</span><span class="s8">'/(?P&lt;name&gt;[a-z-0-9]+)=(?P&lt;value&gt;&quot;[^&quot;]+&quot;|(?:[^\s;]+|$))(?:\s+;)?/i'</span><span class="s0">, </span><span class="s7">$header</span><span class="s0">, </span><span class="s7">$matches</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">'value'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$pos </span><span class="s1">=&gt; </span><span class="s7">$paramValue</span><span class="s1">) {</span>
+            <span class="s7">$params</span><span class="s1">[</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">][</span><span class="s7">$pos</span><span class="s1">]] = </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$paramValue</span><span class="s0">, </span><span class="s8">'&quot;'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$params</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

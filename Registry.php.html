@@ -1,0 +1,161 @@
+<html>
+<head>
+<title>Registry.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Registry.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarExporter</span><span class="s1">\</span><span class="s3">Internal</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarExporter</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ClassNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarExporter</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NotInstantiableTypeException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Registry</span>
+<span class="s1">{</span>
+    <span class="s0">public static </span><span class="s7">$reflectors </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s7">$prototypes </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s7">$factories </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s7">$cloneable </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s7">$instantiableWithoutConstructor </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$classes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$classes </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s7">$i </span><span class="s1">= </span><span class="s7">$class</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s7">$objects</span><span class="s0">, </span><span class="s7">$serializables</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$unserializeCallback </span><span class="s1">= </span><span class="s3">ini_set</span><span class="s1">(</span><span class="s8">'unserialize_callback_func'</span><span class="s0">, </span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s8">'::getClassReflector'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$serializables </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$objects</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">ini_set</span><span class="s1">(</span><span class="s8">'unserialize_callback_func'</span><span class="s0">, </span><span class="s7">$unserializeCallback</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$objects</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">p</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$prototypes</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">f</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$reflector </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reflectors</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] ?? </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$factories</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">([</span><span class="s7">$reflector</span><span class="s0">, </span><span class="s8">'newInstanceWithoutConstructor'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$instantiableWithoutConstructor </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$cloneable </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$isClass </span><span class="s1">= </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) &amp;&amp; !</span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) &amp;&amp; !</span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ClassNotFoundException</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$reflector </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$instantiableWithoutConstructor</span><span class="s1">) {</span>
+            <span class="s7">$proto </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">newInstanceWithoutConstructor</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$isClass </span><span class="s1">|| </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">NotInstantiableTypeException</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">!== </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s7">$reflector </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reflectors</span><span class="s1">[</span><span class="s7">$name </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] ?? </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$cloneable</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$instantiableWithoutConstructor</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$instantiableWithoutConstructor</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$prototypes</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$prototypes</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reflectors</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s7">$reflector</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$proto </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">newInstanceWithoutConstructor</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$instantiableWithoutConstructor </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">ReflectionException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s7">$proto </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">implementsInterface</span><span class="s1">(</span><span class="s8">'Serializable'</span><span class="s1">) &amp;&amp; !</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__unserialize'</span><span class="s1">) ? </span><span class="s8">'C:' </span><span class="s1">: </span><span class="s8">'O:'</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'C:' </span><span class="s1">=== </span><span class="s7">$proto </span><span class="s1">&amp;&amp; !</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'unserialize'</span><span class="s1">)-&gt;</span><span class="s3">isInternal</span><span class="s1">()) {</span>
+                    <span class="s7">$proto </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$proto </span><span class="s1">= @</span><span class="s3">unserialize</span><span class="s1">(</span><span class="s7">$proto</span><span class="s1">.\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s8">':&quot;'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'&quot;:0:{}'</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">NotInstantiableTypeException</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$proto </span><span class="s1">&amp;&amp; !</span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s1">&amp;&amp; !</span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Serializable </span><span class="s1">&amp;&amp; !</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__sleep'</span><span class="s1">) &amp;&amp; (\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70400 </span><span class="s1">|| !</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__serialize'</span><span class="s1">))) {</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s3">serialize</span><span class="s1">(</span><span class="s7">$proto</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">NotInstantiableTypeException</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$cloneable</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">((</span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Reflector </span><span class="s1">|| </span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ReflectionGenerator </span><span class="s1">|| </span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ReflectionType </span><span class="s1">|| </span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">IteratorIterator </span><span class="s1">|| </span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">) &amp;&amp; (!</span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Serializable </span><span class="s1">&amp;&amp; !</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$proto</span><span class="s0">, </span><span class="s8">'__wakeup'</span><span class="s1">) &amp;&amp; (\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70400 </span><span class="s1">|| !</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__unserialize'</span><span class="s1">)))) {</span>
+                <span class="s0">throw new </span><span class="s3">NotInstantiableTypeException</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$cloneable </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">isCloneable</span><span class="s1">() &amp;&amp; !</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s8">'__clone'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s7">$cloneable</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$instantiableWithoutConstructor</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s7">$instantiableWithoutConstructor</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$prototypes</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s7">$proto</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Throwable</span><span class="s1">) {</span>
+            <span class="s0">static </span><span class="s7">$setTrace</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$setTrace</span><span class="s1">) {</span>
+                <span class="s7">$setTrace </span><span class="s1">= [</span>
+                    <span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(\</span><span class="s3">Error</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'trace'</span><span class="s1">)</span><span class="s0">,</span>
+                    <span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(\</span><span class="s3">Exception</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'trace'</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$setTrace</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$setTrace</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$setTrace</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] = \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">([</span><span class="s7">$setTrace</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'setValue'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$setTrace</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] = \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">([</span><span class="s7">$setTrace</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'setValue'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$setTrace</span><span class="s1">[</span><span class="s7">$proto </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">](</span><span class="s7">$proto</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reflectors</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s7">$reflector</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,485 @@
+<html>
+<head>
+<title>Store.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Store.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * This code is partially based on the Rack-Cache library by Ryan Tomayko, 
+ * which is released under the MIT license. 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpCache</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Store implements all the logic for storing cache metadata (Request and Response headers).</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Store </span><span class="s0">implements </span><span class="s3">StoreInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$root</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$keyCache</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$locks</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$root</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">root </span><span class="s1">= </span><span class="s7">$root</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">root</span><span class="s1">) &amp;&amp; !@</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">root</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">root</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to create the store directory (%s).'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">root</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyCache </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Cleanups storage.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">cleanup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s2">// unlock everything</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks </span><span class="s0">as </span><span class="s7">$lock</span><span class="s1">) {</span>
+            <span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$lock</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Tries to lock the cache for a given Request, without blocking.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool|string true if the lock is acquired, the path to the current lock otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">lock</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">mkdir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_dir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))) {</span>
+                <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$h </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s9">'cb'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">flock</span><span class="s1">(</span><span class="s7">$h</span><span class="s0">, </span><span class="s3">LOCK_EX </span><span class="s1">| </span><span class="s3">LOCK_NB</span><span class="s1">)) {</span>
+                <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$h</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Releases the lock for the given Request.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool False if the lock file does not exist or cannot be unlocked, true otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">unlock</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s3">flock</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">isLocked</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">; </span><span class="s2">// shortcut if lock held by this process</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$h </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s9">'rb'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">flock</span><span class="s1">(</span><span class="s7">$h</span><span class="s0">, </span><span class="s3">LOCK_EX </span><span class="s1">| </span><span class="s3">LOCK_NB</span><span class="s0">, </span><span class="s7">$wouldBlock</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">flock</span><span class="s1">(</span><span class="s7">$h</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">; </span><span class="s2">// release the lock we just acquired</span>
+        <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">(bool) </span><span class="s7">$wouldBlock</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Locates a cached Response for the Request provided.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Response|null A Response instance, or null if no cache entry was found</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">lookup</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$entries </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getMetadata</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// find a cached entry that matches the request.</span>
+        <span class="s7">$match </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$entries </span><span class="s0">as </span><span class="s7">$entry</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestsMatch</span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'vary'</span><span class="s1">][</span><span class="s8">0</span><span class="s1">]) ? </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">', '</span><span class="s0">, </span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'vary'</span><span class="s1">]) : </span><span class="s9">''</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])) {</span>
+                <span class="s7">$match </span><span class="s1">= </span><span class="s7">$entry</span><span class="s0">;</span>
+
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$match</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s7">$match</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$body </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">(</span><span class="s7">$headers</span><span class="s1">[</span><span class="s9">'x-content-digest'</span><span class="s1">][</span><span class="s8">0</span><span class="s1">]))) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">restoreResponse</span><span class="s1">(</span><span class="s7">$headers</span><span class="s0">, </span><span class="s7">$body</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// TODO the metaStore referenced an entity that doesn't exist in</span>
+        <span class="s2">// the entityStore. We definitely want to return nil but we should</span>
+        <span class="s2">// also purge the entry from the meta-store when this is detected.</span>
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Writes a cache entry to the store for the given Request and Response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Existing entries are read and any that match the response are removed. This</span>
+     <span class="s4">* method calls write with the new list of cache entries.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The key under which the response is stored</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">write</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$storedEnv </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">persistRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// write the response body to the entity store if this is the original response</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'X-Content-Digest'</span><span class="s1">)) {</span>
+            <span class="s7">$digest </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateContentDigest</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">save</span><span class="s1">(</span><span class="s7">$digest</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">())) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s9">'Unable to store the entity.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'X-Content-Digest'</span><span class="s0">, </span><span class="s7">$digest</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Transfer-Encoding'</span><span class="s1">)) {</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// read existing cache entries, remove non-varying, and add this one to the list</span>
+        <span class="s7">$entries </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$vary </span><span class="s1">= </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'vary'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getMetadata</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$entry</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'vary'</span><span class="s1">][</span><span class="s8">0</span><span class="s1">])) {</span>
+                <span class="s7">$entry</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'vary'</span><span class="s1">] = [</span><span class="s9">''</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'vary'</span><span class="s1">][</span><span class="s8">0</span><span class="s1">] != </span><span class="s7">$vary </span><span class="s1">|| !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestsMatch</span><span class="s1">(</span><span class="s7">$vary </span><span class="s1">?? </span><span class="s9">''</span><span class="s0">, </span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$storedEnv</span><span class="s1">)) {</span>
+                <span class="s7">$entries</span><span class="s1">[] = </span><span class="s7">$entry</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">persistResponse</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$headers</span><span class="s1">[</span><span class="s9">'age'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s3">array_unshift</span><span class="s1">(</span><span class="s7">$entries</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$storedEnv</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">save</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$entries</span><span class="s1">))) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s9">'Unable to store the metadata.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$key</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns content digest for $response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">generateContentDigest</span><span class="s1">(</span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">'en'</span><span class="s1">.</span><span class="s3">hash</span><span class="s1">(</span><span class="s9">'sha256'</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Invalidates all cache entries that match the request.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">invalidate</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$modified </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$entries </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getMetadata</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$entry</span><span class="s1">) {</span>
+            <span class="s7">$response </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">restoreResponse</span><span class="s1">(</span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">isFresh</span><span class="s1">()) {</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">expire</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$modified </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s7">$entries</span><span class="s1">[] = [</span><span class="s7">$entry</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">persistResponse</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">)]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$entries</span><span class="s1">[] = </span><span class="s7">$entry</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$modified </span><span class="s1">&amp;&amp; !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">save</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$entries</span><span class="s1">))) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s9">'Unable to store the metadata.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Determines whether two Request HTTP header sets are non-varying based on</span>
+     <span class="s4">* the vary response header value provided.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $vary A Response vary header</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array       $env1 A Request HTTP header array</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array       $env2 A Request HTTP header array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">requestsMatch</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$vary</span><span class="s0">, array </span><span class="s7">$env1</span><span class="s0">, array </span><span class="s7">$env2</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$vary</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">preg_split</span><span class="s1">(</span><span class="s9">'/[\s,]+/'</span><span class="s0">, </span><span class="s7">$vary</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$header</span><span class="s1">) {</span>
+            <span class="s7">$key </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'_'</span><span class="s0">, </span><span class="s9">'-'</span><span class="s0">, </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$header</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$v1 </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$env1</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]) ? </span><span class="s7">$env1</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$v2 </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$env2</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]) ? </span><span class="s7">$env2</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$v1 </span><span class="s1">!== </span><span class="s7">$v2</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets all data associated with the given key.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Use this method only if you know what you are doing.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getMetadata</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$entries </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s7">$entries</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Purges data for the given URL.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method purges both the HTTP and the HTTPS version of the cache entry.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if the URL exists with either HTTP or HTTPS scheme and has been purged, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">purge</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$url</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$http </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s9">'#^https:#'</span><span class="s0">, </span><span class="s9">'http:'</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$https </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s9">'#^http:#'</span><span class="s0">, </span><span class="s9">'https:'</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$purgedHttp </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doPurge</span><span class="s1">(</span><span class="s7">$http</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$purgedHttps </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doPurge</span><span class="s1">(</span><span class="s7">$https</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$purgedHttp </span><span class="s1">|| </span><span class="s7">$purgedHttps</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Purges data for the given URL.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">doPurge</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$url</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s3">Request</span><span class="s1">::</span><span class="s3">create</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s3">flock</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))) {</span>
+            <span class="s3">unlink</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads data for the given key.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">load</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== (</span><span class="s7">$contents </span><span class="s1">= </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) ? </span><span class="s7">$contents </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Save data for the given key.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">save</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$data</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s7">$fp </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locks</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">@</span><span class="s3">ftruncate</span><span class="s1">(</span><span class="s7">$fp</span><span class="s0">, </span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">@</span><span class="s3">fseek</span><span class="s1">(</span><span class="s7">$fp</span><span class="s0">, </span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$len </span><span class="s1">= @</span><span class="s3">fwrite</span><span class="s1">(</span><span class="s7">$fp</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">) !== </span><span class="s7">$len</span><span class="s1">) {</span>
+                <span class="s1">@</span><span class="s3">ftruncate</span><span class="s1">(</span><span class="s7">$fp</span><span class="s0">, </span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">mkdir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_dir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$tmpFile </span><span class="s1">= </span><span class="s3">tempnam</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s3">basename</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$fp </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s0">, </span><span class="s9">'wb'</span><span class="s1">)) {</span>
+                <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s1">@</span><span class="s3">fwrite</span><span class="s1">(</span><span class="s7">$fp</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">@</span><span class="s3">fclose</span><span class="s1">(</span><span class="s7">$fp</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$data </span><span class="s1">!= </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s1">)) {</span>
+                <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)) {</span>
+                <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s1">@</span><span class="s3">chmod</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">0666 </span><span class="s1">&amp; ~</span><span class="s3">umask</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPath</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">root</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s8">2</span><span class="s1">).\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">2</span><span class="s0">, </span><span class="s8">2</span><span class="s1">).\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">4</span><span class="s0">, </span><span class="s8">2</span><span class="s1">).\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">6</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Generates a cache key for the given Request.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method should return a key that must only depend on a</span>
+     <span class="s4">* normalized version of the request URI.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If the same URI can have more than one representation, based on some</span>
+     <span class="s4">* headers, use a Vary header to indicate them, and each representation will</span>
+     <span class="s4">* be stored independently under the same cache key.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string A key for the given Request</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">generateCacheKey</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">'md'</span><span class="s1">.</span><span class="s3">hash</span><span class="s1">(</span><span class="s9">'sha256'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getUri</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a cache key for the given Request.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getCacheKey</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyCache</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyCache</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyCache</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateCacheKey</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Persists the Request HTTP headers.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">persistRequest</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Persists the Response HTTP headers.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">persistResponse</span><span class="s1">(</span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$headers</span><span class="s1">[</span><span class="s9">'X-Status'</span><span class="s1">] = [</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$headers</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Restores a Response from the HTTP headers and body.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">restoreResponse</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$headers</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$body </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$status </span><span class="s1">= </span><span class="s7">$headers</span><span class="s1">[</span><span class="s9">'X-Status'</span><span class="s1">][</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$headers</span><span class="s1">[</span><span class="s9">'X-Status'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$body</span><span class="s1">) {</span>
+            <span class="s7">$headers</span><span class="s1">[</span><span class="s9">'X-Body-File'</span><span class="s1">] = [</span><span class="s7">$body</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">Response</span><span class="s1">(</span><span class="s7">$body</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

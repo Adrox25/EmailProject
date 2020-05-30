@@ -1,0 +1,373 @@
+<html>
+<head>
+<title>Reader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #629755; font-style: italic;}
+.s3 { color: #629755; font-weight: bold; font-style: italic;}
+.s4 { color: #a9b7c6;}
+.s5 { color: #9876aa;}
+.s6 { color: #6897bb;}
+.s7 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Reader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span><hr class="ls0"><span class="s2">/**</span>
+<span class="s2">* This file is part of the League.csv library</span>
+<span class="s2">*</span>
+<span class="s2">* </span><span class="s3">@license </span><span class="s2">http://opensource.org/licenses/MIT</span>
+<span class="s2">* </span><span class="s3">@link </span><span class="s2">https://github.com/thephpleague/csv/</span>
+<span class="s2">* </span><span class="s3">@version </span><span class="s2">8.0.0</span>
+<span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+<span class="s2">*</span>
+<span class="s2">* For the full copyright and license information, please view the LICENSE</span>
+<span class="s2">* file that was distributed with this source code.</span>
+<span class="s2">*/</span>
+<span class="s0">namespace </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s4">Generator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">Iterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Modifier</span><span class="s1">\</span><span class="s4">MapIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">LimitIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">SplFileObject</span><span class="s0">;</span>
+<hr class="ls0"><span class="s2">/**</span>
+ <span class="s2">*  A class to manage extracting and filtering a CSV</span>
+ <span class="s2">*</span>
+ <span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+ <span class="s2">* </span><span class="s3">@since  </span><span class="s2">3.0.0</span>
+ <span class="s2">*</span>
+ <span class="s2">*/</span>
+<span class="s0">class </span><span class="s4">Reader </span><span class="s0">extends </span><span class="s4">AbstractCsv</span>
+<span class="s1">{</span>
+    <span class="s2">/**</span>
+     <span class="s2">* </span><span class="s3">@inheritdoc</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$stream_filter_mode </span><span class="s1">= </span><span class="s4">STREAM_FILTER_READ</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns a sequential array of all CSV lines</span>
+     <span class="s2">*</span>
+     <span class="s2">* The callable function will be applied to each Iterator item</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable|null $callable a callable function</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchAll</span><span class="s1">(</span><span class="s0">callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s4">iterator_to_array</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetch</span><span class="s1">(</span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">, </span><span class="s4">false</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Fetch the next row from a result set</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable|null $callable a callable function to be applied to each Iterator item</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Iterator</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetch</span><span class="s1">(</span><span class="s0">callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">applyCallable</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getQueryIterator</span><span class="s1">()</span><span class="s0">, </span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Apply The callable function</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">Iterator      $iterator</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable|null $callable</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Iterator</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">applyCallable</span><span class="s1">(</span><span class="s4">Iterator </span><span class="s5">$iterator</span><span class="s0">, callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">null </span><span class="s1">!== </span><span class="s5">$callable</span><span class="s1">) {</span>
+            <span class="s0">return new </span><span class="s4">MapIterator</span><span class="s1">(</span><span class="s5">$iterator</span><span class="s0">, </span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s5">$iterator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Applies a callback function on the CSV</span>
+     <span class="s2">*</span>
+     <span class="s2">* The callback function must return TRUE in order to continue</span>
+     <span class="s2">* iterating over the iterator.</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable $callable a callable function to apply to each selected CSV rows</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">int the iteration count</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">each</span><span class="s1">(</span><span class="s0">callable </span><span class="s5">$callable</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$index </span><span class="s1">= </span><span class="s6">0</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetch</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">rewind</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">valid</span><span class="s1">() &amp;&amp; </span><span class="s4">true </span><span class="s1">=== </span><span class="s4">call_user_func</span><span class="s1">(</span>
+            <span class="s5">$callable</span><span class="s0">,</span>
+            <span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">current</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">key</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s5">$iterator</span>
+        <span class="s1">)) {</span>
+            <span class="s1">++</span><span class="s5">$index</span><span class="s0">;</span>
+            <span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">next</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s5">$index</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns a single row from the CSV</span>
+     <span class="s2">*</span>
+     <span class="s2">* By default if no offset is provided the first row of the CSV is selected</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int $offset the CSV row offset</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchOne</span><span class="s1">(</span><span class="s5">$offset </span><span class="s1">= </span><span class="s6">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">setOffset</span><span class="s1">(</span><span class="s5">$offset</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">setLimit</span><span class="s1">(</span><span class="s6">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetch</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">rewind</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">(array) </span><span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">current</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the next value from a single CSV column</span>
+     <span class="s2">*</span>
+     <span class="s2">* The callable function will be applied to each value to be return</span>
+     <span class="s2">*</span>
+     <span class="s2">* By default if no column index is provided the first column of the CSV is selected</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int           $columnIndex CSV column index</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable|null $callable    A callable to be applied to each of the value to be returned.</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Iterator</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchColumn</span><span class="s1">(</span><span class="s5">$columnIndex </span><span class="s1">= </span><span class="s6">0</span><span class="s0">, callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$columnIndex </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateInteger</span><span class="s1">(</span><span class="s5">$columnIndex</span><span class="s0">, </span><span class="s6">0</span><span class="s0">, </span><span class="s7">'the column index must be a positive integer or 0'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s5">$filterColumn </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s5">$columnIndex</span><span class="s1">) {</span>
+            <span class="s0">return isset</span><span class="s1">(</span><span class="s5">$row</span><span class="s1">[</span><span class="s5">$columnIndex</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s5">$selectColumn </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s5">$columnIndex</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s5">$row</span><span class="s1">[</span><span class="s5">$columnIndex</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">addFilter</span><span class="s1">(</span><span class="s5">$filterColumn</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetch</span><span class="s1">(</span><span class="s5">$selectColumn</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">applyCallable</span><span class="s1">(</span><span class="s5">$iterator</span><span class="s0">, </span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$iterator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Retrieve CSV data as pairs</span>
+     <span class="s2">*</span>
+     <span class="s2">* Fetches an associative array of all rows as key-value pairs (first</span>
+     <span class="s2">* column is the key, second column is the value).</span>
+     <span class="s2">*</span>
+     <span class="s2">* By default if no column index is provided:</span>
+     <span class="s2">* - the first CSV column is used to provide the keys</span>
+     <span class="s2">* - the second CSV column is used to provide the value</span>
+     <span class="s2">*</span>
+     <span class="s2">* If the value from the column key index is duplicated its corresponding value will</span>
+     <span class="s2">* be overwritten</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int           $offsetIndex The column index to serve as offset</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int           $valueIndex  The column index to serve as value</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable|null $callable    A callable to be applied to each of the rows to be returned.</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchPairsWithoutDuplicates</span><span class="s1">(</span><span class="s5">$offsetIndex </span><span class="s1">= </span><span class="s6">0</span><span class="s0">, </span><span class="s5">$valueIndex </span><span class="s1">= </span><span class="s6">1</span><span class="s0">, callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s4">iterator_to_array</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetchPairs</span><span class="s1">(</span><span class="s5">$offsetIndex</span><span class="s0">, </span><span class="s5">$valueIndex</span><span class="s0">, </span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">, </span><span class="s4">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Fetches the next key-value pairs from a result set (first</span>
+     <span class="s2">* column is the key, second column is the value).</span>
+     <span class="s2">*</span>
+     <span class="s2">* By default if no column index is provided:</span>
+     <span class="s2">* - the first CSV column is used to provide the keys</span>
+     <span class="s2">* - the second CSV column is used to provide the value</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int           $offsetIndex The column index to serve as offset</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int           $valueIndex  The column index to serve as value</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable|null $callable    A callable to be applied to each of the rows to be returned.</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Generator</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchPairs</span><span class="s1">(</span><span class="s5">$offsetIndex </span><span class="s1">= </span><span class="s6">0</span><span class="s0">, </span><span class="s5">$valueIndex </span><span class="s1">= </span><span class="s6">1</span><span class="s0">, callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$offsetIndex </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateInteger</span><span class="s1">(</span><span class="s5">$offsetIndex</span><span class="s0">, </span><span class="s6">0</span><span class="s0">, </span><span class="s7">'the offset column index must be a positive integer or 0'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$valueIndex </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateInteger</span><span class="s1">(</span><span class="s5">$valueIndex</span><span class="s0">, </span><span class="s6">0</span><span class="s0">, </span><span class="s7">'the value column index must be a positive integer or 0'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$filterPairs </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s5">$offsetIndex</span><span class="s1">) {</span>
+            <span class="s0">return isset</span><span class="s1">(</span><span class="s5">$row</span><span class="s1">[</span><span class="s5">$offsetIndex</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+        <span class="s5">$selectPairs </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s5">$offsetIndex</span><span class="s0">, </span><span class="s5">$valueIndex</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[</span>
+                <span class="s5">$row</span><span class="s1">[</span><span class="s5">$offsetIndex</span><span class="s1">]</span><span class="s0">,</span>
+                <span class="s0">isset</span><span class="s1">(</span><span class="s5">$row</span><span class="s1">[</span><span class="s5">$valueIndex</span><span class="s1">]) ? </span><span class="s5">$row</span><span class="s1">[</span><span class="s5">$valueIndex</span><span class="s1">] : </span><span class="s4">null</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">addFilter</span><span class="s1">(</span><span class="s5">$filterPairs</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetch</span><span class="s1">(</span><span class="s5">$selectPairs</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">applyCallable</span><span class="s1">(</span><span class="s5">$iterator</span><span class="s0">, </span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">generatePairs</span><span class="s1">(</span><span class="s5">$iterator</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return the key/pairs as a PHP generator</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">Iterator $iterator</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Generator</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">generatePairs</span><span class="s1">(</span><span class="s4">Iterator </span><span class="s5">$iterator</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s5">$iterator </span><span class="s0">as </span><span class="s5">$row</span><span class="s1">) {</span>
+            <span class="s0">yield </span><span class="s5">$row</span><span class="s1">[</span><span class="s6">0</span><span class="s1">] =&gt; </span><span class="s5">$row</span><span class="s1">[</span><span class="s6">1</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Fetch the next row from a result set</span>
+     <span class="s2">*</span>
+     <span class="s2">* The rows are presented as associated arrays</span>
+     <span class="s2">* The callable function will be applied to each row</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int|array $offset_or_keys the name for each key member OR the row Index to be</span>
+     <span class="s2">*                                  used as the associated named keys</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">callable $callable A callable to be applied to each of the rows to be returned.</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If the submitted keys are invalid</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Iterator</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchAssoc</span><span class="s1">(</span><span class="s5">$offset_or_keys </span><span class="s1">= </span><span class="s6">0</span><span class="s0">, callable </span><span class="s5">$callable </span><span class="s1">= </span><span class="s4">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$keys </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getAssocKeys</span><span class="s1">(</span><span class="s5">$offset_or_keys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$keys_count </span><span class="s1">= </span><span class="s4">count</span><span class="s1">(</span><span class="s5">$keys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$combineArray </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s0">array </span><span class="s5">$row</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s5">$keys</span><span class="s0">, </span><span class="s5">$keys_count</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s5">$keys_count </span><span class="s1">!= </span><span class="s4">count</span><span class="s1">(</span><span class="s5">$row</span><span class="s1">)) {</span>
+                <span class="s5">$row </span><span class="s1">= </span><span class="s4">array_slice</span><span class="s1">(</span><span class="s4">array_pad</span><span class="s1">(</span><span class="s5">$row</span><span class="s0">, </span><span class="s5">$keys_count</span><span class="s0">, </span><span class="s4">null</span><span class="s1">)</span><span class="s0">, </span><span class="s6">0</span><span class="s0">, </span><span class="s5">$keys_count</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s4">array_combine</span><span class="s1">(</span><span class="s5">$keys</span><span class="s0">, </span><span class="s5">$row</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetch</span><span class="s1">(</span><span class="s5">$combineArray</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">applyCallable</span><span class="s1">(</span><span class="s5">$iterator</span><span class="s0">, </span><span class="s5">$callable</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$iterator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Selects the array to be used as key for the fetchAssoc method</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int|array $offset_or_keys the assoc key OR the row Index to be used</span>
+     <span class="s2">*                                  as the key index</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If the row index and/or the resulting array is invalid</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">getAssocKeys</span><span class="s1">(</span><span class="s5">$offset_or_keys</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">is_array</span><span class="s1">(</span><span class="s5">$offset_or_keys</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateKeys</span><span class="s1">(</span><span class="s5">$offset_or_keys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s5">$offset_or_keys </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateInteger</span><span class="s1">(</span>
+            <span class="s5">$offset_or_keys</span><span class="s0">,</span>
+            <span class="s6">0</span><span class="s0">,</span>
+            <span class="s7">'the row index must be a positive integer, 0 or a non empty array'</span>
+        <span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$keys </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateKeys</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getRow</span><span class="s1">(</span><span class="s5">$offset_or_keys</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s5">$filterOutRow </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s5">$row</span><span class="s0">, </span><span class="s5">$rowIndex</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s5">$offset_or_keys</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s5">$rowIndex </span><span class="s1">!= </span><span class="s5">$offset_or_keys</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">addFilter</span><span class="s1">(</span><span class="s5">$filterOutRow</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$keys</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Validates the array to be used by the fetchAssoc method</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">array $keys</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If the submitted array fails the assertion</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">validateKeys</span><span class="s1">(</span><span class="s0">array </span><span class="s5">$keys</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s5">$keys</span><span class="s1">) || </span><span class="s5">$keys </span><span class="s1">!== </span><span class="s4">array_unique</span><span class="s1">(</span><span class="s4">array_filter</span><span class="s1">(</span><span class="s5">$keys</span><span class="s0">, </span><span class="s1">[</span><span class="s5">$this</span><span class="s0">, </span><span class="s7">'isValidKey'</span><span class="s1">]))) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s7">'Use a flat array with unique string values'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s5">$keys</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns whether the submitted value can be used as string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">mixed $value</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">bool</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">isValidKey</span><span class="s1">(</span><span class="s5">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s4">is_scalar</span><span class="s1">(</span><span class="s5">$value</span><span class="s1">) || (</span><span class="s4">is_object</span><span class="s1">(</span><span class="s5">$value</span><span class="s1">) &amp;&amp; </span><span class="s4">method_exists</span><span class="s1">(</span><span class="s5">$value</span><span class="s0">, </span><span class="s7">'__toString'</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns a single row from the CSV without filtering</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int $offset</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If the $offset is not valid or the row does not exist</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">getRow</span><span class="s1">(</span><span class="s5">$offset</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$fileObj </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getIterator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$fileObj</span><span class="s1">-&gt;</span><span class="s4">setFlags</span><span class="s1">(</span><span class="s4">SplFileObject</span><span class="s1">::</span><span class="s4">READ_AHEAD </span><span class="s1">| </span><span class="s4">SplFileObject</span><span class="s1">::</span><span class="s4">SKIP_EMPTY</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s4">LimitIterator</span><span class="s1">(</span><span class="s5">$fileObj</span><span class="s0">, </span><span class="s5">$offset</span><span class="s0">, </span><span class="s6">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">rewind</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$line </span><span class="s1">= </span><span class="s5">$iterator</span><span class="s1">-&gt;</span><span class="s4">current</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s5">$line</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s7">'the specified row does not exist or is empty'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">0 </span><span class="s1">=== </span><span class="s5">$offset </span><span class="s1">&amp;&amp; </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">isBomStrippable</span><span class="s1">()) {</span>
+            <span class="s5">$line </span><span class="s1">= </span><span class="s4">mb_substr</span><span class="s1">(</span><span class="s5">$line</span><span class="s0">, </span><span class="s4">mb_strlen</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getInputBom</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s4">str_getcsv</span><span class="s1">(</span><span class="s5">$line</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">delimiter</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">enclosure</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">escape</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

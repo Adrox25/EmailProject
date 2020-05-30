@@ -1,0 +1,212 @@
+<html>
+<head>
+<title>MongoDbSessionHandler.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+MongoDbSessionHandler.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">Storage</span><span class="s1">\</span><span class="s3">Handler</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Session handler using the mongodb/mongodb package and MongoDB driver extension.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Markus Bachmann </span><span class="s6">&lt;markus.bachmann</span><span class="s4">@bachi.biz&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://packagist.org/packages/mongodb/mongodb</span>
+ <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://php.net/mongodb</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">MongoDbSessionHandler </span><span class="s0">extends </span><span class="s3">AbstractSessionHandler</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$mongo</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">\MongoDB\Collection</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$collection</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$options</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Constructor.</span>
+     <span class="s4">*</span>
+     <span class="s4">* List of available options:</span>
+     <span class="s4">*  * database: The name of the database [required]</span>
+     <span class="s4">*  * collection: The name of the collection [required]</span>
+     <span class="s4">*  * id_field: The field name for storing the session id [default: _id]</span>
+     <span class="s4">*  * data_field: The field name for storing the session data [default: data]</span>
+     <span class="s4">*  * time_field: The field name for storing the timestamp [default: time]</span>
+     <span class="s4">*  * expiry_field: The field name for storing the expiry-timestamp [default: expires_at].</span>
+     <span class="s4">*</span>
+     <span class="s4">* It is strongly recommended to put an index on the `expiry_field` for</span>
+     <span class="s4">* garbage-collection. Alternatively it's possible to automatically expire</span>
+     <span class="s4">* the sessions in the database as described below:</span>
+     <span class="s4">*</span>
+     <span class="s4">* A TTL collections can be used on MongoDB 2.2+ to cleanup expired sessions</span>
+     <span class="s4">* automatically. Such an index can for example look like this:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     db.</span><span class="s6">&lt;session-collection&gt;</span><span class="s4">.ensureIndex(</span>
+     <span class="s4">*         { &quot;</span><span class="s6">&lt;expiry-field&gt;</span><span class="s4">&quot;: 1 },</span>
+     <span class="s4">*         { &quot;expireAfterSeconds&quot;: 0 }</span>
+     <span class="s4">*     )</span>
+     <span class="s4">*</span>
+     <span class="s4">* More details on: https://docs.mongodb.org/manual/tutorial/expire-data/</span>
+     <span class="s4">*</span>
+     <span class="s4">* If you use such an index, you can drop `gc_probability` to 0 since</span>
+     <span class="s4">* no garbage-collection is required.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When &quot;database&quot; or &quot;collection&quot; not provided</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">Client </span><span class="s7">$mongo</span><span class="s0">, array </span><span class="s7">$options</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'database'</span><span class="s1">]) || !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'collection'</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'You must provide the &quot;database&quot; and &quot;collection&quot; option for MongoDBSessionHandler.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mongo </span><span class="s1">= </span><span class="s7">$mongo</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">([</span>
+            <span class="s8">'id_field' </span><span class="s1">=&gt; </span><span class="s8">'_id'</span><span class="s0">,</span>
+            <span class="s8">'data_field' </span><span class="s1">=&gt; </span><span class="s8">'data'</span><span class="s0">,</span>
+            <span class="s8">'time_field' </span><span class="s1">=&gt; </span><span class="s8">'time'</span><span class="s0">,</span>
+            <span class="s8">'expiry_field' </span><span class="s1">=&gt; </span><span class="s8">'expires_at'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">close</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDestroy</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCollection</span><span class="s1">()-&gt;</span><span class="s3">deleteOne</span><span class="s1">([</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'id_field'</span><span class="s1">] =&gt; </span><span class="s7">$sessionId</span><span class="s0">,</span>
+        <span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">gc</span><span class="s1">(</span><span class="s7">$maxlifetime</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCollection</span><span class="s1">()-&gt;</span><span class="s3">deleteMany</span><span class="s1">([</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'expiry_field'</span><span class="s1">] =&gt; [</span><span class="s8">'$lt' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">UTCDateTime</span><span class="s1">()]</span><span class="s0">,</span>
+        <span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doWrite</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$data</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$expiry </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">UTCDateTime</span><span class="s1">((</span><span class="s3">time</span><span class="s1">() + (int) </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.gc_maxlifetime'</span><span class="s1">)) * </span><span class="s9">1000</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$fields </span><span class="s1">= [</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'time_field'</span><span class="s1">] =&gt; </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">UTCDateTime</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'expiry_field'</span><span class="s1">] =&gt; </span><span class="s7">$expiry</span><span class="s0">,</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'data_field'</span><span class="s1">] =&gt; </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">Binary</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">Binary</span><span class="s1">::</span><span class="s3">TYPE_OLD_BINARY</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCollection</span><span class="s1">()-&gt;</span><span class="s3">updateOne</span><span class="s1">(</span>
+            <span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'id_field'</span><span class="s1">] =&gt; </span><span class="s7">$sessionId</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s1">[</span><span class="s8">'$set' </span><span class="s1">=&gt; </span><span class="s7">$fields</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s1">[</span><span class="s8">'upsert' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">]</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">updateTimestamp</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$expiry </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">UTCDateTime</span><span class="s1">((</span><span class="s3">time</span><span class="s1">() + (int) </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.gc_maxlifetime'</span><span class="s1">)) * </span><span class="s9">1000</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCollection</span><span class="s1">()-&gt;</span><span class="s3">updateOne</span><span class="s1">(</span>
+            <span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'id_field'</span><span class="s1">] =&gt; </span><span class="s7">$sessionId</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s1">[</span><span class="s8">'$set' </span><span class="s1">=&gt; [</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'time_field'</span><span class="s1">] =&gt; </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">UTCDateTime</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'expiry_field'</span><span class="s1">] =&gt; </span><span class="s7">$expiry</span><span class="s0">,</span>
+            <span class="s1">]]</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doRead</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$dbData </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCollection</span><span class="s1">()-&gt;</span><span class="s3">findOne</span><span class="s1">([</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'id_field'</span><span class="s1">] =&gt; </span><span class="s7">$sessionId</span><span class="s0">,</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'expiry_field'</span><span class="s1">] =&gt; [</span><span class="s8">'$gte' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s1">\</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">BSON</span><span class="s1">\</span><span class="s3">UTCDateTime</span><span class="s1">()]</span><span class="s0">,</span>
+        <span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$dbData</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dbData</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'data_field'</span><span class="s1">]]-&gt;</span><span class="s3">getData</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getCollection</span><span class="s1">(): \</span><span class="s3">MongoDB</span><span class="s1">\</span><span class="s3">Collection</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collection</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collection </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mongo</span><span class="s1">-&gt;</span><span class="s3">selectCollection</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'database'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'collection'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collection</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\MongoDB\Client</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getMongo</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mongo</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

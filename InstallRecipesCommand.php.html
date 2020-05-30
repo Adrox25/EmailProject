@@ -1,0 +1,195 @@
+<html>
+<head>
+<title>InstallRecipesCommand.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #9876aa;}
+.s5 { color: #6a8759;}
+.s6 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+InstallRecipesCommand.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">BaseCommand</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">DependencyResolver</span><span class="s1">\</span><span class="s3">Operation</span><span class="s1">\</span><span class="s3">InstallOperation</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Factory</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputOption</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">UpdateEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Lock</span><span class="s0">;</span>
+<hr class="ls0"><span class="s0">class </span><span class="s3">InstallRecipesCommand </span><span class="s0">extends </span><span class="s3">BaseCommand</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s4">$flex</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$rootDir</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s2">/* cannot be type-hinted */ </span><span class="s4">$flex</span><span class="s0">, </span><span class="s3">string </span><span class="s4">$rootDir</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">flex </span><span class="s1">= </span><span class="s4">$flex</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir </span><span class="s1">= </span><span class="s4">$rootDir</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">setName</span><span class="s1">(</span><span class="s5">'symfony:recipes:install'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setAliases</span><span class="s1">([</span><span class="s5">'recipes:install'</span><span class="s0">, </span><span class="s5">'symfony:sync-recipes'</span><span class="s0">, </span><span class="s5">'sync-recipes'</span><span class="s0">, </span><span class="s5">'fix-recipes'</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">setDescription</span><span class="s1">(</span><span class="s5">'Installs or reinstalls recipes for already installed packages.'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">addArgument</span><span class="s1">(</span><span class="s5">'packages'</span><span class="s0">, </span><span class="s3">InputArgument</span><span class="s1">::</span><span class="s3">IS_ARRAY </span><span class="s1">| </span><span class="s3">InputArgument</span><span class="s1">::</span><span class="s3">OPTIONAL</span><span class="s0">, </span><span class="s5">'Recipes that should be installed.'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">addOption</span><span class="s1">(</span><span class="s5">'force'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_NONE</span><span class="s0">, </span><span class="s5">'Ignore the &quot;symfony.lock&quot; file and overwrite existing files'</span><span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s4">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s4">$output</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s4">$win </span><span class="s1">= </span><span class="s5">'</span><span class="s0">\\</span><span class="s5">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+        <span class="s4">$force </span><span class="s1">= </span><span class="s4">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s5">'force'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$force </span><span class="s1">&amp;&amp; !@</span><span class="s3">is_executable</span><span class="s1">(</span><span class="s3">strtok</span><span class="s1">(</span><span class="s3">exec</span><span class="s1">(</span><span class="s4">$win </span><span class="s1">? </span><span class="s5">'where git' </span><span class="s1">: </span><span class="s5">'command -v git'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">PHP_EOL</span><span class="s1">))) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s5">'Cannot run &quot;sync-recipes --force&quot;: git not found.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$symfonyLock </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Lock</span><span class="s1">(</span><span class="s3">getenv</span><span class="s1">(</span><span class="s5">'SYMFONY_LOCKFILE'</span><span class="s1">) ?: </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s5">'composer.json'</span><span class="s0">, </span><span class="s5">'symfony.lock'</span><span class="s0">, </span><span class="s3">Factory</span><span class="s1">::</span><span class="s3">getComposerFile</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s4">$composer </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getComposer</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">$locker </span><span class="s1">= </span><span class="s4">$composer</span><span class="s1">-&gt;</span><span class="s3">getLocker</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">$lockData </span><span class="s1">= </span><span class="s4">$locker</span><span class="s1">-&gt;</span><span class="s3">getLockData</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s4">$packages </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s4">$totalPackages </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$lockData</span><span class="s1">[</span><span class="s5">'packages'</span><span class="s1">] </span><span class="s0">as </span><span class="s4">$pkg</span><span class="s1">) {</span>
+            <span class="s4">$totalPackages</span><span class="s1">[] = </span><span class="s4">$pkg</span><span class="s1">[</span><span class="s5">'name'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$force </span><span class="s1">|| !</span><span class="s4">$symfonyLock</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s4">$pkg</span><span class="s1">[</span><span class="s5">'name'</span><span class="s1">])) {</span>
+                <span class="s4">$packages</span><span class="s1">[] = </span><span class="s4">$pkg</span><span class="s1">[</span><span class="s5">'name'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$lockData</span><span class="s1">[</span><span class="s5">'packages-dev'</span><span class="s1">] </span><span class="s0">as </span><span class="s4">$pkg</span><span class="s1">) {</span>
+            <span class="s4">$totalPackages</span><span class="s1">[] = </span><span class="s4">$pkg</span><span class="s1">[</span><span class="s5">'name'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$force </span><span class="s1">|| !</span><span class="s4">$symfonyLock</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s4">$pkg</span><span class="s1">[</span><span class="s5">'name'</span><span class="s1">])) {</span>
+                <span class="s4">$packages</span><span class="s1">[] = </span><span class="s4">$pkg</span><span class="s1">[</span><span class="s5">'name'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$io </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getIO</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+            <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">([</span>
+                <span class="s5">'Run command with &lt;info&gt;-v&lt;/info&gt; to see more details'</span><span class="s0">,</span>
+                <span class="s5">''</span><span class="s0">,</span>
+            <span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$targetPackages </span><span class="s1">= </span><span class="s4">$input</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s5">'packages'</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$invalidPackages </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s4">$targetPackages</span><span class="s0">, </span><span class="s4">$totalPackages</span><span class="s1">)) {</span>
+                <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s5">'&lt;warning&gt;Cannot update: some packages are not installed:&lt;/warning&gt; %s'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s5">', '</span><span class="s0">, </span><span class="s4">$invalidPackages</span><span class="s1">)))</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s6">1</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$packagesRequiringForce </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s4">$targetPackages</span><span class="s0">, </span><span class="s4">$packages</span><span class="s1">)) {</span>
+                <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s5">'Recipe(s) already installed for: &lt;info&gt;%s&lt;/info&gt;'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s5">', '</span><span class="s0">, </span><span class="s4">$packagesRequiringForce</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s5">'Re-run the command with &lt;info&gt;--force&lt;/info&gt; to re-install the recipes.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s5">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s4">$packages </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s4">$targetPackages</span><span class="s0">, </span><span class="s4">$packagesRequiringForce</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">$packages</span><span class="s1">) {</span>
+            <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s5">'No recipes to install.'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s6">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$composer </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getComposer</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">$installedRepo </span><span class="s1">= </span><span class="s4">$composer</span><span class="s1">-&gt;</span><span class="s3">getRepositoryManager</span><span class="s1">()-&gt;</span><span class="s3">getLocalRepository</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s4">$operations </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$packages </span><span class="s0">as </span><span class="s4">$package</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$pkg </span><span class="s1">= </span><span class="s4">$installedRepo</span><span class="s1">-&gt;</span><span class="s3">findPackage</span><span class="s1">(</span><span class="s4">$package</span><span class="s0">, </span><span class="s5">'*'</span><span class="s1">)) {</span>
+                <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s5">'&lt;error&gt;Package %s is not installed&lt;/&gt;'</span><span class="s0">, </span><span class="s4">$package</span><span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s6">1</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s4">$operations</span><span class="s1">[] = </span><span class="s0">new </span><span class="s3">InstallOperation</span><span class="s1">(</span><span class="s4">$pkg</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$createEnvLocal </span><span class="s1">= </span><span class="s4">$force </span><span class="s1">&amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/.env'</span><span class="s1">) &amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/.env.dist'</span><span class="s1">) &amp;&amp; !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/.env.local'</span><span class="s1">)) {</span>
+            <span class="s3">rename</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/.env'</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/.env.local'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$pipes </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s3">proc_close</span><span class="s1">(</span><span class="s3">proc_open</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s5">'git mv .env.dist .env &gt; %s 2&gt;&amp;1 || %s .env.dist .env'</span><span class="s0">, </span><span class="s4">$win </span><span class="s1">? </span><span class="s5">'NUL' </span><span class="s1">: </span><span class="s5">'/dev/null'</span><span class="s0">, </span><span class="s4">$win </span><span class="s1">? </span><span class="s5">'rename' </span><span class="s1">: </span><span class="s5">'mv'</span><span class="s1">)</span><span class="s0">, </span><span class="s4">$pipes</span><span class="s0">, </span><span class="s4">$pipes</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/phpunit.xml.dist'</span><span class="s1">)) {</span>
+                <span class="s3">touch</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/.env.test'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">flex</span><span class="s1">-&gt;</span><span class="s3">update</span><span class="s1">(</span><span class="s0">new </span><span class="s3">UpdateEvent</span><span class="s1">(</span><span class="s4">$force</span><span class="s1">)</span><span class="s0">, </span><span class="s4">$operations</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$force</span><span class="s1">) {</span>
+            <span class="s4">$output </span><span class="s1">= [</span>
+                <span class="s5">''</span><span class="s0">,</span>
+                <span class="s5">'&lt;bg=blue;fg=white&gt;                                                            &lt;/&gt;'</span><span class="s0">,</span>
+                <span class="s5">'&lt;bg=blue;fg=white&gt; Files have been reset to the latest version of the recipe. &lt;/&gt;'</span><span class="s0">,</span>
+                <span class="s5">'&lt;bg=blue;fg=white&gt;                                                            &lt;/&gt;'</span><span class="s0">,</span>
+                <span class="s5">''</span><span class="s0">,</span>
+                <span class="s5">'  * Use &lt;comment&gt;git diff&lt;/&gt; to inspect the changes.'</span><span class="s0">,</span>
+                <span class="s5">''</span><span class="s0">,</span>
+                <span class="s5">'    Not all of the changes will be relevant to your app: you now'</span><span class="s0">,</span>
+                <span class="s5">'    need to selectively add or revert them using e.g. a combination'</span><span class="s0">,</span>
+                <span class="s5">'    of &lt;comment&gt;git add -p&lt;/&gt; and &lt;comment&gt;git checkout -p&lt;/&gt;'</span><span class="s0">,</span>
+                <span class="s5">''</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$createEnvLocal</span><span class="s1">) {</span>
+                <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'    Dotenv files have been renamed: .env -&gt; .env.local and .env.dist -&gt; .env'</span><span class="s0">;</span>
+                <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'    See https://symfony.com/doc/current/configuration/dot-env-changes.html'</span><span class="s0">;</span>
+                <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">''</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'  * Use &lt;comment&gt;git checkout .&lt;/&gt; to revert the changes.'</span><span class="s0">;</span>
+            <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">''</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$createEnvLocal</span><span class="s1">) {</span>
+                <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'    To revert the changes made to .env files, run'</span><span class="s0">;</span>
+                <span class="s4">$output</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s5">'    &lt;comment&gt;git mv %s.env %1$s.env.dist&lt;/&gt; &amp;&amp; &lt;comment&gt;%s %1$s.env.local %1$s.env&lt;/&gt;'</span><span class="s0">, </span><span class="s5">'.' </span><span class="s1">!== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir </span><span class="s1">? </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">rootDir</span><span class="s1">.</span><span class="s5">'/' </span><span class="s1">: </span><span class="s5">''</span><span class="s0">, </span><span class="s4">$win </span><span class="s1">? </span><span class="s5">'rename' </span><span class="s1">: </span><span class="s5">'mv'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">''</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'    New (untracked) files can be inspected using &lt;comment&gt;git clean --dry-run&lt;/&gt;'</span><span class="s0">;</span>
+            <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'    Add the new files you want to keep using &lt;comment&gt;git add&lt;/&gt;'</span><span class="s0">;</span>
+            <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">'    then delete the rest using &lt;comment&gt;git clean --force&lt;/&gt;'</span><span class="s0">;</span>
+            <span class="s4">$output</span><span class="s1">[] = </span><span class="s5">''</span><span class="s0">;</span>
+
+            <span class="s4">$io</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s4">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s6">0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

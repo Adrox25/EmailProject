@@ -1,0 +1,127 @@
+<html>
+<head>
+<title>UriSigner.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+UriSigner.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Signs URIs.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">UriSigner</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$secret</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$parameter</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $secret    A secret</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $parameter Query string parameter to use</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$secret</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$parameter </span><span class="s1">= </span><span class="s8">'_hash'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">secret </span><span class="s1">= </span><span class="s7">$secret</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameter </span><span class="s1">= </span><span class="s7">$parameter</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Signs a URI.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The given URI is signed by adding the query string parameter</span>
+     <span class="s4">* which value depends on the URI and the secret.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The signed URI</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sign</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$uri</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$url </span><span class="s1">= </span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$uri</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">])) {</span>
+            <span class="s3">parse_str</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$params </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$uri </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">buildUrl</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$params</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameter</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">computeHash</span><span class="s1">(</span><span class="s7">$uri</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">buildUrl</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks that a URI contains the correct hash.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool True if the URI is signed correctly, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">check</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$uri</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$url </span><span class="s1">= </span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$uri</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">])) {</span>
+            <span class="s3">parse_str</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$params </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameter</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$hash </span><span class="s1">= </span><span class="s7">$params</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameter</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameter</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">hash_equals</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">computeHash</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">buildUrl</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">))</span><span class="s0">, </span><span class="s7">$hash</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">computeHash</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$uri</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">base64_encode</span><span class="s1">(</span><span class="s3">hash_hmac</span><span class="s1">(</span><span class="s8">'sha256'</span><span class="s0">, </span><span class="s7">$uri</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">secret</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">buildUrl</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$url</span><span class="s0">, array </span><span class="s7">$params </span><span class="s1">= []): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s3">ksort</span><span class="s1">(</span><span class="s7">$params</span><span class="s0">, </span><span class="s3">SORT_STRING</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">] = </span><span class="s3">http_build_query</span><span class="s1">(</span><span class="s7">$params</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s8">'&amp;'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$scheme </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'scheme'</span><span class="s1">]) ? </span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'scheme'</span><span class="s1">].</span><span class="s8">'://' </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$host </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'host'</span><span class="s1">]) ? </span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'host'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$port </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'port'</span><span class="s1">]) ? </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'port'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$user </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'user'</span><span class="s1">]) ? </span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'user'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$pass </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'pass'</span><span class="s1">]) ? </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'pass'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$pass </span><span class="s1">= (</span><span class="s7">$user </span><span class="s1">|| </span><span class="s7">$pass</span><span class="s1">) ? </span><span class="s8">&quot;</span><span class="s7">$pass</span><span class="s8">@&quot; </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">]) ? </span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$query </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">] ? </span><span class="s8">'?'</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'query'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$fragment </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'fragment'</span><span class="s1">]) ? </span><span class="s8">'#'</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">[</span><span class="s8">'fragment'</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$scheme</span><span class="s1">.</span><span class="s7">$user</span><span class="s1">.</span><span class="s7">$pass</span><span class="s1">.</span><span class="s7">$host</span><span class="s1">.</span><span class="s7">$port</span><span class="s1">.</span><span class="s7">$path</span><span class="s1">.</span><span class="s7">$query</span><span class="s1">.</span><span class="s7">$fragment</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

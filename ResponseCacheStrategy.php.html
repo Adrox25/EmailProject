@@ -1,0 +1,238 @@
+<html>
+<head>
+<title>ResponseCacheStrategy.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ResponseCacheStrategy.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpCache</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* ResponseCacheStrategy knows how to compute the Response cache HTTP header</span>
+ <span class="s4">* based on the different response cache headers.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This implementation changes the master response TTL to the smallest TTL received</span>
+ <span class="s4">* or force validation if one of the surrogates has validation cache strategy.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ResponseCacheStrategy </span><span class="s0">implements </span><span class="s3">ResponseCacheStrategyInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Cache-Control headers that are sent to the final response if they appear in ANY of the responses.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static </span><span class="s7">$overrideDirectives </span><span class="s1">= [</span><span class="s8">'private'</span><span class="s0">, </span><span class="s8">'no-cache'</span><span class="s0">, </span><span class="s8">'no-store'</span><span class="s0">, </span><span class="s8">'no-transform'</span><span class="s0">, </span><span class="s8">'must-revalidate'</span><span class="s0">, </span><span class="s8">'proxy-revalidate'</span><span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Cache-Control headers that are sent to the final response if they appear in ALL of the responses.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static </span><span class="s7">$inheritDirectives </span><span class="s1">= [</span><span class="s8">'public'</span><span class="s0">, </span><span class="s8">'immutable'</span><span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$embeddedResponses </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$isNotCacheableResponseEmbedded </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$age </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$flagDirectives </span><span class="s1">= [</span>
+        <span class="s8">'no-cache' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'no-store' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'no-transform' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'must-revalidate' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'proxy-revalidate' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'private' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'immutable' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$ageDirectives </span><span class="s1">= [</span>
+        <span class="s8">'max-age' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'s-maxage' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'expires' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">add</span><span class="s1">(</span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s1">++</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">embeddedResponses</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$overrideDirectives </span><span class="s0">as </span><span class="s7">$directive</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s7">$directive</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flagDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$inheritDirectives </span><span class="s0">as </span><span class="s7">$directive</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flagDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">]) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flagDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">] = </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s7">$directive</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$age </span><span class="s1">= </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getAge</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">age </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">age</span><span class="s0">, </span><span class="s7">$age</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">willMakeFinalResponseUncacheable</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isNotCacheableResponseEmbedded </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">storeRelativeAgeDirective</span><span class="s1">(</span><span class="s8">'max-age'</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s8">'max-age'</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$age</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">storeRelativeAgeDirective</span><span class="s1">(</span><span class="s8">'s-maxage'</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s8">'s-maxage'</span><span class="s1">) ?: </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s8">'max-age'</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$age</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$expires </span><span class="s1">= </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getExpires</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$expires </span><span class="s1">= </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$expires </span><span class="s1">? (int) </span><span class="s7">$expires</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s8">'U'</span><span class="s1">) - (int) </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">()-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s8">'U'</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">storeRelativeAgeDirective</span><span class="s1">(</span><span class="s8">'expires'</span><span class="s0">, </span><span class="s7">$expires </span><span class="s1">&gt;= </span><span class="s9">0 </span><span class="s1">? </span><span class="s7">$expires </span><span class="s1">: </span><span class="s3">null</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">update</span><span class="s1">(</span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// if we have no embedded Response, do nothing</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">embeddedResponses</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Remove validation related headers of the master response,</span>
+        <span class="s2">// because some of the response content comes from at least</span>
+        <span class="s2">// one embedded response (which likely has a different caching strategy).</span>
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setEtag</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setLastModified</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'Age'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">age</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isNotCacheableResponseEmbedded</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flagDirectives</span><span class="s1">[</span><span class="s8">'no-store'</span><span class="s1">]) {</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'Cache-Control'</span><span class="s0">, </span><span class="s8">'no-cache, no-store, must-revalidate'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'Cache-Control'</span><span class="s0">, </span><span class="s8">'no-cache, must-revalidate'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$flags </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flagDirectives</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$flags</span><span class="s1">[</span><span class="s8">'must-revalidate'</span><span class="s1">])) {</span>
+            <span class="s7">$flags</span><span class="s1">[</span><span class="s8">'no-cache'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'Cache-Control'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$flags</span><span class="s1">)))</span><span class="s0">;</span>
+
+        <span class="s7">$maxAge </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s8">'max-age'</span><span class="s1">])) {</span>
+            <span class="s7">$maxAge </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s8">'max-age'</span><span class="s1">] + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">age</span><span class="s0">;</span>
+            <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s8">'max-age'</span><span class="s0">, </span><span class="s7">$maxAge</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s8">'s-maxage'</span><span class="s1">])) {</span>
+            <span class="s7">$sMaxage </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s8">'s-maxage'</span><span class="s1">] + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">age</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$maxAge </span><span class="s1">!== </span><span class="s7">$sMaxage</span><span class="s1">) {</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s8">'s-maxage'</span><span class="s0">, </span><span class="s7">$sMaxage</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s8">'expires'</span><span class="s1">])) {</span>
+            <span class="s7">$date </span><span class="s1">= </span><span class="s0">clone </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$date</span><span class="s1">-&gt;</span><span class="s3">modify</span><span class="s1">(</span><span class="s8">'+'</span><span class="s1">.(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s8">'expires'</span><span class="s1">] + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">age</span><span class="s1">).</span><span class="s8">' seconds'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setExpires</span><span class="s1">(</span><span class="s7">$date</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* RFC2616, Section 13.4.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.4</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">willMakeFinalResponseUncacheable</span><span class="s1">(</span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s2">// RFC2616: A response received with a status code of 200, 203, 300, 301 or 410</span>
+        <span class="s2">// MAY be stored by a cache […] unless a cache-control directive prohibits caching.</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s8">'no-cache'</span><span class="s1">)</span>
+            <span class="s1">|| </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s8">'no-store'</span><span class="s1">)</span>
+        <span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Last-Modified and Etag headers cannot be merged, they render the response uncacheable</span>
+        <span class="s2">// by default (except if the response also has max-age etc.).</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[</span><span class="s9">200</span><span class="s0">, </span><span class="s9">203</span><span class="s0">, </span><span class="s9">300</span><span class="s0">, </span><span class="s9">301</span><span class="s0">, </span><span class="s9">410</span><span class="s1">])</span>
+            <span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getLastModified</span><span class="s1">()</span>
+            <span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getEtag</span><span class="s1">()</span>
+        <span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// RFC2616: A response received with any other status code (e.g. status codes 302 and 307)</span>
+        <span class="s2">// MUST NOT be returned in a reply to a subsequent request unless there are</span>
+        <span class="s2">// cache-control directives or another header(s) that explicitly allow it.</span>
+        <span class="s7">$cacheControl </span><span class="s1">= [</span><span class="s8">'max-age'</span><span class="s0">, </span><span class="s8">'s-maxage'</span><span class="s0">, </span><span class="s8">'must-revalidate'</span><span class="s0">, </span><span class="s8">'proxy-revalidate'</span><span class="s0">, </span><span class="s8">'public'</span><span class="s0">, </span><span class="s8">'private'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$cacheControl </span><span class="s0">as </span><span class="s7">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'Expires'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Store lowest max-age/s-maxage/expires for the final response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The response might have been stored in cache a while ago. To keep things comparable,</span>
+     <span class="s4">* we have to subtract the age so that the value is normalized for an age of 0.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If the value is lower than the currently stored value, we update the value, to keep a rolling</span>
+     <span class="s4">* minimal value of each instruction. If the value is NULL, the directive will not be set on the final response.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">storeRelativeAgeDirective</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$directive</span><span class="s0">, </span><span class="s1">?</span><span class="s3">int </span><span class="s7">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$age</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">]) {</span>
+            <span class="s7">$value </span><span class="s1">-= </span><span class="s7">$age</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">] = </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">] ? </span><span class="s3">min</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ageDirectives</span><span class="s1">[</span><span class="s7">$directive</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">) : </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

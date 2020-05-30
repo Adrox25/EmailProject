@@ -1,0 +1,112 @@
+<html>
+<head>
+<title>SerializerErrorRenderer.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SerializerErrorRenderer.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorRenderer</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FlattenException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Serializer</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NotEncodableValueException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Serializer</span><span class="s1">\</span><span class="s3">SerializerInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Formats an exception using Serializer for rendering.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">SerializerErrorRenderer </span><span class="s0">implements </span><span class="s3">ErrorRendererInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$serializer</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$format</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fallbackErrorRenderer</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$debug</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|callable(FlattenException) $format The format as a string or a callable that should return it</span>
+     <span class="s4">*                                                  formats not supported by Request::getMimeTypes() should be given as mime types</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool|callable                     $debug  The debugging mode as a boolean or a callable that should return it</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">SerializerInterface </span><span class="s7">$serializer</span><span class="s0">, </span><span class="s7">$format</span><span class="s0">, </span><span class="s3">ErrorRendererInterface </span><span class="s7">$fallbackErrorRenderer </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$debug </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">) &amp;&amp; !\</span><span class="s3">is_callable</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">TypeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Argument 2 passed to &quot;%s()&quot; must be a string or a callable, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s3">__METHOD__</span><span class="s0">, </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_bool</span><span class="s1">(</span><span class="s7">$debug</span><span class="s1">) &amp;&amp; !\</span><span class="s3">is_callable</span><span class="s1">(</span><span class="s7">$debug</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">TypeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Argument 4 passed to &quot;%s()&quot; must be a boolean or a callable, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s3">__METHOD__</span><span class="s0">, </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$debug</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$debug</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$debug</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">serializer </span><span class="s1">= </span><span class="s7">$serializer</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s7">$format</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackErrorRenderer </span><span class="s1">= </span><span class="s7">$fallbackErrorRenderer </span><span class="s1">?? </span><span class="s0">new </span><span class="s3">HtmlErrorRenderer</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">= </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">render</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$exception</span><span class="s1">): </span><span class="s3">FlattenException</span>
+    <span class="s1">{</span>
+        <span class="s7">$flattenException </span><span class="s1">= </span><span class="s3">FlattenException</span><span class="s1">::</span><span class="s3">createFromThrowable</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$format </span><span class="s1">= \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">: (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">)(</span><span class="s7">$flattenException</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$headers </span><span class="s1">= [</span>
+                <span class="s8">'Content-Type' </span><span class="s1">=&gt; </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">getMimeTypes</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">)[</span><span class="s9">0</span><span class="s1">] ?? </span><span class="s7">$format</span><span class="s0">,</span>
+                <span class="s8">'Vary' </span><span class="s1">=&gt; </span><span class="s8">'Accept'</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$flattenException</span><span class="s1">-&gt;</span><span class="s3">setAsString</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">serializer</span><span class="s1">-&gt;</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$flattenException</span><span class="s0">, </span><span class="s7">$format</span><span class="s0">, </span><span class="s1">[</span>
+                <span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$exception</span><span class="s0">,</span>
+                <span class="s8">'debug' </span><span class="s1">=&gt; \</span><span class="s3">is_bool</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">: (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">)(</span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s1">]))</span>
+            <span class="s1">-&gt;</span><span class="s3">setHeaders</span><span class="s1">(</span><span class="s7">$flattenException</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">() + </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">NotEncodableValueException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fallbackErrorRenderer</span><span class="s1">-&gt;</span><span class="s3">render</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getPreferredFormat</span><span class="s1">(</span><span class="s3">RequestStack </span><span class="s7">$requestStack</span><span class="s1">): \</span><span class="s3">Closure</span>
+    <span class="s1">{</span>
+        <span class="s0">return static function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$requestStack</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$request </span><span class="s1">= </span><span class="s7">$requestStack</span><span class="s1">-&gt;</span><span class="s3">getCurrentRequest</span><span class="s1">()) {</span>
+                <span class="s0">throw new </span><span class="s3">NotEncodableValueException</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPreferredFormat</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

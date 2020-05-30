@@ -1,0 +1,200 @@
+<html>
+<head>
+<title>RouterListener.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RouterListener.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ExceptionEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">FinishRequestEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">RequestEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">BadRequestHttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">MethodNotAllowedHttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NotFoundHttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Kernel</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">MethodNotAllowedException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NoConfigurationException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ResourceNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Matcher</span><span class="s1">\</span><span class="s3">RequestMatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Matcher</span><span class="s1">\</span><span class="s3">UrlMatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RequestContext</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RequestContextAwareInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Initializes the context from the request and sets request attributes based on a matching route.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Yonel Ceruto </span><span class="s6">&lt;yonelceruto</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RouterListener </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$matcher</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$context</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$logger</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$projectDir</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$debug</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">UrlMatcherInterface|RequestMatcherInterface $matcher    The Url or Request matcher</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">RequestContext|null                         $context    The RequestContext (can be null when $matcher implements RequestContextAwareInterface)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string                                      $projectDir</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$matcher</span><span class="s0">, </span><span class="s3">RequestStack </span><span class="s7">$requestStack</span><span class="s0">, </span><span class="s3">RequestContext </span><span class="s7">$context </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">LoggerInterface </span><span class="s7">$logger </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$projectDir </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$debug </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$matcher </span><span class="s0">instanceof </span><span class="s3">UrlMatcherInterface </span><span class="s1">&amp;&amp; !</span><span class="s7">$matcher </span><span class="s0">instanceof </span><span class="s3">RequestMatcherInterface</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Matcher must either implement UrlMatcherInterface or RequestMatcherInterface.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$context </span><span class="s1">&amp;&amp; !</span><span class="s7">$matcher </span><span class="s0">instanceof </span><span class="s3">RequestContextAwareInterface</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'You must either pass a RequestContext or the matcher must implement RequestContextAwareInterface.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher </span><span class="s1">= </span><span class="s7">$matcher</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">context </span><span class="s1">= </span><span class="s7">$context </span><span class="s1">?: </span><span class="s7">$matcher</span><span class="s1">-&gt;</span><span class="s3">getContext</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">= </span><span class="s7">$requestStack</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">= </span><span class="s7">$logger</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir </span><span class="s1">= </span><span class="s7">$projectDir</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">= </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">setCurrentRequest</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$request</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">fromRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">UnexpectedValueException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">BadRequestHttpException</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getCode</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* After a sub-request is done, we need to reset the routing context to the parent request so that the URL generator</span>
+     <span class="s4">* operates on the correct context again.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">onKernelFinishRequest</span><span class="s1">(</span><span class="s3">FinishRequestEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setCurrentRequest</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getParentRequest</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelRequest</span><span class="s1">(</span><span class="s3">RequestEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$request </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setCurrentRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'_controller'</span><span class="s1">)) {</span>
+            <span class="s2">// routing is already done</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// add attributes based on the request (routing)</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s2">// matching a request is more powerful than matching a URL path + context, so try that first</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher </span><span class="s0">instanceof </span><span class="s3">RequestMatcherInterface</span><span class="s1">) {</span>
+                <span class="s7">$parameters </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher</span><span class="s1">-&gt;</span><span class="s3">matchRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$parameters </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher</span><span class="s1">-&gt;</span><span class="s3">match</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">info</span><span class="s1">(</span><span class="s8">'Matched route &quot;{route}&quot;.'</span><span class="s0">, </span><span class="s1">[</span>
+                    <span class="s8">'route' </span><span class="s1">=&gt; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$parameters</span><span class="s1">[</span><span class="s8">'_route'</span><span class="s1">]) ? </span><span class="s7">$parameters</span><span class="s1">[</span><span class="s8">'_route'</span><span class="s1">] : </span><span class="s8">'n/a'</span><span class="s0">,</span>
+                    <span class="s8">'route_parameters' </span><span class="s1">=&gt; </span><span class="s7">$parameters</span><span class="s0">,</span>
+                    <span class="s8">'request_uri' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getUri</span><span class="s1">()</span><span class="s0">,</span>
+                    <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$parameters</span><span class="s1">[</span><span class="s8">'_route'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">[</span><span class="s8">'_controller'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'_route_params'</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ResourceNotFoundException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'No route found for &quot;%s %s&quot;'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">())</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$referer </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'referer'</span><span class="s1">)) {</span>
+                <span class="s7">$message </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' (from &quot;%s&quot;)'</span><span class="s0">, </span><span class="s7">$referer</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s3">NotFoundHttpException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">MethodNotAllowedException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'No route found for &quot;%s %s&quot;: Method Not Allowed (Allow: %s)'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">()</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getAllowedMethods</span><span class="s1">()))</span><span class="s0">;</span>
+
+            <span class="s0">throw new </span><span class="s3">MethodNotAllowedHttpException</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getAllowedMethods</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelException</span><span class="s1">(</span><span class="s3">ExceptionEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">|| !(</span><span class="s7">$e </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getThrowable</span><span class="s1">()) </span><span class="s0">instanceof </span><span class="s3">NotFoundHttpException</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getPrevious</span><span class="s1">() </span><span class="s0">instanceof </span><span class="s3">NoConfigurationException</span><span class="s1">) {</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">setResponse</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createWelcomeResponse</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">REQUEST </span><span class="s1">=&gt; [[</span><span class="s8">'onKernelRequest'</span><span class="s0">, </span><span class="s9">32</span><span class="s1">]]</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">FINISH_REQUEST </span><span class="s1">=&gt; [[</span><span class="s8">'onKernelFinishRequest'</span><span class="s0">, </span><span class="s9">0</span><span class="s1">]]</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">EXCEPTION </span><span class="s1">=&gt; [</span><span class="s8">'onKernelException'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">64</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">createWelcomeResponse</span><span class="s1">(): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$version </span><span class="s1">= </span><span class="s3">Kernel</span><span class="s1">::</span><span class="s3">VERSION</span><span class="s0">;</span>
+        <span class="s7">$projectDir </span><span class="s1">= </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s1">).\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+        <span class="s7">$docVersion </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s3">Kernel</span><span class="s1">::</span><span class="s3">VERSION</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">3</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s3">ob_start</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">include </span><span class="s1">\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s3">__DIR__</span><span class="s1">).</span><span class="s8">'/Resources/welcome.html.php'</span><span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">Response</span><span class="s1">(</span><span class="s3">ob_get_clean</span><span class="s1">()</span><span class="s0">, </span><span class="s3">Response</span><span class="s1">::</span><span class="s3">HTTP_NOT_FOUND</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

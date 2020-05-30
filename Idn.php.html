@@ -1,0 +1,312 @@
+<html>
+<head>
+<title>Idn.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #9876aa;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Idn.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * Copyright (c) 2014 TrueServer B.V. 
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the &quot;Software&quot;), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is furnished 
+ * to do so, subject to the following conditions: 
+ * 
+ * The above copyright notice and this permission notice shall be included in all 
+ * copies or substantial portions of the Software. 
+ * 
+ * THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+ * THE SOFTWARE. 
+ * 
+ * Originally forked from 
+ * https://github.com/true/php-punycode/blob/v2.1.1/src/Punycode.php 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Polyfill</span><span class="s1">\</span><span class="s3">Intl</span><span class="s1">\</span><span class="s3">Idn</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Partial intl implementation in pure PHP.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Implemented:</span>
+ <span class="s4">* - idn_to_ascii - Convert domain name to IDNA ASCII form</span>
+ <span class="s4">* - idn_to_utf8  - Convert domain name from IDNA ASCII to Unicode</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Renan Gonçalves </span><span class="s6">&lt;renan.saddam</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Sebastian Kroczek </span><span class="s6">&lt;sk</span><span class="s4">@xbug.de&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Dmitry Lukashin </span><span class="s6">&lt;dmitry</span><span class="s4">@lukashin.ru&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Laurent Bassin </span><span class="s6">&lt;laurent</span><span class="s4">@bassin.info&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">Idn</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">INTL_IDNA_VARIANT_2003 </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">INTL_IDNA_VARIANT_UTS46 </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$encodeTable </span><span class="s1">= </span><span class="s0">array</span><span class="s1">(</span>
+        <span class="s9">'a'</span><span class="s0">, </span><span class="s9">'b'</span><span class="s0">, </span><span class="s9">'c'</span><span class="s0">, </span><span class="s9">'d'</span><span class="s0">, </span><span class="s9">'e'</span><span class="s0">, </span><span class="s9">'f'</span><span class="s0">, </span><span class="s9">'g'</span><span class="s0">, </span><span class="s9">'h'</span><span class="s0">, </span><span class="s9">'i'</span><span class="s0">, </span><span class="s9">'j'</span><span class="s0">, </span><span class="s9">'k'</span><span class="s0">, </span><span class="s9">'l'</span><span class="s0">,</span>
+        <span class="s9">'m'</span><span class="s0">, </span><span class="s9">'n'</span><span class="s0">, </span><span class="s9">'o'</span><span class="s0">, </span><span class="s9">'p'</span><span class="s0">, </span><span class="s9">'q'</span><span class="s0">, </span><span class="s9">'r'</span><span class="s0">, </span><span class="s9">'s'</span><span class="s0">, </span><span class="s9">'t'</span><span class="s0">, </span><span class="s9">'u'</span><span class="s0">, </span><span class="s9">'v'</span><span class="s0">, </span><span class="s9">'w'</span><span class="s0">, </span><span class="s9">'x'</span><span class="s0">,</span>
+        <span class="s9">'y'</span><span class="s0">, </span><span class="s9">'z'</span><span class="s0">, </span><span class="s9">'0'</span><span class="s0">, </span><span class="s9">'1'</span><span class="s0">, </span><span class="s9">'2'</span><span class="s0">, </span><span class="s9">'3'</span><span class="s0">, </span><span class="s9">'4'</span><span class="s0">, </span><span class="s9">'5'</span><span class="s0">, </span><span class="s9">'6'</span><span class="s0">, </span><span class="s9">'7'</span><span class="s0">, </span><span class="s9">'8'</span><span class="s0">, </span><span class="s9">'9'</span><span class="s0">,</span>
+    <span class="s1">)</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$decodeTable </span><span class="s1">= </span><span class="s0">array</span><span class="s1">(</span>
+        <span class="s9">'a' </span><span class="s1">=&gt; </span><span class="s7">0</span><span class="s0">, </span><span class="s9">'b' </span><span class="s1">=&gt; </span><span class="s7">1</span><span class="s0">, </span><span class="s9">'c' </span><span class="s1">=&gt; </span><span class="s7">2</span><span class="s0">, </span><span class="s9">'d' </span><span class="s1">=&gt; </span><span class="s7">3</span><span class="s0">, </span><span class="s9">'e' </span><span class="s1">=&gt; </span><span class="s7">4</span><span class="s0">, </span><span class="s9">'f' </span><span class="s1">=&gt; </span><span class="s7">5</span><span class="s0">,</span>
+        <span class="s9">'g' </span><span class="s1">=&gt; </span><span class="s7">6</span><span class="s0">, </span><span class="s9">'h' </span><span class="s1">=&gt; </span><span class="s7">7</span><span class="s0">, </span><span class="s9">'i' </span><span class="s1">=&gt; </span><span class="s7">8</span><span class="s0">, </span><span class="s9">'j' </span><span class="s1">=&gt; </span><span class="s7">9</span><span class="s0">, </span><span class="s9">'k' </span><span class="s1">=&gt; </span><span class="s7">10</span><span class="s0">, </span><span class="s9">'l' </span><span class="s1">=&gt; </span><span class="s7">11</span><span class="s0">,</span>
+        <span class="s9">'m' </span><span class="s1">=&gt; </span><span class="s7">12</span><span class="s0">, </span><span class="s9">'n' </span><span class="s1">=&gt; </span><span class="s7">13</span><span class="s0">, </span><span class="s9">'o' </span><span class="s1">=&gt; </span><span class="s7">14</span><span class="s0">, </span><span class="s9">'p' </span><span class="s1">=&gt; </span><span class="s7">15</span><span class="s0">, </span><span class="s9">'q' </span><span class="s1">=&gt; </span><span class="s7">16</span><span class="s0">, </span><span class="s9">'r' </span><span class="s1">=&gt; </span><span class="s7">17</span><span class="s0">,</span>
+        <span class="s9">'s' </span><span class="s1">=&gt; </span><span class="s7">18</span><span class="s0">, </span><span class="s9">'t' </span><span class="s1">=&gt; </span><span class="s7">19</span><span class="s0">, </span><span class="s9">'u' </span><span class="s1">=&gt; </span><span class="s7">20</span><span class="s0">, </span><span class="s9">'v' </span><span class="s1">=&gt; </span><span class="s7">21</span><span class="s0">, </span><span class="s9">'w' </span><span class="s1">=&gt; </span><span class="s7">22</span><span class="s0">, </span><span class="s9">'x' </span><span class="s1">=&gt; </span><span class="s7">23</span><span class="s0">,</span>
+        <span class="s9">'y' </span><span class="s1">=&gt; </span><span class="s7">24</span><span class="s0">, </span><span class="s9">'z' </span><span class="s1">=&gt; </span><span class="s7">25</span><span class="s0">, </span><span class="s9">'0' </span><span class="s1">=&gt; </span><span class="s7">26</span><span class="s0">, </span><span class="s9">'1' </span><span class="s1">=&gt; </span><span class="s7">27</span><span class="s0">, </span><span class="s9">'2' </span><span class="s1">=&gt; </span><span class="s7">28</span><span class="s0">, </span><span class="s9">'3' </span><span class="s1">=&gt; </span><span class="s7">29</span><span class="s0">,</span>
+        <span class="s9">'4' </span><span class="s1">=&gt; </span><span class="s7">30</span><span class="s0">, </span><span class="s9">'5' </span><span class="s1">=&gt; </span><span class="s7">31</span><span class="s0">, </span><span class="s9">'6' </span><span class="s1">=&gt; </span><span class="s7">32</span><span class="s0">, </span><span class="s9">'7' </span><span class="s1">=&gt; </span><span class="s7">33</span><span class="s0">, </span><span class="s9">'8' </span><span class="s1">=&gt; </span><span class="s7">34</span><span class="s0">, </span><span class="s9">'9' </span><span class="s1">=&gt; </span><span class="s7">35</span><span class="s0">,</span>
+    <span class="s1">)</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">idn_to_ascii</span><span class="s1">(</span><span class="s8">$domain</span><span class="s0">, </span><span class="s8">$options</span><span class="s0">, </span><span class="s8">$variant</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s8">$idna_info </span><span class="s1">= </span><span class="s0">array</span><span class="s1">())</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&gt;= </span><span class="s7">70200 </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">INTL_IDNA_VARIANT_2003 </span><span class="s1">=== </span><span class="s8">$variant</span><span class="s1">) {</span>
+            <span class="s1">@</span><span class="s3">trigger_error</span><span class="s1">(</span><span class="s9">'idn_to_ascii(): INTL_IDNA_VARIANT_2003 is deprecated'</span><span class="s0">, </span><span class="s3">E_USER_DEPRECATED</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">INTL_IDNA_VARIANT_UTS46 </span><span class="s1">=== </span><span class="s8">$variant</span><span class="s1">) {</span>
+            <span class="s8">$domain </span><span class="s1">= </span><span class="s3">mb_strtolower</span><span class="s1">(</span><span class="s8">$domain</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$parts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'.'</span><span class="s0">, </span><span class="s8">$domain</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$parts </span><span class="s0">as </span><span class="s8">$i </span><span class="s1">=&gt; &amp;</span><span class="s8">$part</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">=== </span><span class="s8">$part </span><span class="s1">&amp;&amp; \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$parts</span><span class="s1">) &gt; </span><span class="s7">1 </span><span class="s1">+ </span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$part </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">encodePart</span><span class="s1">(</span><span class="s8">$part</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$output </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">'.'</span><span class="s0">, </span><span class="s8">$parts</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$idna_info </span><span class="s1">= </span><span class="s0">array</span><span class="s1">(</span>
+            <span class="s9">'result' </span><span class="s1">=&gt; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">) &gt; </span><span class="s7">255 </span><span class="s1">? </span><span class="s3">false </span><span class="s1">: </span><span class="s8">$output</span><span class="s0">,</span>
+            <span class="s9">'isTransitionalDifferent' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s0">,</span>
+            <span class="s9">'errors' </span><span class="s1">=&gt; </span><span class="s7">0</span><span class="s0">,</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$idna_info</span><span class="s1">[</span><span class="s9">'result'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">idn_to_utf8</span><span class="s1">(</span><span class="s8">$domain</span><span class="s0">, </span><span class="s8">$options</span><span class="s0">, </span><span class="s8">$variant</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s8">$idna_info </span><span class="s1">= </span><span class="s0">array</span><span class="s1">())</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&gt;= </span><span class="s7">70200 </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">INTL_IDNA_VARIANT_2003 </span><span class="s1">=== </span><span class="s8">$variant</span><span class="s1">) {</span>
+            <span class="s1">@</span><span class="s3">trigger_error</span><span class="s1">(</span><span class="s9">'idn_to_utf8(): INTL_IDNA_VARIANT_2003 is deprecated'</span><span class="s0">, </span><span class="s3">E_USER_DEPRECATED</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$parts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'.'</span><span class="s0">, </span><span class="s8">$domain</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$parts </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s8">$part</span><span class="s1">) {</span>
+            <span class="s8">$length </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$part</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$length </span><span class="s1">&lt; </span><span class="s7">1 </span><span class="s1">|| </span><span class="s7">63 </span><span class="s1">&lt; </span><span class="s8">$length</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$part</span><span class="s0">, </span><span class="s9">'xn--'</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$part </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$part</span><span class="s0">, </span><span class="s7">4</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$part </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">decodePart</span><span class="s1">(</span><span class="s8">$part</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$output </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">'.'</span><span class="s0">, </span><span class="s8">$parts</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$idna_info </span><span class="s1">= </span><span class="s0">array</span><span class="s1">(</span>
+            <span class="s9">'result' </span><span class="s1">=&gt; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">) &gt; </span><span class="s7">255 </span><span class="s1">? </span><span class="s3">false </span><span class="s1">: </span><span class="s8">$output</span><span class="s0">,</span>
+            <span class="s9">'isTransitionalDifferent' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s0">,</span>
+            <span class="s9">'errors' </span><span class="s1">=&gt; </span><span class="s7">0</span><span class="s0">,</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$idna_info</span><span class="s1">[</span><span class="s9">'result'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">encodePart</span><span class="s1">(</span><span class="s8">$input</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s7">1</span><span class="s1">) === </span><span class="s9">'-' </span><span class="s1">|| \</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s1">-</span><span class="s7">1</span><span class="s1">) === </span><span class="s9">'-'</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$codePoints </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">listCodePoints</span><span class="s1">(</span><span class="s8">$input</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$n </span><span class="s1">= </span><span class="s7">128</span><span class="s0">;</span>
+        <span class="s8">$bias </span><span class="s1">= </span><span class="s7">72</span><span class="s0">;</span>
+        <span class="s8">$delta </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s8">$h </span><span class="s1">= </span><span class="s8">$b </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'basic'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s8">$output </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'basic'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$code</span><span class="s1">) {</span>
+            <span class="s8">$output </span><span class="s1">.= </span><span class="s3">mb_chr</span><span class="s1">(</span><span class="s8">$code</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$input </span><span class="s1">=== </span><span class="s8">$output</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$output</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$b </span><span class="s1">&gt; </span><span class="s7">0</span><span class="s1">) {</span>
+            <span class="s8">$output </span><span class="s1">.= </span><span class="s9">'-'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'nonBasic'</span><span class="s1">] = </span><span class="s3">array_unique</span><span class="s1">(</span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'nonBasic'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s3">sort</span><span class="s1">(</span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'nonBasic'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s8">$i </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s8">$length </span><span class="s1">= </span><span class="s3">mb_strlen</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$h </span><span class="s1">&lt; </span><span class="s8">$length</span><span class="s1">) {</span>
+            <span class="s8">$m </span><span class="s1">= </span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'nonBasic'</span><span class="s1">][</span><span class="s8">$i</span><span class="s1">++]</span><span class="s0">;</span>
+            <span class="s8">$delta </span><span class="s1">+= (</span><span class="s8">$m </span><span class="s1">- </span><span class="s8">$n</span><span class="s1">) * (</span><span class="s8">$h </span><span class="s1">+ </span><span class="s7">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$n </span><span class="s1">= </span><span class="s8">$m</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'all'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$c</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$c </span><span class="s1">&lt; </span><span class="s8">$n </span><span class="s1">|| </span><span class="s8">$c </span><span class="s1">&lt; </span><span class="s7">128</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s8">$delta</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$c </span><span class="s1">=== </span><span class="s8">$n</span><span class="s1">) {</span>
+                    <span class="s8">$q </span><span class="s1">= </span><span class="s8">$delta</span><span class="s0">;</span>
+                    <span class="s0">for </span><span class="s1">(</span><span class="s8">$k </span><span class="s1">= </span><span class="s7">36</span><span class="s0">;; </span><span class="s8">$k </span><span class="s1">+= </span><span class="s7">36</span><span class="s1">) {</span>
+                        <span class="s8">$t </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">calculateThreshold</span><span class="s1">(</span><span class="s8">$k</span><span class="s0">, </span><span class="s8">$bias</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">$q </span><span class="s1">&lt; </span><span class="s8">$t</span><span class="s1">) {</span>
+                            <span class="s0">break;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s8">$code </span><span class="s1">= </span><span class="s8">$t </span><span class="s1">+ ((</span><span class="s8">$q </span><span class="s1">- </span><span class="s8">$t</span><span class="s1">) % (</span><span class="s7">36 </span><span class="s1">- </span><span class="s8">$t</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s8">$output </span><span class="s1">.= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$encodeTable</span><span class="s1">[</span><span class="s8">$code</span><span class="s1">]</span><span class="s0">;</span>
+
+                        <span class="s8">$q </span><span class="s1">= (</span><span class="s8">$q </span><span class="s1">- </span><span class="s8">$t</span><span class="s1">) / (</span><span class="s7">36 </span><span class="s1">- </span><span class="s8">$t</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s8">$output </span><span class="s1">.= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$encodeTable</span><span class="s1">[</span><span class="s8">$q</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$bias </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">adapt</span><span class="s1">(</span><span class="s8">$delta</span><span class="s0">, </span><span class="s8">$h </span><span class="s1">+ </span><span class="s7">1</span><span class="s0">, </span><span class="s1">(</span><span class="s8">$h </span><span class="s1">=== </span><span class="s8">$b</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s8">$delta </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+                    <span class="s1">++</span><span class="s8">$h</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s1">++</span><span class="s8">$delta</span><span class="s0">;</span>
+            <span class="s1">++</span><span class="s8">$n</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$output </span><span class="s1">= </span><span class="s9">'xn--'</span><span class="s1">.</span><span class="s8">$output</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">) &lt; </span><span class="s7">1 </span><span class="s1">|| </span><span class="s7">63 </span><span class="s1">&lt; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">) ? </span><span class="s3">false </span><span class="s1">: </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">listCodePoints</span><span class="s1">(</span><span class="s8">$input</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$codePoints </span><span class="s1">= </span><span class="s0">array</span><span class="s1">(</span>
+            <span class="s9">'all' </span><span class="s1">=&gt; </span><span class="s0">array</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'basic' </span><span class="s1">=&gt; </span><span class="s0">array</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'nonBasic' </span><span class="s1">=&gt; </span><span class="s0">array</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$length </span><span class="s1">= </span><span class="s3">mb_strlen</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s7">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$length</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s8">$char </span><span class="s1">= </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s7">1</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$code </span><span class="s1">= </span><span class="s3">mb_ord</span><span class="s1">(</span><span class="s8">$char</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$code </span><span class="s1">&lt; </span><span class="s7">128</span><span class="s1">) {</span>
+                <span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'all'</span><span class="s1">][] = </span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'basic'</span><span class="s1">][] = </span><span class="s8">$code</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'all'</span><span class="s1">][] = </span><span class="s8">$codePoints</span><span class="s1">[</span><span class="s9">'nonBasic'</span><span class="s1">][] = </span><span class="s8">$code</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$codePoints</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">calculateThreshold</span><span class="s1">(</span><span class="s8">$k</span><span class="s0">, </span><span class="s8">$bias</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$k </span><span class="s1">&lt;= </span><span class="s8">$bias </span><span class="s1">+ </span><span class="s7">1</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$k </span><span class="s1">&gt;= </span><span class="s8">$bias </span><span class="s1">+ </span><span class="s7">26</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">26</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$k </span><span class="s1">- </span><span class="s8">$bias</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">adapt</span><span class="s1">(</span><span class="s8">$delta</span><span class="s0">, </span><span class="s8">$numPoints</span><span class="s0">, </span><span class="s8">$firstTime</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$delta </span><span class="s1">= (int) (</span><span class="s8">$firstTime </span><span class="s1">? </span><span class="s8">$delta </span><span class="s1">/ </span><span class="s7">700 </span><span class="s1">: </span><span class="s8">$delta </span><span class="s1">/ </span><span class="s7">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$delta </span><span class="s1">+= (int) (</span><span class="s8">$delta </span><span class="s1">/ </span><span class="s8">$numPoints</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$k </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$delta </span><span class="s1">&gt; </span><span class="s7">35 </span><span class="s1">* </span><span class="s7">13</span><span class="s1">) {</span>
+            <span class="s8">$delta </span><span class="s1">= (int) (</span><span class="s8">$delta </span><span class="s1">/ </span><span class="s7">35</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$k </span><span class="s1">= </span><span class="s8">$k </span><span class="s1">+ </span><span class="s7">36</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$k </span><span class="s1">+ (int) (</span><span class="s7">36 </span><span class="s1">* </span><span class="s8">$delta </span><span class="s1">/ (</span><span class="s8">$delta </span><span class="s1">+ </span><span class="s7">38</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">decodePart</span><span class="s1">(</span><span class="s8">$input</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$n </span><span class="s1">= </span><span class="s7">128</span><span class="s0">;</span>
+        <span class="s8">$i </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s8">$bias </span><span class="s1">= </span><span class="s7">72</span><span class="s0">;</span>
+        <span class="s8">$output </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+
+        <span class="s8">$pos </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s9">'-'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$pos</span><span class="s1">) {</span>
+            <span class="s8">$output </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$input</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s8">$pos</span><span class="s1">++)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$pos </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$outputLength </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$inputLength </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$input</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$pos </span><span class="s1">&lt; </span><span class="s8">$inputLength</span><span class="s1">) {</span>
+            <span class="s8">$oldi </span><span class="s1">= </span><span class="s8">$i</span><span class="s0">;</span>
+            <span class="s8">$w </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$k </span><span class="s1">= </span><span class="s7">36</span><span class="s0">;; </span><span class="s8">$k </span><span class="s1">+= </span><span class="s7">36</span><span class="s1">) {</span>
+                <span class="s8">$digit </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$decodeTable</span><span class="s1">[</span><span class="s8">$input</span><span class="s1">[</span><span class="s8">$pos</span><span class="s1">++]]</span><span class="s0">;</span>
+                <span class="s8">$i </span><span class="s1">+= </span><span class="s8">$digit </span><span class="s1">* </span><span class="s8">$w</span><span class="s0">;</span>
+                <span class="s8">$t </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">calculateThreshold</span><span class="s1">(</span><span class="s8">$k</span><span class="s0">, </span><span class="s8">$bias</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$digit </span><span class="s1">&lt; </span><span class="s8">$t</span><span class="s1">) {</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$w </span><span class="s1">*= </span><span class="s7">36 </span><span class="s1">- </span><span class="s8">$t</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$bias </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">adapt</span><span class="s1">(</span><span class="s8">$i </span><span class="s1">- </span><span class="s8">$oldi</span><span class="s0">, </span><span class="s1">++</span><span class="s8">$outputLength</span><span class="s0">, </span><span class="s7">0 </span><span class="s1">=== </span><span class="s8">$oldi</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$n </span><span class="s1">= </span><span class="s8">$n </span><span class="s1">+ (int) (</span><span class="s8">$i </span><span class="s1">/ </span><span class="s8">$outputLength</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$i </span><span class="s1">= </span><span class="s8">$i </span><span class="s1">% </span><span class="s8">$outputLength</span><span class="s0">;</span>
+            <span class="s8">$output </span><span class="s1">= </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s8">$output</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">).</span><span class="s3">mb_chr</span><span class="s1">(</span><span class="s8">$n</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">).</span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s8">$output</span><span class="s0">, </span><span class="s8">$i</span><span class="s0">, </span><span class="s8">$outputLength </span><span class="s1">- </span><span class="s7">1</span><span class="s0">, </span><span class="s9">'utf-8'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$output</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

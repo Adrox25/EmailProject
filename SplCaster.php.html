@@ -1,0 +1,252 @@
+<html>
+<head>
+<title>SplCaster.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SplCaster.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Casts SPL related classes to array representation.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">SplCaster</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$splFileObjectFlags </span><span class="s1">= [</span>
+        <span class="s1">\</span><span class="s3">SplFileObject</span><span class="s1">::</span><span class="s3">DROP_NEW_LINE </span><span class="s1">=&gt; </span><span class="s8">'DROP_NEW_LINE'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">SplFileObject</span><span class="s1">::</span><span class="s3">READ_AHEAD </span><span class="s1">=&gt; </span><span class="s8">'READ_AHEAD'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">SplFileObject</span><span class="s1">::</span><span class="s3">SKIP_EMPTY </span><span class="s1">=&gt; </span><span class="s8">'SKIP_EMPTY'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">SplFileObject</span><span class="s1">::</span><span class="s3">READ_CSV </span><span class="s1">=&gt; </span><span class="s8">'READ_CSV'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">castArrayObject</span><span class="s1">(\</span><span class="s3">ArrayObject </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">castSplArray</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s7">$a</span><span class="s0">, </span><span class="s7">$stub</span><span class="s0">, </span><span class="s7">$isNested</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castArrayIterator</span><span class="s1">(\</span><span class="s3">ArrayIterator </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">castSplArray</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s7">$a</span><span class="s0">, </span><span class="s7">$stub</span><span class="s0">, </span><span class="s7">$isNested</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castHeap</span><span class="s1">(\</span><span class="s3">Iterator </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a </span><span class="s1">+= [</span>
+            <span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s8">'heap' </span><span class="s1">=&gt; </span><span class="s3">iterator_to_array</span><span class="s1">(</span><span class="s0">clone </span><span class="s7">$c</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castDoublyLinkedList</span><span class="s1">(\</span><span class="s3">SplDoublyLinkedList </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+        <span class="s7">$mode </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getIteratorMode</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">setIteratorMode</span><span class="s1">(\</span><span class="s3">SplDoublyLinkedList</span><span class="s1">::</span><span class="s3">IT_MODE_KEEP </span><span class="s1">| </span><span class="s7">$mode </span><span class="s1">&amp; ~\</span><span class="s3">SplDoublyLinkedList</span><span class="s1">::</span><span class="s3">IT_MODE_DELETE</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$a </span><span class="s1">+= [</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'mode' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(((</span><span class="s7">$mode </span><span class="s1">&amp; \</span><span class="s3">SplDoublyLinkedList</span><span class="s1">::</span><span class="s3">IT_MODE_LIFO</span><span class="s1">) ? </span><span class="s8">'IT_MODE_LIFO' </span><span class="s1">: </span><span class="s8">'IT_MODE_FIFO'</span><span class="s1">).</span><span class="s8">' | '</span><span class="s1">.((</span><span class="s7">$mode </span><span class="s1">&amp; \</span><span class="s3">SplDoublyLinkedList</span><span class="s1">::</span><span class="s3">IT_MODE_DELETE</span><span class="s1">) ? </span><span class="s8">'IT_MODE_DELETE' </span><span class="s1">: </span><span class="s8">'IT_MODE_KEEP'</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$mode</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'dllist' </span><span class="s1">=&gt; </span><span class="s3">iterator_to_array</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">setIteratorMode</span><span class="s1">(</span><span class="s7">$mode</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castFileInfo</span><span class="s1">(\</span><span class="s3">SplFileInfo </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">static </span><span class="s7">$map </span><span class="s1">= [</span>
+            <span class="s8">'path' </span><span class="s1">=&gt; </span><span class="s8">'getPath'</span><span class="s0">,</span>
+            <span class="s8">'filename' </span><span class="s1">=&gt; </span><span class="s8">'getFilename'</span><span class="s0">,</span>
+            <span class="s8">'basename' </span><span class="s1">=&gt; </span><span class="s8">'getBasename'</span><span class="s0">,</span>
+            <span class="s8">'pathname' </span><span class="s1">=&gt; </span><span class="s8">'getPathname'</span><span class="s0">,</span>
+            <span class="s8">'extension' </span><span class="s1">=&gt; </span><span class="s8">'getExtension'</span><span class="s0">,</span>
+            <span class="s8">'realPath' </span><span class="s1">=&gt; </span><span class="s8">'getRealPath'</span><span class="s0">,</span>
+            <span class="s8">'aTime' </span><span class="s1">=&gt; </span><span class="s8">'getATime'</span><span class="s0">,</span>
+            <span class="s8">'mTime' </span><span class="s1">=&gt; </span><span class="s8">'getMTime'</span><span class="s0">,</span>
+            <span class="s8">'cTime' </span><span class="s1">=&gt; </span><span class="s8">'getCTime'</span><span class="s0">,</span>
+            <span class="s8">'inode' </span><span class="s1">=&gt; </span><span class="s8">'getInode'</span><span class="s0">,</span>
+            <span class="s8">'size' </span><span class="s1">=&gt; </span><span class="s8">'getSize'</span><span class="s0">,</span>
+            <span class="s8">'perms' </span><span class="s1">=&gt; </span><span class="s8">'getPerms'</span><span class="s0">,</span>
+            <span class="s8">'owner' </span><span class="s1">=&gt; </span><span class="s8">'getOwner'</span><span class="s0">,</span>
+            <span class="s8">'group' </span><span class="s1">=&gt; </span><span class="s8">'getGroup'</span><span class="s0">,</span>
+            <span class="s8">'type' </span><span class="s1">=&gt; </span><span class="s8">'getType'</span><span class="s0">,</span>
+            <span class="s8">'writable' </span><span class="s1">=&gt; </span><span class="s8">'isWritable'</span><span class="s0">,</span>
+            <span class="s8">'readable' </span><span class="s1">=&gt; </span><span class="s8">'isReadable'</span><span class="s0">,</span>
+            <span class="s8">'executable' </span><span class="s1">=&gt; </span><span class="s8">'isExecutable'</span><span class="s0">,</span>
+            <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s8">'isFile'</span><span class="s0">,</span>
+            <span class="s8">'dir' </span><span class="s1">=&gt; </span><span class="s8">'isDir'</span><span class="s0">,</span>
+            <span class="s8">'link' </span><span class="s1">=&gt; </span><span class="s8">'isLink'</span><span class="s0">,</span>
+            <span class="s8">'linkTarget' </span><span class="s1">=&gt; </span><span class="s8">'getLinkTarget'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">()) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'⚠'</span><span class="s1">] = </span><span class="s8">'The parent constructor was not called: the object is in an invalid state'</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$map </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$accessor</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s7">$accessor</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'realPath'</span><span class="s1">])) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'realPath'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">LinkStub</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'realPath'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'perms'</span><span class="s1">])) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'perms'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'0%o'</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'perms'</span><span class="s1">])</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'perms'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">static </span><span class="s7">$mapDate </span><span class="s1">= [</span><span class="s8">'aTime'</span><span class="s0">, </span><span class="s8">'mTime'</span><span class="s0">, </span><span class="s8">'cTime'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$mapDate </span><span class="s0">as </span><span class="s7">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">date</span><span class="s1">(</span><span class="s8">'Y-m-d H:i:s'</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castFileObject</span><span class="s1">(\</span><span class="s3">SplFileObject </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">static </span><span class="s7">$map </span><span class="s1">= [</span>
+            <span class="s8">'csvControl' </span><span class="s1">=&gt; </span><span class="s8">'getCsvControl'</span><span class="s0">,</span>
+            <span class="s8">'flags' </span><span class="s1">=&gt; </span><span class="s8">'getFlags'</span><span class="s0">,</span>
+            <span class="s8">'maxLineLen' </span><span class="s1">=&gt; </span><span class="s8">'getMaxLineLen'</span><span class="s0">,</span>
+            <span class="s8">'fstat' </span><span class="s1">=&gt; </span><span class="s8">'fstat'</span><span class="s0">,</span>
+            <span class="s8">'eof' </span><span class="s1">=&gt; </span><span class="s8">'eof'</span><span class="s0">,</span>
+            <span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s8">'key'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$map </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$accessor</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s7">$accessor</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'flags'</span><span class="s1">])) {</span>
+            <span class="s7">$flagsArray </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$splFileObjectFlags </span><span class="s0">as </span><span class="s7">$value </span><span class="s1">=&gt; </span><span class="s7">$name</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'flags'</span><span class="s1">] &amp; </span><span class="s7">$value</span><span class="s1">) {</span>
+                    <span class="s7">$flagsArray</span><span class="s1">[] = </span><span class="s7">$name</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'flags'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'|'</span><span class="s0">, </span><span class="s7">$flagsArray</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'flags'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'fstat'</span><span class="s1">])) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'fstat'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">CutArrayStub</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'fstat'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'dev'</span><span class="s0">, </span><span class="s8">'ino'</span><span class="s0">, </span><span class="s8">'nlink'</span><span class="s0">, </span><span class="s8">'rdev'</span><span class="s0">, </span><span class="s8">'blksize'</span><span class="s0">, </span><span class="s8">'blocks'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castFixedArray</span><span class="s1">(\</span><span class="s3">SplFixedArray </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a </span><span class="s1">+= [</span>
+            <span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s8">'storage' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">toArray</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castObjectStorage</span><span class="s1">(\</span><span class="s3">SplObjectStorage </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$storage </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_DYNAMIC</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">gcdata&quot;</span><span class="s1">])</span><span class="s0">; </span><span class="s2">// Don't hit https://bugs.php.net/65967</span>
+
+        <span class="s7">$clone </span><span class="s1">= </span><span class="s0">clone </span><span class="s7">$c</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$clone </span><span class="s0">as </span><span class="s7">$obj</span><span class="s1">) {</span>
+            <span class="s7">$storage</span><span class="s1">[] = [</span>
+                <span class="s8">'object' </span><span class="s1">=&gt; </span><span class="s7">$obj</span><span class="s0">,</span>
+                <span class="s8">'info' </span><span class="s1">=&gt; </span><span class="s7">$clone</span><span class="s1">-&gt;</span><span class="s3">getInfo</span><span class="s1">()</span><span class="s0">,</span>
+             <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$a </span><span class="s1">+= [</span>
+            <span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s8">'storage' </span><span class="s1">=&gt; </span><span class="s7">$storage</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castOuterIterator</span><span class="s1">(\</span><span class="s3">OuterIterator </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s8">'innerIterator'</span><span class="s1">] = </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getInnerIterator</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castWeakReference</span><span class="s1">(\</span><span class="s3">WeakReference </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s8">'object'</span><span class="s1">] = </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">castSplArray</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s7">$stub</span><span class="s1">-&gt;</span><span class="s3">class</span><span class="s0">;</span>
+        <span class="s7">$flags </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getFlags</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$flags </span><span class="s1">&amp; \</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">STD_PROP_LIST</span><span class="s1">)) {</span>
+            <span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">setFlags</span><span class="s1">(\</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">STD_PROP_LIST</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$a </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">castObject</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">setFlags</span><span class="s1">(</span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$a </span><span class="s1">+= [</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'flag::STD_PROP_LIST' </span><span class="s1">=&gt; (bool) (</span><span class="s7">$flags </span><span class="s1">&amp; \</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">STD_PROP_LIST</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'flag::ARRAY_AS_PROPS' </span><span class="s1">=&gt; (bool) (</span><span class="s7">$flags </span><span class="s1">&amp; \</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">ARRAY_AS_PROPS</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$c </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayObject</span><span class="s1">) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'iteratorClass'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ClassStub</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getIteratorClass</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'storage'</span><span class="s1">] = </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getArrayCopy</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

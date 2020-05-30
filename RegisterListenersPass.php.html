@@ -1,0 +1,199 @@
+<html>
+<head>
+<title>RegisterListenersPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #9876aa;}
+.s6 { color: #6a8759;}
+.s7 { color: #6897bb;}
+.s8 { color: #629755; font-weight: bold; font-style: italic;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RegisterListenersPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ServiceClosureArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">CompilerPassInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">Event</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Compiler pass to register tagged services for an event dispatcher.</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RegisterListenersPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s5">$dispatcherService</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s5">$listenerTag</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s5">$subscriberTag</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s5">$eventAliasesParameter</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s5">$hotPathEvents </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s5">$hotPathTagName</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s5">$dispatcherService </span><span class="s1">= </span><span class="s6">'event_dispatcher'</span><span class="s0">, </span><span class="s3">string </span><span class="s5">$listenerTag </span><span class="s1">= </span><span class="s6">'kernel.event_listener'</span><span class="s0">, </span><span class="s3">string </span><span class="s5">$subscriberTag </span><span class="s1">= </span><span class="s6">'kernel.event_subscriber'</span><span class="s0">, </span><span class="s3">string </span><span class="s5">$eventAliasesParameter </span><span class="s1">= </span><span class="s6">'event_dispatcher.event_aliases'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcherService </span><span class="s1">= </span><span class="s5">$dispatcherService</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">listenerTag </span><span class="s1">= </span><span class="s5">$listenerTag</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">subscriberTag </span><span class="s1">= </span><span class="s5">$subscriberTag</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">eventAliasesParameter </span><span class="s1">= </span><span class="s5">$eventAliasesParameter</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setHotPathEvents</span><span class="s1">(</span><span class="s0">array </span><span class="s5">$hotPathEvents</span><span class="s0">, </span><span class="s5">$tagName </span><span class="s1">= </span><span class="s6">'container.hot_path'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">hotPathEvents </span><span class="s1">= </span><span class="s3">array_flip</span><span class="s1">(</span><span class="s5">$hotPathEvents</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">hotPathTagName </span><span class="s1">= </span><span class="s5">$tagName</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s5">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcherService</span><span class="s1">) &amp;&amp; !</span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">hasAlias</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcherService</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">eventAliasesParameter</span><span class="s1">)) {</span>
+            <span class="s5">$aliases </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">eventAliasesParameter</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">eventAliasesParameter</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s5">$aliases </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s5">$definition </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">findDefinition</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcherService</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">listenerTag</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) </span><span class="s0">as </span><span class="s5">$id </span><span class="s1">=&gt; </span><span class="s5">$events</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s5">$events </span><span class="s0">as </span><span class="s5">$event</span><span class="s1">) {</span>
+                <span class="s5">$priority </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'priority'</span><span class="s1">]) ? </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'priority'</span><span class="s1">] : </span><span class="s7">0</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">])) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">)-&gt;</span><span class="s3">hasTag</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">subscriberTag</span><span class="s1">)) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">] = </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">] ?? </span><span class="s6">'__invoke'</span><span class="s0">;</span>
+                    <span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">] = </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">getEventFromTypeDeclaration</span><span class="s1">(</span><span class="s5">$container</span><span class="s0">, </span><span class="s5">$id</span><span class="s0">, </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">] = </span><span class="s5">$aliases</span><span class="s1">[</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">]] ?? </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">]</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">])) {</span>
+                    <span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">] = </span><span class="s6">'on'</span><span class="s1">.</span><span class="s3">preg_replace_callback</span><span class="s1">([</span>
+                        <span class="s6">'/(?&lt;=\b)[a-z]/i'</span><span class="s0">,</span>
+                        <span class="s6">'/[^a-z0-9]/i'</span><span class="s0">,</span>
+                    <span class="s1">]</span><span class="s0">, function </span><span class="s1">(</span><span class="s5">$matches</span><span class="s1">) { </span><span class="s0">return </span><span class="s3">strtoupper</span><span class="s1">(</span><span class="s5">$matches</span><span class="s1">[</span><span class="s7">0</span><span class="s1">])</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">] = </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s6">'/[^a-z0-9]/i'</span><span class="s0">, </span><span class="s6">''</span><span class="s0">, </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">])</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== (</span><span class="s5">$class </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">)-&gt;</span><span class="s3">getClass</span><span class="s1">()) &amp;&amp; (</span><span class="s5">$r </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s5">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) &amp;&amp; !</span><span class="s5">$r</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">]) &amp;&amp; </span><span class="s5">$r</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s6">'__invoke'</span><span class="s1">)) {</span>
+                        <span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">] = </span><span class="s6">'__invoke'</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s5">$definition</span><span class="s1">-&gt;</span><span class="s3">addMethodCall</span><span class="s1">(</span><span class="s6">'addListener'</span><span class="s0">, </span><span class="s1">[</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s0">new </span><span class="s3">ServiceClosureArgument</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">))</span><span class="s0">, </span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'method'</span><span class="s1">]]</span><span class="s0">, </span><span class="s5">$priority</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">hotPathEvents</span><span class="s1">[</span><span class="s5">$event</span><span class="s1">[</span><span class="s6">'event'</span><span class="s1">]])) {</span>
+                    <span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">)-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">hotPathTagName</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s5">$extractingDispatcher </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ExtractingEventDispatcher</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">subscriberTag</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) </span><span class="s0">as </span><span class="s5">$id </span><span class="s1">=&gt; </span><span class="s5">$attributes</span><span class="s1">) {</span>
+            <span class="s5">$def </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// We must assume that the class value has been correctly filled, even if the service is created by a factory</span>
+            <span class="s5">$class </span><span class="s1">= </span><span class="s5">$def</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s5">$r </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s5">$class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Class &quot;%s&quot; used for service &quot;%s&quot; cannot be found.'</span><span class="s0">, </span><span class="s5">$class</span><span class="s0">, </span><span class="s5">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s5">$r</span><span class="s1">-&gt;</span><span class="s3">isSubclassOf</span><span class="s1">(</span><span class="s3">EventSubscriberInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Service &quot;%s&quot; must implement interface &quot;%s&quot;.'</span><span class="s0">, </span><span class="s5">$id</span><span class="s0">, </span><span class="s3">EventSubscriberInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s5">$class </span><span class="s1">= </span><span class="s5">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+
+            <span class="s3">ExtractingEventDispatcher</span><span class="s1">::</span><span class="s5">$aliases </span><span class="s1">= </span><span class="s5">$aliases</span><span class="s0">;</span>
+            <span class="s3">ExtractingEventDispatcher</span><span class="s1">::</span><span class="s5">$subscriber </span><span class="s1">= </span><span class="s5">$class</span><span class="s0">;</span>
+            <span class="s5">$extractingDispatcher</span><span class="s1">-&gt;</span><span class="s3">addSubscriber</span><span class="s1">(</span><span class="s5">$extractingDispatcher</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s5">$extractingDispatcher</span><span class="s1">-&gt;</span><span class="s3">listeners </span><span class="s0">as </span><span class="s5">$args</span><span class="s1">) {</span>
+                <span class="s5">$args</span><span class="s1">[</span><span class="s7">1</span><span class="s1">] = [</span><span class="s0">new </span><span class="s3">ServiceClosureArgument</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">))</span><span class="s0">, </span><span class="s5">$args</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]]</span><span class="s0">;</span>
+                <span class="s5">$definition</span><span class="s1">-&gt;</span><span class="s3">addMethodCall</span><span class="s1">(</span><span class="s6">'addListener'</span><span class="s0">, </span><span class="s5">$args</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">hotPathEvents</span><span class="s1">[</span><span class="s5">$args</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]])) {</span>
+                    <span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">)-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">hotPathTagName</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s5">$extractingDispatcher</span><span class="s1">-&gt;</span><span class="s3">listeners </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s3">ExtractingEventDispatcher</span><span class="s1">::</span><span class="s5">$aliases </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getEventFromTypeDeclaration</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s5">$container</span><span class="s0">, </span><span class="s3">string </span><span class="s5">$id</span><span class="s0">, </span><span class="s3">string </span><span class="s5">$method</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span>
+            <span class="s3">null </span><span class="s1">=== (</span><span class="s5">$class </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s5">$id</span><span class="s1">)-&gt;</span><span class="s3">getClass</span><span class="s1">())</span>
+            <span class="s1">|| !(</span><span class="s5">$r </span><span class="s1">= </span><span class="s5">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s5">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">))</span>
+            <span class="s1">|| !</span><span class="s5">$r</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s5">$method</span><span class="s1">)</span>
+            <span class="s1">|| </span><span class="s7">1 </span><span class="s1">&gt; (</span><span class="s5">$m </span><span class="s1">= </span><span class="s5">$r</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s5">$method</span><span class="s1">))-&gt;</span><span class="s3">getNumberOfParameters</span><span class="s1">()</span>
+            <span class="s1">|| !(</span><span class="s5">$type </span><span class="s1">= </span><span class="s5">$m</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">()[</span><span class="s7">0</span><span class="s1">]-&gt;</span><span class="s3">getType</span><span class="s1">())</span>
+            <span class="s1">|| </span><span class="s5">$type</span><span class="s1">-&gt;</span><span class="s3">isBuiltin</span><span class="s1">()</span>
+            <span class="s1">|| </span><span class="s3">Event</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== (</span><span class="s5">$name </span><span class="s1">= </span><span class="s5">$type</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">())</span>
+        <span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Service &quot;%s&quot; must define the &quot;event&quot; attribute on &quot;%s&quot; tags.'</span><span class="s0">, </span><span class="s5">$id</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">listenerTag</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s5">$name</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s8">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ExtractingEventDispatcher </span><span class="s0">extends </span><span class="s3">EventDispatcher </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">public </span><span class="s5">$listeners </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public static </span><span class="s5">$aliases </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s5">$subscriber</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">addListener</span><span class="s1">(</span><span class="s3">string </span><span class="s5">$eventName</span><span class="s0">, </span><span class="s5">$listener</span><span class="s0">, </span><span class="s3">int </span><span class="s5">$priority </span><span class="s1">= </span><span class="s7">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[] = [</span><span class="s5">$eventName</span><span class="s0">, </span><span class="s5">$listener</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]</span><span class="s0">, </span><span class="s5">$priority</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s5">$events </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s3">self</span><span class="s1">::</span><span class="s5">$subscriber</span><span class="s0">, </span><span class="s6">'getSubscribedEvents'</span><span class="s1">]() </span><span class="s0">as </span><span class="s5">$eventName </span><span class="s1">=&gt; </span><span class="s5">$params</span><span class="s1">) {</span>
+            <span class="s5">$events</span><span class="s1">[</span><span class="s3">self</span><span class="s1">::</span><span class="s5">$aliases</span><span class="s1">[</span><span class="s5">$eventName</span><span class="s1">] ?? </span><span class="s5">$eventName</span><span class="s1">] = </span><span class="s5">$params</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s5">$events</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

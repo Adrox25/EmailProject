@@ -1,0 +1,483 @@
+<html>
+<head>
+<title>RequestDataCollector.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RequestDataCollector.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Cookie</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ControllerEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ResponseEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RequestDataCollector </span><span class="s0">extends </span><span class="s3">DataCollector </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span><span class="s0">, </span><span class="s3">LateDataCollectorInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$controllers</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllers </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">collect</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$exception </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// attributes are serialized and as they can be anything, they need to be converted to strings.</span>
+        <span class="s7">$attributes </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$route </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'_route' </span><span class="s1">=== </span><span class="s7">$key</span><span class="s1">) {</span>
+                <span class="s7">$route </span><span class="s1">= \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) ? </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">() : </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s7">$attributes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$route</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$attributes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$content </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">LogicException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s2">// the user already got the request content as a resource</span>
+            <span class="s7">$content </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$sessionMetadata </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$sessionAttributes </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$flashes </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">hasSession</span><span class="s1">()) {</span>
+            <span class="s7">$session </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getSession</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">isStarted</span><span class="s1">()) {</span>
+                <span class="s7">$sessionMetadata</span><span class="s1">[</span><span class="s8">'Created'</span><span class="s1">] = </span><span class="s3">date</span><span class="s1">(</span><span class="s3">DATE_RFC822</span><span class="s0">, </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getMetadataBag</span><span class="s1">()-&gt;</span><span class="s3">getCreated</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s7">$sessionMetadata</span><span class="s1">[</span><span class="s8">'Last used'</span><span class="s1">] = </span><span class="s3">date</span><span class="s1">(</span><span class="s3">DATE_RFC822</span><span class="s0">, </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getMetadataBag</span><span class="s1">()-&gt;</span><span class="s3">getLastUsed</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s7">$sessionMetadata</span><span class="s1">[</span><span class="s8">'Lifetime'</span><span class="s1">] = </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getMetadataBag</span><span class="s1">()-&gt;</span><span class="s3">getLifetime</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$sessionAttributes </span><span class="s1">= </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$flashes </span><span class="s1">= </span><span class="s7">$session</span><span class="s1">-&gt;</span><span class="s3">getFlashBag</span><span class="s1">()-&gt;</span><span class="s3">peekAll</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$statusCode </span><span class="s1">= </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$responseCookies </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCookies</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$cookie</span><span class="s1">) {</span>
+            <span class="s7">$responseCookies</span><span class="s1">[</span><span class="s7">$cookie</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()] = </span><span class="s7">$cookie</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$dotenvVars </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">explode</span><span class="s1">(</span><span class="s8">','</span><span class="s0">, </span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'SYMFONY_DOTENV_VARS'</span><span class="s1">] ?? </span><span class="s7">$_ENV</span><span class="s1">[</span><span class="s8">'SYMFONY_DOTENV_VARS'</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$name </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_ENV</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])) {</span>
+                <span class="s7">$dotenvVars</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$_ENV</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= [</span>
+            <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'format' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getRequestFormat</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'content' </span><span class="s1">=&gt; </span><span class="s7">$content</span><span class="s0">,</span>
+            <span class="s8">'content_type' </span><span class="s1">=&gt; </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'Content-Type'</span><span class="s0">, </span><span class="s8">'text/html'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s8">'status_text' </span><span class="s1">=&gt; </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">Response</span><span class="s1">::</span><span class="s7">$statusTexts</span><span class="s1">[</span><span class="s7">$statusCode</span><span class="s1">]) ? </span><span class="s3">Response</span><span class="s1">::</span><span class="s7">$statusTexts</span><span class="s1">[</span><span class="s7">$statusCode</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">,</span>
+            <span class="s8">'status_code' </span><span class="s1">=&gt; </span><span class="s7">$statusCode</span><span class="s0">,</span>
+            <span class="s8">'request_query' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'request_request' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">request</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'request_files' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">files</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'request_headers' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'request_server' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'request_cookies' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">cookies</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'request_attributes' </span><span class="s1">=&gt; </span><span class="s7">$attributes</span><span class="s0">,</span>
+            <span class="s8">'route' </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s0">,</span>
+            <span class="s8">'response_headers' </span><span class="s1">=&gt; </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'response_cookies' </span><span class="s1">=&gt; </span><span class="s7">$responseCookies</span><span class="s0">,</span>
+            <span class="s8">'session_metadata' </span><span class="s1">=&gt; </span><span class="s7">$sessionMetadata</span><span class="s0">,</span>
+            <span class="s8">'session_attributes' </span><span class="s1">=&gt; </span><span class="s7">$sessionAttributes</span><span class="s0">,</span>
+            <span class="s8">'flashes' </span><span class="s1">=&gt; </span><span class="s7">$flashes</span><span class="s0">,</span>
+            <span class="s8">'path_info' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'controller' </span><span class="s1">=&gt; </span><span class="s8">'n/a'</span><span class="s0">,</span>
+            <span class="s8">'locale' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getLocale</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">'dotenv_vars' </span><span class="s1">=&gt; </span><span class="s7">$dotenvVars</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_headers'</span><span class="s1">][</span><span class="s8">'php-auth-pw'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_headers'</span><span class="s1">][</span><span class="s8">'php-auth-pw'</span><span class="s1">] = </span><span class="s8">'******'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_server'</span><span class="s1">][</span><span class="s8">'PHP_AUTH_PW'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_server'</span><span class="s1">][</span><span class="s8">'PHP_AUTH_PW'</span><span class="s1">] = </span><span class="s8">'******'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_request'</span><span class="s1">][</span><span class="s8">'_password'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_request'</span><span class="s1">][</span><span class="s8">'_password'</span><span class="s1">] = </span><span class="s8">'******'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'request_headers' </span><span class="s1">=== </span><span class="s7">$key </span><span class="s1">|| </span><span class="s8">'response_headers' </span><span class="s1">=== </span><span class="s7">$key</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) { </span><span class="s0">return isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) ? </span><span class="s7">$v</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] : </span><span class="s7">$v</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllers</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'controller'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseController</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllers</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllers</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'_redirected'</span><span class="s1">) &amp;&amp; </span><span class="s7">$redirectCookie </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">cookies</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'sf_redirect'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'redirect'</span><span class="s1">] = </span><span class="s3">json_decode</span><span class="s1">(</span><span class="s7">$redirectCookie</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">clearCookie</span><span class="s1">(</span><span class="s8">'sf_redirect'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">isRedirect</span><span class="s1">()) {</span>
+            <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">setCookie</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Cookie</span><span class="s1">(</span>
+                <span class="s8">'sf_redirect'</span><span class="s0">,</span>
+                <span class="s3">json_encode</span><span class="s1">([</span>
+                    <span class="s8">'token' </span><span class="s1">=&gt; </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'x-debug-token'</span><span class="s1">)</span><span class="s0">,</span>
+                    <span class="s8">'route' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_route'</span><span class="s0">, </span><span class="s8">'n/a'</span><span class="s1">)</span><span class="s0">,</span>
+                    <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">,</span>
+                    <span class="s8">'controller' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseController</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_controller'</span><span class="s1">))</span><span class="s0">,</span>
+                    <span class="s8">'status_code' </span><span class="s1">=&gt; </span><span class="s7">$statusCode</span><span class="s0">,</span>
+                    <span class="s8">'status_text' </span><span class="s1">=&gt; </span><span class="s3">Response</span><span class="s1">::</span><span class="s7">$statusTexts</span><span class="s1">[(int) </span><span class="s7">$statusCode</span><span class="s1">]</span><span class="s0">,</span>
+                <span class="s1">])</span><span class="s0">,</span>
+                <span class="s9">0</span><span class="s0">, </span><span class="s8">'/'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">isSecure</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">'lax'</span>
+            <span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'identifier'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'route'</span><span class="s1">] ?: (\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'controller'</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'controller'</span><span class="s1">][</span><span class="s8">'class'</span><span class="s1">].</span><span class="s8">'::'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'controller'</span><span class="s1">][</span><span class="s8">'method'</span><span class="s1">].</span><span class="s8">'()' </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'controller'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'x-previous-debug-token'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'forward_token'</span><span class="s1">] = </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'x-previous-debug-token'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">lateCollect</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloneVar</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">reset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllers </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getMethod</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'method'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPathInfo</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'path_info'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestRequest</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_request'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestQuery</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_query'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestFiles</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_files'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestHeaders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_headers'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestServer</span><span class="s1">(</span><span class="s7">$raw </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_server'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">(</span><span class="s7">$raw</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestCookies</span><span class="s1">(</span><span class="s7">$raw </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_cookies'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">(</span><span class="s7">$raw</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRequestAttributes</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_attributes'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getResponseHeaders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'response_headers'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getResponseCookies</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'response_cookies'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getSessionMetadata</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'session_metadata'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getSessionAttributes</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'session_attributes'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getFlashes</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'flashes'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'content'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">isJsonRequest</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">1 </span><span class="s1">=== </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'{^application/(?:\w+\++)*json$}i'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_headers'</span><span class="s1">][</span><span class="s8">'content-type'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPrettyJson</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$decoded </span><span class="s1">= </span><span class="s3">json_decode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">JSON_ERROR_NONE </span><span class="s1">=== </span><span class="s3">json_last_error</span><span class="s1">() ? </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$decoded</span><span class="s0">, </span><span class="s3">JSON_PRETTY_PRINT</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getContentType</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'content_type'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getStatusText</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'status_text'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getStatusCode</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'status_code'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getFormat</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'format'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getLocale</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'locale'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getDotenvVars</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'dotenv_vars'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the route name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The _route request attributes is automatically set by the Router Matcher.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The route</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRoute</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'route'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getIdentifier</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'identifier'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the route parameters.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The _route_params request attributes is automatically set by the RouterListener.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The parameters</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRouteParams</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_attributes'</span><span class="s1">][</span><span class="s8">'_route_params'</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'request_attributes'</span><span class="s1">][</span><span class="s8">'_route_params'</span><span class="s1">]-&gt;</span><span class="s3">getValue</span><span class="s1">() : []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the parsed controller.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|string The controller as a string or array of data</span>
+     <span class="s4">*                      with keys 'class', 'method', 'file' and 'line'</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getController</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'controller'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the previous request attributes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|bool A legacy array of data from the previous redirection response</span>
+     <span class="s4">*                    or false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRedirect</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'redirect'</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'redirect'</span><span class="s1">] : </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getForwardToken</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'forward_token'</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'forward_token'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelController</span><span class="s1">(</span><span class="s3">ControllerEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllers</span><span class="s1">[</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()] = </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getController</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelResponse</span><span class="s1">(</span><span class="s3">ResponseEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()-&gt;</span><span class="s3">cookies</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'sf_redirect'</span><span class="s1">)) {</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'_redirected'</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">CONTROLLER </span><span class="s1">=&gt; </span><span class="s8">'onKernelController'</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">RESPONSE </span><span class="s1">=&gt; </span><span class="s8">'onKernelResponse'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">'request'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parse a controller.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $controller The controller to parse</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|string An array of controller data or a simple string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">parseController</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$controller</span><span class="s0">, </span><span class="s8">'::'</span><span class="s1">)) {</span>
+            <span class="s7">$controller </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'::'</span><span class="s0">, </span><span class="s7">$controller</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">)) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionMethod</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s1">[</span>
+                    <span class="s8">'class' </span><span class="s1">=&gt; \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) : </span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">,</span>
+                    <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">,</span>
+                    <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">,</span>
+                    <span class="s8">'line' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">ReflectionException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_callable</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">)) {</span>
+                    <span class="s2">// using __call or  __callStatic</span>
+                    <span class="s0">return </span><span class="s1">[</span>
+                        <span class="s8">'class' </span><span class="s1">=&gt; \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) : </span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">,</span>
+                        <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s7">$controller</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">,</span>
+                        <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s8">'n/a'</span><span class="s0">,</span>
+                        <span class="s8">'line' </span><span class="s1">=&gt; </span><span class="s8">'n/a'</span><span class="s0">,</span>
+                    <span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$controller </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionFunction</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$controller </span><span class="s1">= [</span>
+                <span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s8">'line' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s8">'{closure}'</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s7">$controller</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$controller</span><span class="s1">[</span><span class="s8">'method'</span><span class="s1">] = </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$class </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getClosureScopeClass</span><span class="s1">()) {</span>
+                <span class="s7">$controller</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">] = </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">return </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$controller</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">)) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s1">[</span>
+                <span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s8">'line' </span><span class="s1">=&gt; </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$controller</span><span class="s1">) ? </span><span class="s7">$controller </span><span class="s1">: </span><span class="s8">'n/a'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

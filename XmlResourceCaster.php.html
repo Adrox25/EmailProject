@@ -1,0 +1,87 @@
+<html>
+<head>
+<title>XmlResourceCaster.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+XmlResourceCaster.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Casts XML resources to array representation.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">XmlResourceCaster</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$xmlErrors </span><span class="s1">= [</span>
+        <span class="s3">XML_ERROR_NONE </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_NONE'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_NO_MEMORY </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_NO_MEMORY'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_SYNTAX </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_SYNTAX'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_NO_ELEMENTS </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_NO_ELEMENTS'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_INVALID_TOKEN </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_INVALID_TOKEN'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_UNCLOSED_TOKEN </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_UNCLOSED_TOKEN'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_PARTIAL_CHAR </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_PARTIAL_CHAR'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_TAG_MISMATCH </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_TAG_MISMATCH'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_DUPLICATE_ATTRIBUTE </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_DUPLICATE_ATTRIBUTE'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_JUNK_AFTER_DOC_ELEMENT </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_JUNK_AFTER_DOC_ELEMENT'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_PARAM_ENTITY_REF </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_PARAM_ENTITY_REF'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_UNDEFINED_ENTITY </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_UNDEFINED_ENTITY'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_RECURSIVE_ENTITY_REF </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_RECURSIVE_ENTITY_REF'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_ASYNC_ENTITY </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_ASYNC_ENTITY'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_BAD_CHAR_REF </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_BAD_CHAR_REF'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_BINARY_ENTITY_REF </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_BINARY_ENTITY_REF'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_MISPLACED_XML_PI </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_MISPLACED_XML_PI'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_UNKNOWN_ENCODING </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_UNKNOWN_ENCODING'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_INCORRECT_ENCODING </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_INCORRECT_ENCODING'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_UNCLOSED_CDATA_SECTION </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_UNCLOSED_CDATA_SECTION'</span><span class="s0">,</span>
+        <span class="s3">XML_ERROR_EXTERNAL_ENTITY_HANDLING </span><span class="s1">=&gt; </span><span class="s8">'XML_ERROR_EXTERNAL_ENTITY_HANDLING'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">castXml</span><span class="s1">(</span><span class="s7">$h</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'current_byte_index'</span><span class="s1">] = </span><span class="s3">xml_get_current_byte_index</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'current_column_number'</span><span class="s1">] = </span><span class="s3">xml_get_current_column_number</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'current_line_number'</span><span class="s1">] = </span><span class="s3">xml_get_current_line_number</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'error_code'</span><span class="s1">] = </span><span class="s3">xml_get_error_code</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$xmlErrors</span><span class="s1">[</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'error_code'</span><span class="s1">]])) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s8">'error_code'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$xmlErrors</span><span class="s1">[</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'error_code'</span><span class="s1">]]</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'error_code'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

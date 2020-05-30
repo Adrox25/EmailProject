@@ -1,0 +1,214 @@
+<html>
+<head>
+<title>CacheDataCollector.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CacheDataCollector.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">TraceableAdapter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">TraceableAdapterEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s1">\</span><span class="s3">LateDataCollectorInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Aaron Scherer </span><span class="s6">&lt;aequasi</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Tobias Nyholm </span><span class="s6">&lt;tobias.nyholm</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CacheDataCollector </span><span class="s0">extends </span><span class="s3">DataCollector </span><span class="s0">implements </span><span class="s3">LateDataCollectorInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">TraceableAdapter[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$instances </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">addInstance</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">TraceableAdapter </span><span class="s7">$instance</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instances</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$instance</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">collect</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$exception </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$empty </span><span class="s1">= [</span><span class="s8">'calls' </span><span class="s1">=&gt; []</span><span class="s0">, </span><span class="s8">'config' </span><span class="s1">=&gt; []</span><span class="s0">, </span><span class="s8">'options' </span><span class="s1">=&gt; []</span><span class="s0">, </span><span class="s8">'statistics' </span><span class="s1">=&gt; []]</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= [</span><span class="s8">'instances' </span><span class="s1">=&gt; </span><span class="s7">$empty</span><span class="s0">, </span><span class="s8">'total' </span><span class="s1">=&gt; </span><span class="s7">$empty</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instances </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$instance</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'calls'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$instance</span><span class="s1">-&gt;</span><span class="s3">getCalls</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'statistics'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calculateStatistics</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'total'</span><span class="s1">][</span><span class="s8">'statistics'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calculateTotalStatistics</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">reset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instances </span><span class="s0">as </span><span class="s7">$instance</span><span class="s1">) {</span>
+            <span class="s7">$instance</span><span class="s1">-&gt;</span><span class="s3">clearCalls</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">lateCollect</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'calls'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloneVar</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'calls'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">'cache'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Method returns amount of logged Cache reads: &quot;get&quot; calls.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStatistics</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'statistics'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Method returns the statistic totals.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTotals</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'total'</span><span class="s1">][</span><span class="s8">'statistics'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Method returns all logged Cache call objects.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCalls</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'calls'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">calculateStatistics</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$statistics </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'instances'</span><span class="s1">][</span><span class="s8">'calls'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$calls</span><span class="s1">) {</span>
+            <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = [</span>
+                <span class="s8">'calls' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'time' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'reads' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'writes' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'deletes' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'hits' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'misses' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+            <span class="s4">/** </span><span class="s5">@var </span><span class="s4">TraceableAdapterEvent $call */</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$calls </span><span class="s0">as </span><span class="s7">$call</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'calls'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'time'</span><span class="s1">] += </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">- </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'get' </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'reads'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">hits</span><span class="s1">) {</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hits'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'misses'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'writes'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'getItem' </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'reads'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">hits</span><span class="s1">) {</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hits'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'misses'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'getItems' </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'reads'</span><span class="s1">] += </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">hits </span><span class="s1">+ </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">misses</span><span class="s0">;</span>
+                    <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hits'</span><span class="s1">] += </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">hits</span><span class="s0">;</span>
+                    <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'misses'</span><span class="s1">] += </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">misses</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'hasItem' </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'reads'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">) {</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'misses'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hits'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'save' </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'writes'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'deleteItem' </span><span class="s1">=== </span><span class="s7">$call</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'deletes'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'reads'</span><span class="s1">]) {</span>
+                <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hit_read_ratio'</span><span class="s1">] = </span><span class="s3">round</span><span class="s1">(</span><span class="s9">100 </span><span class="s1">* </span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hits'</span><span class="s1">] / </span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'reads'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s8">'hit_read_ratio'</span><span class="s1">] = </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$statistics</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">calculateTotalStatistics</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$statistics </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getStatistics</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$totals </span><span class="s1">= [</span>
+            <span class="s8">'calls' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'time' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'reads' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'writes' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'deletes' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'hits' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'misses' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$statistics </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$values</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$totals </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$totals</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] += </span><span class="s7">$statistics</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$totals</span><span class="s1">[</span><span class="s8">'reads'</span><span class="s1">]) {</span>
+            <span class="s7">$totals</span><span class="s1">[</span><span class="s8">'hit_read_ratio'</span><span class="s1">] = </span><span class="s3">round</span><span class="s1">(</span><span class="s9">100 </span><span class="s1">* </span><span class="s7">$totals</span><span class="s1">[</span><span class="s8">'hits'</span><span class="s1">] / </span><span class="s7">$totals</span><span class="s1">[</span><span class="s8">'reads'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$totals</span><span class="s1">[</span><span class="s8">'hit_read_ratio'</span><span class="s1">] = </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$totals</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

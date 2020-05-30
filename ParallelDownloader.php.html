@@ -1,0 +1,312 @@
+<html>
+<head>
+<title>ParallelDownloader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ParallelDownloader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Config</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Downloader</span><span class="s1">\</span><span class="s3">TransportException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">IO</span><span class="s1">\</span><span class="s3">IOInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Util</span><span class="s1">\</span><span class="s3">RemoteFilesystem</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Speedup Composer by downloading packages in parallel.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ParallelDownloader </span><span class="s0">extends </span><span class="s3">RemoteFilesystem</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$io</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$downloader</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$quiet </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$progress </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$nextCallback</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$downloadCount</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$nextOptions </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$sharedState</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fileName</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$lastHeaders</span><span class="s0">;</span>
+
+    <span class="s0">public static </span><span class="s7">$cacheNext </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected static </span><span class="s7">$cache </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">IOInterface </span><span class="s7">$io</span><span class="s0">, </span><span class="s3">Config </span><span class="s7">$config</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []</span><span class="s0">, </span><span class="s7">$disableTls </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io </span><span class="s1">= </span><span class="s7">$io</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s3">parent</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'getRemoteContents'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'Composer &gt;=1.7 not found, downloads will happen in sequence'</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">IOInterface</span><span class="s1">::</span><span class="s3">DEBUG</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">extension_loaded</span><span class="s1">(</span><span class="s8">'curl'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'ext-curl not found, downloads will happen in sequence'</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">IOInterface</span><span class="s1">::</span><span class="s3">DEBUG</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">= </span><span class="s0">new </span><span class="s3">CurlDownloader</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s7">$config</span><span class="s0">, </span><span class="s7">$options</span><span class="s0">, </span><span class="s7">$disableTls</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">download</span><span class="s1">(</span><span class="s0">array </span><span class="s1">&amp;</span><span class="s7">$nextArgs</span><span class="s0">, callable </span><span class="s7">$nextCallback</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$quiet </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$progress </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$previousState </span><span class="s1">= [</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloadCount</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextCallback</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sharedState</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet </span><span class="s1">= </span><span class="s7">$quiet</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress </span><span class="s1">= </span><span class="s7">$progress</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloadCount </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$nextArgs</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextCallback </span><span class="s1">= </span><span class="s7">$nextCallback</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sharedState </span><span class="s1">= (object) [</span>
+            <span class="s8">'bytesMaxCount' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'bytesMax' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'bytesTransferred' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'nextArgs' </span><span class="s1">=&gt; &amp;</span><span class="s7">$nextArgs</span><span class="s0">,</span>
+            <span class="s8">'nestingLevel' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'maxNestingReached' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s0">,</span>
+            <span class="s8">'lastProgress' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'lastUpdate' </span><span class="s1">=&gt; </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">&amp;&amp; </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s3">parent</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'getRemoteContents'</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'&lt;warning&gt;Enable the &quot;cURL&quot; PHP extension for faster downloads&lt;/&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$note </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()) {</span>
+                <span class="s7">$note </span><span class="s1">= </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">? </span><span class="s8">'' </span><span class="s1">: (</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s3">PHP_OS</span><span class="s0">, </span><span class="s8">'darwin'</span><span class="s1">) ? </span><span class="s8">'🎵' </span><span class="s1">: </span><span class="s8">'🎶'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$note </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">? (</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">!== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">? </span><span class="s8">' 💨' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">) : </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;info&gt;Prefetching %d packages&lt;/&gt; %s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloadCount</span><span class="s0">, </span><span class="s7">$note</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'  - Downloading'</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">' (&lt;comment&gt;0%&lt;/&gt;)'</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getNext</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet</span><span class="s1">) {</span>
+                <span class="s2">// no-op</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">overwriteError</span><span class="s1">(</span><span class="s8">' (&lt;comment&gt;100%&lt;/&gt;)'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">' (&lt;comment&gt;100%&lt;/&gt;)'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloadCount</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextCallback</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sharedState</span><span class="s1">) = </span><span class="s7">$previousState</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getOptions</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$options </span><span class="s1">= </span><span class="s3">array_replace_recursive</span><span class="s1">(</span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getOptions</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextOptions</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextOptions </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$options</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setNextOptions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$options</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextOptions </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getOptions</span><span class="s1">() !== </span><span class="s7">$options </span><span class="s1">? </span><span class="s7">$options </span><span class="s1">: []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getLastHeaders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lastHeaders </span><span class="s1">?? </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getLastHeaders</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">copy</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$fileName</span><span class="s0">, </span><span class="s7">$progress </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$options </span><span class="s1">= </span><span class="s3">array_replace_recursive</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextOptions</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextOptions </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$rfs </span><span class="s1">= </span><span class="s0">clone </span><span class="s7">$this</span><span class="s0">;</span>
+        <span class="s7">$rfs</span><span class="s1">-&gt;</span><span class="s3">fileName </span><span class="s1">= </span><span class="s7">$fileName</span><span class="s0">;</span>
+        <span class="s7">$rfs</span><span class="s1">-&gt;</span><span class="s3">progress </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress </span><span class="s1">&amp;&amp; </span><span class="s7">$progress</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$rfs</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$options</span><span class="s0">, </span><span class="s7">$fileName</span><span class="s0">, </span><span class="s7">$rfs</span><span class="s1">-&gt;</span><span class="s3">progress</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$rfs</span><span class="s1">-&gt;</span><span class="s3">lastHeaders </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lastHeaders </span><span class="s1">= </span><span class="s7">$rfs</span><span class="s1">-&gt;</span><span class="s3">getLastHeaders</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getContents</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$progress </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">copy</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$progress</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">callbackGet</span><span class="s1">(</span><span class="s7">$notificationCode</span><span class="s0">, </span><span class="s7">$severity</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$messageCode</span><span class="s0">, </span><span class="s7">$bytesTransferred</span><span class="s0">, </span><span class="s7">$bytesMax</span><span class="s0">, </span><span class="s7">$nativeDownload </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$nativeDownload </span><span class="s1">&amp;&amp; </span><span class="s3">STREAM_NOTIFY_SEVERITY_ERR </span><span class="s1">=== </span><span class="s7">$severity</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">TransportException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$messageCode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">callbackGet</span><span class="s1">(</span><span class="s7">$notificationCode</span><span class="s0">, </span><span class="s7">$severity</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$messageCode</span><span class="s0">, </span><span class="s7">$bytesTransferred</span><span class="s0">, </span><span class="s7">$bytesMax</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$state </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sharedState</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">STREAM_NOTIFY_FILE_SIZE_IS </span><span class="s1">=== </span><span class="s7">$notificationCode</span><span class="s1">) {</span>
+            <span class="s1">++</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesMaxCount</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesMax </span><span class="s1">+= </span><span class="s7">$bytesMax</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bytesMax </span><span class="s1">|| </span><span class="s3">STREAM_NOTIFY_PROGRESS </span><span class="s1">!== </span><span class="s7">$notificationCode</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nextArgs </span><span class="s1">&amp;&amp; !</span><span class="s7">$nativeDownload</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getNext</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesMax</span><span class="s1">) {</span>
+            <span class="s7">$progress </span><span class="s1">= </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesMaxCount </span><span class="s1">/ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloadCount</span><span class="s0">;</span>
+            <span class="s7">$progress </span><span class="s1">*= </span><span class="s9">100 </span><span class="s1">* (</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesTransferred </span><span class="s1">+ </span><span class="s7">$bytesTransferred</span><span class="s1">) / </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesMax</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$progress </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$bytesTransferred </span><span class="s1">=== </span><span class="s7">$bytesMax</span><span class="s1">) {</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">bytesTransferred </span><span class="s1">+= </span><span class="s7">$bytesMax</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nextArgs </span><span class="s1">&amp;&amp; !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">quiet </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">progress </span><span class="s1">&amp;&amp; </span><span class="s9">1 </span><span class="s1">&lt;= </span><span class="s7">$progress </span><span class="s1">- </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">lastProgress</span><span class="s1">) {</span>
+            <span class="s7">$progressTime </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">5 </span><span class="s1">&lt;= </span><span class="s7">$progress </span><span class="s1">- </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">lastProgress </span><span class="s1">|| </span><span class="s9">1 </span><span class="s1">&lt;= </span><span class="s7">$progressTime </span><span class="s1">- </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">lastUpdate</span><span class="s1">) {</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">lastProgress </span><span class="s1">= </span><span class="s7">$progress</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">overwriteError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' (&lt;comment&gt;%d%%&lt;/&gt;)'</span><span class="s0">, </span><span class="s7">$progress</span><span class="s1">)</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">lastUpdate </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$nativeDownload </span><span class="s1">|| !</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nextArgs </span><span class="s1">|| </span><span class="s7">$bytesTransferred </span><span class="s1">=== </span><span class="s7">$bytesMax </span><span class="s1">|| </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">maxNestingReached</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">5 </span><span class="s1">&lt; </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nestingLevel</span><span class="s1">) {</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">maxNestingReached </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getNext</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getRemoteContents</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$responseHeaders </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$cache</span><span class="s1">[</span><span class="s7">$fileUrl</span><span class="s1">])) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$cacheNext </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+            <span class="s7">$result </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$cache</span><span class="s1">[</span><span class="s7">$fileUrl</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">3 </span><span class="s1">&lt; \</span><span class="s3">func_num_args</span><span class="s1">()) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s7">$responseHeaders</span><span class="s0">, </span><span class="s7">$result</span><span class="s1">) = </span><span class="s7">$result</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$cacheNext</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$cacheNext </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">3 </span><span class="s1">&lt; \</span><span class="s3">func_num_args</span><span class="s1">()) {</span>
+                <span class="s7">$result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRemoteContents</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$responseHeaders</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$cache</span><span class="s1">[</span><span class="s7">$fileUrl</span><span class="s1">] = [</span><span class="s7">$responseHeaders</span><span class="s0">, </span><span class="s7">$result</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRemoteContents</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$cache</span><span class="s1">[</span><span class="s7">$fileUrl</span><span class="s1">] = </span><span class="s7">$result</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">|| !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^https?:/'</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getRemoteContents</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$responseHeaders</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileName</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">3 </span><span class="s1">&lt; \</span><span class="s3">func_num_args</span><span class="s1">()) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s7">$responseHeaders</span><span class="s0">, </span><span class="s7">$result</span><span class="s1">) = </span><span class="s7">$result</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TransportException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'Retrying download: '</span><span class="s1">.</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">IOInterface</span><span class="s1">::</span><span class="s3">DEBUG</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getRemoteContents</span><span class="s1">(</span><span class="s7">$originUrl</span><span class="s0">, </span><span class="s7">$fileUrl</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$responseHeaders</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$responseHeaders </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getNext</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$state </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sharedState</span><span class="s0">;</span>
+        <span class="s1">++</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nestingLevel</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">while </span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nextArgs </span><span class="s1">&amp;&amp; (!</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">maxNestingReached </span><span class="s1">|| </span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nestingLevel</span><span class="s1">)) {</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">maxNestingReached </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nextCallback</span><span class="s1">)(...</span><span class="s3">array_shift</span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nextArgs</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TransportException </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'Skipping download: '</span><span class="s1">.</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">IOInterface</span><span class="s1">::</span><span class="s3">DEBUG</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s1">--</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">nestingLevel</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<html>
+<head>
+<title>StreamedResponse.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+StreamedResponse.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* StreamedResponse represents a streamed HTTP response.</span>
+ <span class="s4">*</span>
+ <span class="s4">* A StreamedResponse uses a callback for its content.</span>
+ <span class="s4">*</span>
+ <span class="s4">* The callback should use the standard PHP functions like echo</span>
+ <span class="s4">* to stream the response back to the client. The flush() function</span>
+ <span class="s4">* can also be used if needed.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@see </span><span class="s4">flush()</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">StreamedResponse </span><span class="s0">extends </span><span class="s3">Response</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$callback</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$streamed</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$headersSent</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$callback </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s8">200</span><span class="s0">, array </span><span class="s7">$headers </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$callback</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setCallback</span><span class="s1">(</span><span class="s7">$callback</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">streamed </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headersSent </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Factory method for chainability.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable|null $callback A valid PHP callback or null to set it later</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">static</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">create</span><span class="s1">(</span><span class="s7">$callback </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s8">200</span><span class="s0">, array </span><span class="s7">$headers </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">return new static</span><span class="s1">(</span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the PHP callback associated with this Response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCallback</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$callback</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callback </span><span class="s1">= </span><span class="s7">$callback</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method only sends the headers once.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sendHeaders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headersSent</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headersSent </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">sendHeaders</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method only sends the content once.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sendContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">streamed</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">streamed </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callback</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'The Response callback must not be null.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callback</span><span class="s1">)()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException when the content is not null</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setContent</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$content</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$content</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'The content cannot be set on a StreamedResponse instance.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">streamed </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

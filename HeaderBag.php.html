@@ -1,0 +1,313 @@
+<html>
+<head>
+<title>HeaderBag.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+HeaderBag.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* HeaderBag is a container for HTTP headers.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">HeaderBag </span><span class="s0">implements </span><span class="s1">\</span><span class="s3">IteratorAggregate</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Countable</span>
+<span class="s1">{</span>
+    <span class="s0">protected const </span><span class="s3">UPPER </span><span class="s1">= </span><span class="s7">'_ABCDEFGHIJKLMNOPQRSTUVWXYZ'</span><span class="s0">;</span>
+    <span class="s0">protected const </span><span class="s3">LOWER </span><span class="s1">= </span><span class="s7">'-abcdefghijklmnopqrstuvwxyz'</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s8">$headers </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s8">$cacheControl </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$headers </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$headers </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$values</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the headers as a string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The headers</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__toString</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$headers </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">ksort</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$max </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s7">'strlen'</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">))) + </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s8">$content </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$headers </span><span class="s0">as </span><span class="s8">$name </span><span class="s1">=&gt; </span><span class="s8">$values</span><span class="s1">) {</span>
+            <span class="s8">$name </span><span class="s1">= </span><span class="s3">ucwords</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s7">'-'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$values </span><span class="s0">as </span><span class="s8">$value</span><span class="s1">) {</span>
+                <span class="s8">$content </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">&quot;%-</span><span class="s1">{</span><span class="s8">$max</span><span class="s1">}</span><span class="s7">s %s</span><span class="s0">\r\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">.</span><span class="s7">':'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$content</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the headers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $key The name of the headers to return or null to get them all</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of headers</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">all</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$key</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s3">strtr</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">UPPER</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">LOWER</span><span class="s1">)] ?? []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the parameter keys.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of parameter keys</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">keys</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Replaces the current HTTP headers by a new set.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">replace</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$headers </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds new headers the current HTTP headers set.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">add</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$headers</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$headers </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$values</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a header value by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The first header value or default value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$default </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$headers </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$headers</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$default</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$headers</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">(string) </span><span class="s8">$headers</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a header by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $values  The value or an array of values</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool            $replace Whether to replace the actual value or not (true by default)</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">set</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$values</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$replace </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$key </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">UPPER</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">LOWER</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">)) {</span>
+            <span class="s8">$values </span><span class="s1">= </span><span class="s3">array_values</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s8">$replace </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$values</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s8">$replace </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = [</span><span class="s8">$values</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">][] = </span><span class="s8">$values</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'cache-control' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseCacheControl</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s7">', '</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the HTTP header is defined.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if the parameter exists, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">has</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s3">strtr</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">UPPER</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">LOWER</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the given HTTP header contains the given value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if the value is contained in the header, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">contains</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes a header.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">remove</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$key </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">UPPER</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">LOWER</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">unset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'cache-control' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the HTTP header value converted to a date.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\DateTimeInterface|null The parsed DateTime or the default value if the header does not exist</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException When the HTTP header is not parseable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDate</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DateTime </span><span class="s8">$default </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$value </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s8">$default</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$date </span><span class="s1">= \</span><span class="s3">DateTime</span><span class="s1">::</span><span class="s3">createFromFormat</span><span class="s1">(</span><span class="s3">DATE_RFC2822</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s&quot; HTTP header is not parseable (%s).'</span><span class="s0">, </span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$date</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a custom Cache-Control directive.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value The Cache-Control directive value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$value </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">'Cache-Control'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheControlHeader</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the Cache-Control directive is defined.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if the directive exists, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a Cache-Control directive value by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed|null The directive value if defined, null otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s1">) ? </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes a Cache-Control directive.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">removeCacheControlDirective</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">'Cache-Control'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheControlHeader</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns an iterator for headers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\ArrayIterator An \ArrayIterator instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getIterator</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s1">\</span><span class="s3">ArrayIterator</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the number of headers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The number of headers</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">count</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">getCacheControlHeader</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s3">ksort</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">HeaderUtils</span><span class="s1">::</span><span class="s3">toString</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cacheControl</span><span class="s0">, </span><span class="s7">','</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a Cache-Control HTTP header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array representing the attribute values</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">parseCacheControl</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$header</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$parts </span><span class="s1">= </span><span class="s3">HeaderUtils</span><span class="s1">::</span><span class="s3">split</span><span class="s1">(</span><span class="s8">$header</span><span class="s0">, </span><span class="s7">',='</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">HeaderUtils</span><span class="s1">::</span><span class="s3">combine</span><span class="s1">(</span><span class="s8">$parts</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<html>
+<head>
+<title>RegisterControllerArgumentLocatorsPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RegisterControllerArgumentLocatorsPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Controller</span><span class="s1">\</span><span class="s3">AbstractController</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ChildDefinition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">CompilerPassInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">ServiceLocatorTagPass</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerAwareInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">LazyProxy</span><span class="s1">\</span><span class="s3">ProxyHelper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">TypedReference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Creates the service-locators required by ServiceValueResolver.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RegisterControllerArgumentLocatorsPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$resolverServiceId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$controllerTag</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$controllerLocator</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$notTaggedControllerResolverServiceId</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$resolverServiceId </span><span class="s1">= </span><span class="s8">'argument_resolver.service'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$controllerTag </span><span class="s1">= </span><span class="s8">'controller.service_arguments'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$controllerLocator </span><span class="s1">= </span><span class="s8">'argument_resolver.controller_locator'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$notTaggedControllerResolverServiceId </span><span class="s1">= </span><span class="s8">'argument_resolver.not_tagged_controller'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolverServiceId </span><span class="s1">= </span><span class="s7">$resolverServiceId</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerTag </span><span class="s1">= </span><span class="s7">$controllerTag</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerLocator </span><span class="s1">= </span><span class="s7">$controllerLocator</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notTaggedControllerResolverServiceId </span><span class="s1">= </span><span class="s7">$notTaggedControllerResolverServiceId</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolverServiceId</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notTaggedControllerResolverServiceId</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$parameterBag </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$controllers </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerTag</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$tags</span><span class="s1">) {</span>
+            <span class="s7">$def </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$autowire </span><span class="s1">= </span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">isAutowired</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$bindings </span><span class="s1">= </span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">getBindings</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s2">// resolve service class, taking parent definitions into account</span>
+            <span class="s0">while </span><span class="s1">(</span><span class="s7">$def </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                <span class="s7">$def </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findDefinition</span><span class="s1">(</span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">getParent</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s7">$class </span><span class="s1">?: </span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$bindings </span><span class="s1">+= </span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">getBindings</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s7">$parameterBag</span><span class="s1">-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Class &quot;%s&quot; used for service &quot;%s&quot; cannot be found.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$isContainerAware </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">implementsInterface</span><span class="s1">(</span><span class="s3">ContainerAwareInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">) || </span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">AbstractController</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// get regular public methods</span>
+            <span class="s7">$methods </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$arguments </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">(\</span><span class="s3">ReflectionMethod</span><span class="s1">::</span><span class="s3">IS_PUBLIC</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$r</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'setContainer' </span><span class="s1">=== </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">&amp;&amp; </span><span class="s7">$isContainerAware</span><span class="s1">) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isConstructor</span><span class="s1">() &amp;&amp; !</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isDestructor</span><span class="s1">() &amp;&amp; !</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">()) {</span>
+                    <span class="s7">$methods</span><span class="s1">[</span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">)] = [</span><span class="s7">$r</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">()]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// validate and collect explicit per-actions and per-arguments service references</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tags </span><span class="s0">as </span><span class="s7">$attributes</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'action'</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'argument'</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">])) {</span>
+                    <span class="s7">$autowire </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'action'</span><span class="s0">, </span><span class="s8">'argument'</span><span class="s0">, </span><span class="s8">'id'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$k</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">][</span><span class="s9">0</span><span class="s1">])) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Missing &quot;%s&quot; attribute on tag &quot;%s&quot; %s for service &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerTag</span><span class="s0">, </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s3">JSON_UNESCAPED_UNICODE</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$methods</span><span class="s1">[</span><span class="s7">$action </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'action'</span><span class="s1">])])) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid &quot;action&quot; attribute on tag &quot;%s&quot; for service &quot;%s&quot;: no public &quot;%s()&quot; method found on class &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerTag</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'action'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s7">$r</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">) = </span><span class="s7">$methods</span><span class="s1">[</span><span class="s7">$action</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$found </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$parameters </span><span class="s0">as </span><span class="s7">$p</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'argument'</span><span class="s1">] === </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$arguments</span><span class="s1">[</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                            <span class="s7">$arguments</span><span class="s1">[</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s7">$found </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$found</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid &quot;%s&quot; tag for service &quot;%s&quot;: method &quot;%s()&quot; has no &quot;%s&quot; argument on class &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerTag</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'argument'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$methods </span><span class="s0">as list</span><span class="s1">(</span><span class="s7">$r</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">)) {</span>
+                <span class="s4">/** </span><span class="s5">@var </span><span class="s4">\ReflectionMethod $r */</span>
+
+                <span class="s2">// create a per-method map of argument-names to service/type-references</span>
+                <span class="s7">$args </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$parameters </span><span class="s0">as </span><span class="s7">$p</span><span class="s1">) {</span>
+                    <span class="s4">/** </span><span class="s5">@var </span><span class="s4">\ReflectionParameter $p */</span>
+                    <span class="s7">$type </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$target </span><span class="s1">= </span><span class="s3">ProxyHelper</span><span class="s1">::</span><span class="s3">getTypeHint</span><span class="s1">(</span><span class="s7">$r</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$arguments</span><span class="s1">[</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                        <span class="s7">$target </span><span class="s1">= </span><span class="s7">$arguments</span><span class="s1">[</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">'?' </span><span class="s1">!== </span><span class="s7">$target</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                            <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">RUNTIME_EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$target </span><span class="s1">= (string) </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$target</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)) {</span>
+                            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;%s&quot; tag must have non-empty &quot;id&quot; attributes for service &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerTag</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">allowsNull</span><span class="s1">() &amp;&amp; !</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">isOptional</span><span class="s1">()) {</span>
+                            <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">NULL_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$bindingName </span><span class="s1">= </span><span class="s7">$type</span><span class="s1">.</span><span class="s8">' $'</span><span class="s1">.</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$bindingName </span><span class="s1">= </span><span class="s8">'$'</span><span class="s1">.</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$bindingName </span><span class="s1">= </span><span class="s7">$type</span><span class="s1">])) {</span>
+                        <span class="s7">$binding </span><span class="s1">= </span><span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$bindingName</span><span class="s1">]</span><span class="s0">;</span>
+
+                        <span class="s0">list</span><span class="s1">(</span><span class="s7">$bindingValue</span><span class="s0">, </span><span class="s7">$bindingId</span><span class="s0">, , </span><span class="s7">$bindingType</span><span class="s0">, </span><span class="s7">$bindingFile</span><span class="s1">) = </span><span class="s7">$binding</span><span class="s1">-&gt;</span><span class="s3">getValues</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s7">$binding</span><span class="s1">-&gt;</span><span class="s3">setValues</span><span class="s1">([</span><span class="s7">$bindingValue</span><span class="s0">, </span><span class="s7">$bindingId</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$bindingType</span><span class="s0">, </span><span class="s7">$bindingFile</span><span class="s1">])</span><span class="s0">;</span>
+
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bindingValue </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+                            <span class="s7">$args</span><span class="s1">[</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s8">'.value.'</span><span class="s1">.</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hash</span><span class="s1">(</span><span class="s7">$bindingValue</span><span class="s1">))</span><span class="s0">;</span>
+                            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">register</span><span class="s1">((string) </span><span class="s7">$args</span><span class="s1">[</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'mixed'</span><span class="s1">)</span>
+                                <span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">(</span><span class="s8">'current'</span><span class="s1">)</span>
+                                <span class="s1">-&gt;</span><span class="s3">addArgument</span><span class="s1">([</span><span class="s7">$bindingValue</span><span class="s1">])</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s7">$args</span><span class="s1">[</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s7">$bindingValue</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">continue;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$type </span><span class="s1">|| !</span><span class="s7">$autowire </span><span class="s1">|| </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">!== </span><span class="s7">$target</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">allowsNull</span><span class="s1">()) {</span>
+                        <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">RUNTIME_EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">Request</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$type </span><span class="s1">&amp;&amp; !</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">isOptional</span><span class="s1">() &amp;&amp; !</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">allowsNull</span><span class="s1">() &amp;&amp; !</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$type</span><span class="s1">) &amp;&amp; !</span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) {</span>
+                        <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Cannot determine controller argument for &quot;%s::%s()&quot;: the $%s argument is type-hinted with the non-existent class or interface: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s2">// see if the type-hint lives in the same namespace as the controller</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strncmp</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">))) {</span>
+                            <span class="s7">$message </span><span class="s1">.= </span><span class="s8">' Did you forget to add a use statement?'</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$target </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$target</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$args</span><span class="s1">[</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s7">$type </span><span class="s1">? </span><span class="s0">new </span><span class="s3">TypedReference</span><span class="s1">(</span><span class="s7">$target</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$invalidBehavior</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) : </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$target</span><span class="s0">, </span><span class="s7">$invalidBehavior</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s2">// register the maps as a per-method service-locators</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$args</span><span class="s1">) {</span>
+                    <span class="s7">$controllers</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">.</span><span class="s8">'::'</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s3">ServiceLocatorTagPass</span><span class="s1">::</span><span class="s3">register</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$args</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$controllerLocatorRef </span><span class="s1">= </span><span class="s3">ServiceLocatorTagPass</span><span class="s1">::</span><span class="s3">register</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$controllers</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolverServiceId</span><span class="s1">)) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolverServiceId</span><span class="s1">)</span>
+                <span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s7">$controllerLocatorRef</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notTaggedControllerResolverServiceId</span><span class="s1">)) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notTaggedControllerResolverServiceId</span><span class="s1">)</span>
+                <span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s7">$controllerLocatorRef</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controllerLocator</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$controllerLocatorRef</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

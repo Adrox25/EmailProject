@@ -1,0 +1,108 @@
+<html>
+<head>
+<title>SuggestMissingPackageSubscriber.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SuggestMissingPackageSubscriber.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">ConsoleEvents</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ConsoleErrorEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">CommandNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Suggests a package, that should be installed (via composer),</span>
+ <span class="s4">* if the package is missing, and the input command namespace can be mapped to a Symfony bundle.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Przemysław Bogusz </span><span class="s6">&lt;przemyslaw.bogusz</span><span class="s4">@tubotax.pl&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">SuggestMissingPackageSubscriber </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private const </span><span class="s3">PACKAGES </span><span class="s1">= [</span>
+        <span class="s7">'doctrine' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'fixtures' </span><span class="s1">=&gt; [</span><span class="s7">'DoctrineFixturesBundle'</span><span class="s0">, </span><span class="s7">'doctrine/doctrine-fixtures-bundle --dev'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s7">'mongodb' </span><span class="s1">=&gt; [</span><span class="s7">'DoctrineMongoDBBundle'</span><span class="s0">, </span><span class="s7">'doctrine/mongodb-odm-bundle'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s7">'_default' </span><span class="s1">=&gt; [</span><span class="s7">'Doctrine ORM'</span><span class="s0">, </span><span class="s7">'symfony/orm-pack'</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'generate' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'_default' </span><span class="s1">=&gt; [</span><span class="s7">'SensioGeneratorBundle'</span><span class="s0">, </span><span class="s7">'sensio/generator-bundle'</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'make' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'_default' </span><span class="s1">=&gt; [</span><span class="s7">'MakerBundle'</span><span class="s0">, </span><span class="s7">'symfony/maker-bundle --dev'</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'server' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'dump' </span><span class="s1">=&gt; [</span><span class="s7">'Debug Bundle'</span><span class="s0">, </span><span class="s7">'symfony/debug-bundle --dev'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s7">'_default' </span><span class="s1">=&gt; [</span><span class="s7">'WebServerBundle'</span><span class="s0">, </span><span class="s7">'symfony/web-server-bundle --dev'</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">onConsoleError</span><span class="s1">(</span><span class="s3">ConsoleErrorEvent </span><span class="s8">$event</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$event</span><span class="s1">-&gt;</span><span class="s3">getError</span><span class="s1">() </span><span class="s0">instanceof </span><span class="s3">CommandNotFoundException</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s1">[</span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$command</span><span class="s1">] = </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">':'</span><span class="s0">, </span><span class="s8">$event</span><span class="s1">-&gt;</span><span class="s3">getInput</span><span class="s1">()-&gt;</span><span class="s3">getFirstArgument</span><span class="s1">()) + [</span><span class="s9">1 </span><span class="s1">=&gt; </span><span class="s7">''</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">PACKAGES</span><span class="s1">[</span><span class="s8">$namespace</span><span class="s1">])) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">PACKAGES</span><span class="s1">[</span><span class="s8">$namespace</span><span class="s1">][</span><span class="s8">$command</span><span class="s1">])) {</span>
+            <span class="s8">$suggestion </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">PACKAGES</span><span class="s1">[</span><span class="s8">$namespace</span><span class="s1">][</span><span class="s8">$command</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s8">$exact </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$suggestion </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">PACKAGES</span><span class="s1">[</span><span class="s8">$namespace</span><span class="s1">][</span><span class="s7">'_default'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s8">$exact </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$error </span><span class="s1">= </span><span class="s8">$event</span><span class="s1">-&gt;</span><span class="s3">getError</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$error</span><span class="s1">-&gt;</span><span class="s3">getAlternatives</span><span class="s1">() &amp;&amp; !</span><span class="s8">$exact</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">&quot;%s</span><span class="s0">\n\n</span><span class="s7">You may be looking for a command provided by the </span><span class="s0">\&quot;</span><span class="s7">%s</span><span class="s0">\&quot; </span><span class="s7">which is currently not installed. Try running </span><span class="s0">\&quot;</span><span class="s7">composer require %s</span><span class="s0">\&quot;</span><span class="s7">.&quot;</span><span class="s0">, </span><span class="s8">$error</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$suggestion</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$suggestion</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s8">$event</span><span class="s1">-&gt;</span><span class="s3">setError</span><span class="s1">(</span><span class="s0">new </span><span class="s3">CommandNotFoundException</span><span class="s1">(</span><span class="s8">$message</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s3">ConsoleEvents</span><span class="s1">::</span><span class="s3">ERROR </span><span class="s1">=&gt; [</span><span class="s7">'onConsoleError'</span><span class="s0">, </span><span class="s9">0</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

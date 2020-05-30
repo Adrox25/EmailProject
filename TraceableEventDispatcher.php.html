@@ -1,0 +1,388 @@
+<html>
+<head>
+<title>TraceableEventDispatcher.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+TraceableEventDispatcher.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">Debug</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">StoppableEventInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Service</span><span class="s1">\</span><span class="s3">ResetInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Collects some data about event listeners.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This event dispatcher delegates the dispatching to another one.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">TraceableEventDispatcher </span><span class="s0">implements </span><span class="s3">EventDispatcherInterface</span><span class="s0">, </span><span class="s3">ResetInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$logger</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$stopwatch</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$callStack</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$wrappedListeners</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$orphanedEvents</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$currentRequestHash </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">EventDispatcherInterface </span><span class="s7">$dispatcher</span><span class="s0">, </span><span class="s3">Stopwatch </span><span class="s7">$stopwatch</span><span class="s0">, </span><span class="s3">LoggerInterface </span><span class="s7">$logger </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">RequestStack </span><span class="s7">$requestStack </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher </span><span class="s1">= </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch </span><span class="s1">= </span><span class="s7">$stopwatch</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">= </span><span class="s7">$logger</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">orphanedEvents </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">= </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addListener</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$priority </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s0">, </span><span class="s7">$priority</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addSubscriber</span><span class="s1">(</span><span class="s3">EventSubscriberInterface </span><span class="s7">$subscriber</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">addSubscriber</span><span class="s1">(</span><span class="s7">$subscriber</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">removeListener</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$index </span><span class="s1">=&gt; </span><span class="s7">$wrappedListener</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$wrappedListener</span><span class="s1">-&gt;</span><span class="s3">getWrappedListener</span><span class="s1">() === </span><span class="s7">$listener</span><span class="s1">) {</span>
+                    <span class="s7">$listener </span><span class="s1">= </span><span class="s7">$wrappedListener</span><span class="s0">;</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">][</span><span class="s7">$index</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">removeListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">removeSubscriber</span><span class="s1">(</span><span class="s3">EventSubscriberInterface </span><span class="s7">$subscriber</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">removeSubscriber</span><span class="s1">(</span><span class="s7">$subscriber</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getListeners</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// we might have wrapped listeners for the event (if called while dispatching)</span>
+        <span class="s2">// in that case get the priority by wrapper</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$index </span><span class="s1">=&gt; </span><span class="s7">$wrappedListener</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$wrappedListener</span><span class="s1">-&gt;</span><span class="s3">getWrappedListener</span><span class="s1">() === </span><span class="s7">$listener</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$wrappedListener</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasListeners</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">hasListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dispatch</span><span class="s1">(</span><span class="s3">object </span><span class="s7">$event</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s7">$eventName </span><span class="s1">= </span><span class="s7">$eventName </span><span class="s1">?? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$currentRequestHash </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentRequestHash </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">&amp;&amp; (</span><span class="s7">$request </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getCurrentRequest</span><span class="s1">()) ? </span><span class="s3">spl_object_hash</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">) : </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">&amp;&amp; </span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">StoppableEventInterface </span><span class="s1">&amp;&amp; </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isPropagationStopped</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;%s&quot; event is already stopped. No listeners have been called.'</span><span class="s0">, </span><span class="s7">$eventName</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">preProcess</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">beforeDispatch</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$e </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s8">'section'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">isStarted</span><span class="s1">()) {</span>
+                        <span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">stop</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">afterDispatch</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentRequestHash </span><span class="s1">= </span><span class="s7">$currentRequestHash</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">postProcess</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$event</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCalledListeners</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$hash </span><span class="s1">= </span><span class="s7">$request </span><span class="s1">? </span><span class="s3">spl_object_hash</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$called </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$requestHash</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">-&gt;</span><span class="s3">getInfo</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$hash </span><span class="s1">|| </span><span class="s7">$hash </span><span class="s1">=== </span><span class="s7">$requestHash</span><span class="s1">) {</span>
+                <span class="s7">$called</span><span class="s1">[] = </span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">getInfo</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$called</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getNotCalledListeners</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$allListeners </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getListeners</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">info</span><span class="s1">(</span><span class="s8">'An exception was thrown while getting the uncalled listeners.'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$e</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// unable to retrieve the uncalled listeners</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$hash </span><span class="s1">= </span><span class="s7">$request </span><span class="s1">? </span><span class="s3">spl_object_hash</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$calledListeners </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack </span><span class="s0">as </span><span class="s7">$calledListener</span><span class="s1">) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s0">, </span><span class="s7">$requestHash</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">-&gt;</span><span class="s3">getInfo</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$hash </span><span class="s1">|| </span><span class="s7">$hash </span><span class="s1">=== </span><span class="s7">$requestHash</span><span class="s1">) {</span>
+                    <span class="s7">$calledListeners</span><span class="s1">[] = </span><span class="s7">$calledListener</span><span class="s1">-&gt;</span><span class="s3">getWrappedListener</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$notCalled </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$allListeners </span><span class="s0">as </span><span class="s7">$eventName </span><span class="s1">=&gt; </span><span class="s7">$listeners</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$listeners </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$listener</span><span class="s0">, </span><span class="s7">$calledListeners</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s3">WrappedListener</span><span class="s1">) {</span>
+                        <span class="s7">$listener </span><span class="s1">= </span><span class="s0">new </span><span class="s3">WrappedListener</span><span class="s1">(</span><span class="s7">$listener</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$notCalled</span><span class="s1">[] = </span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">getInfo</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s3">uasort</span><span class="s1">(</span><span class="s7">$notCalled</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'sortNotCalledListeners'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$notCalled</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getOrphanedEvents</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">orphanedEvents</span><span class="s1">[</span><span class="s3">spl_object_hash</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)] ?? []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">orphanedEvents</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">array_merge</span><span class="s1">(...</span><span class="s3">array_values</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">orphanedEvents</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">reset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">orphanedEvents </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentRequestHash </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Proxies all method calls to the original event dispatcher.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $method    The method name</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $arguments The method arguments</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__call</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$method</span><span class="s0">, array </span><span class="s7">$arguments</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;{</span><span class="s7">$method</span><span class="s1">}(...</span><span class="s7">$arguments</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Called before dispatching the event.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">beforeDispatch</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s3">object </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Called after dispatching the event.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">afterDispatch</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s3">object </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">preProcess</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">hasListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">orphanedEvents</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentRequestHash</span><span class="s1">][] = </span><span class="s7">$eventName</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+            <span class="s7">$priority </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$wrappedListener </span><span class="s1">= </span><span class="s0">new </span><span class="s3">WrappedListener</span><span class="s1">(</span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s3">WrappedListener </span><span class="s1">? </span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">getWrappedListener</span><span class="s1">() : </span><span class="s7">$listener</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">][] = </span><span class="s7">$wrappedListener</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">removeListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$wrappedListener</span><span class="s0">, </span><span class="s7">$priority</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">-&gt;</span><span class="s3">attach</span><span class="s1">(</span><span class="s7">$wrappedListener</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentRequestHash</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">postProcess</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">wrappedListeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$skipped </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s3">WrappedListener</span><span class="s1">) { </span><span class="s2">// #12845: a new listener was added during dispatch.</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s2">// Unwrap listener</span>
+            <span class="s7">$priority </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">removeListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">getWrappedListener</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$priority</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                <span class="s7">$context </span><span class="s1">= [</span><span class="s8">'event' </span><span class="s1">=&gt; </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s8">'listener' </span><span class="s1">=&gt; </span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">getPretty</span><span class="s1">()]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">wasCalled</span><span class="s1">()) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">(</span><span class="s8">'Notified event &quot;{event}&quot; to listener &quot;{listener}&quot;.'</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callStack</span><span class="s1">-&gt;</span><span class="s3">detach</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">&amp;&amp; </span><span class="s7">$skipped</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">(</span><span class="s8">'Listener &quot;{listener}&quot; was not called for event &quot;{event}&quot;.'</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">-&gt;</span><span class="s3">stoppedPropagation</span><span class="s1">()) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">(</span><span class="s8">'Listener &quot;{listener}&quot; stopped propagation of the event &quot;{event}&quot;.'</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$skipped </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">sortNotCalledListeners</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$a</span><span class="s0">, array </span><span class="s7">$b</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== </span><span class="s7">$cmp </span><span class="s1">= </span><span class="s3">strcmp</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'event'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$b</span><span class="s1">[</span><span class="s8">'event'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$cmp</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">]) &amp;&amp; !\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$b</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">]) &amp;&amp; \</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$b</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s1">-</span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">] === </span><span class="s7">$b</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">] &gt; </span><span class="s7">$b</span><span class="s1">[</span><span class="s8">'priority'</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s1">-</span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">1</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

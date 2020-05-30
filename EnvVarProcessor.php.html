@@ -1,0 +1,320 @@
+<html>
+<head>
+<title>EnvVarProcessor.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+EnvVarProcessor.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">EnvNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParameterCircularReferenceException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">EnvVarProcessor </span><span class="s0">implements </span><span class="s3">EnvVarProcessorInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$loaders</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$loadedVars </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">EnvVarLoaderInterface[] $loaders</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">ContainerInterface </span><span class="s7">$container</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Traversable </span><span class="s7">$loaders </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s7">$container</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaders </span><span class="s1">= </span><span class="s7">$loaders </span><span class="s1">?? </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ArrayIterator</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getProvidedTypes</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s8">'base64' </span><span class="s1">=&gt; </span><span class="s8">'string'</span><span class="s0">,</span>
+            <span class="s8">'bool' </span><span class="s1">=&gt; </span><span class="s8">'bool'</span><span class="s0">,</span>
+            <span class="s8">'const' </span><span class="s1">=&gt; </span><span class="s8">'bool|int|float|string|array'</span><span class="s0">,</span>
+            <span class="s8">'csv' </span><span class="s1">=&gt; </span><span class="s8">'array'</span><span class="s0">,</span>
+            <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s8">'string'</span><span class="s0">,</span>
+            <span class="s8">'float' </span><span class="s1">=&gt; </span><span class="s8">'float'</span><span class="s0">,</span>
+            <span class="s8">'int' </span><span class="s1">=&gt; </span><span class="s8">'int'</span><span class="s0">,</span>
+            <span class="s8">'json' </span><span class="s1">=&gt; </span><span class="s8">'array'</span><span class="s0">,</span>
+            <span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s8">'bool|int|float|string|array'</span><span class="s0">,</span>
+            <span class="s8">'url' </span><span class="s1">=&gt; </span><span class="s8">'array'</span><span class="s0">,</span>
+            <span class="s8">'query_string' </span><span class="s1">=&gt; </span><span class="s8">'array'</span><span class="s0">,</span>
+            <span class="s8">'resolve' </span><span class="s1">=&gt; </span><span class="s8">'string'</span><span class="s0">,</span>
+            <span class="s8">'default' </span><span class="s1">=&gt; </span><span class="s8">'bool|int|float|string|array'</span><span class="s0">,</span>
+            <span class="s8">'string' </span><span class="s1">=&gt; </span><span class="s8">'string'</span><span class="s0">,</span>
+            <span class="s8">'trim' </span><span class="s1">=&gt; </span><span class="s8">'string'</span><span class="s0">,</span>
+            <span class="s8">'require' </span><span class="s1">=&gt; </span><span class="s8">'bool|int|float|string|array'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getEnv</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Closure </span><span class="s7">$getEnv</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$i </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s8">':'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'key' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$i</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid env &quot;key:%s&quot;: a key specifier should be provided.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$next </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$key </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$array </span><span class="s1">= </span><span class="s7">$getEnv</span><span class="s1">(</span><span class="s7">$next</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$array</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Resolved value of &quot;%s&quot; did not result in an array value.'</span><span class="s0">, </span><span class="s7">$next</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$array</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]) &amp;&amp; !\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$array</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">EnvNotFoundException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Key &quot;%s&quot; not found in &quot;%s&quot; (resolved from &quot;%s&quot;).'</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$array</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$next</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$array</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'default' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$i</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid env &quot;default:%s&quot;: a fallback parameter should be provided.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$next </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$default </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$default </span><span class="s1">&amp;&amp; !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s7">$default</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid env fallback in &quot;default:%s&quot;: parameter &quot;%s&quot; not found.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$env </span><span class="s1">= </span><span class="s7">$getEnv</span><span class="s1">(</span><span class="s7">$next</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$env </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$env</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$env</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">EnvNotFoundException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s2">// no-op</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$default </span><span class="s1">? </span><span class="s3">null </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s7">$default</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'file' </span><span class="s1">=== </span><span class="s7">$prefix </span><span class="s1">|| </span><span class="s8">'require' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$getEnv</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">))) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid file name: env var &quot;%s&quot; is non-scalar.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">EnvNotFoundException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'File &quot;%s&quot; not found (resolved from &quot;%s&quot;).'</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'file' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">return require </span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$i </span><span class="s1">|| </span><span class="s8">'string' </span><span class="s1">!== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s7">$getEnv</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_ENV</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s7">$_ENV</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) &amp;&amp; </span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s8">'HTTP_'</span><span class="s1">)) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== (</span><span class="s7">$env </span><span class="s1">= </span><span class="s3">getenv</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) || </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$env</span><span class="s1">) { </span><span class="s2">// null is a possible value because of thread safety issues</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loadedVars </span><span class="s0">as </span><span class="s7">$vars</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$env </span><span class="s1">= (</span><span class="s7">$vars</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">)) {</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$env </span><span class="s1">|| </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$env</span><span class="s1">) {</span>
+                <span class="s7">$loaders </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaders</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaders </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ArrayIterator</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                    <span class="s7">$ended </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                    <span class="s7">$count </span><span class="s1">= </span><span class="s7">$loaders </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Countable </span><span class="s1">? </span><span class="s7">$loaders</span><span class="s1">-&gt;</span><span class="s3">count</span><span class="s1">() : </span><span class="s9">0</span><span class="s0">;</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$loaders </span><span class="s0">as </span><span class="s7">$loader</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loadedVars</span><span class="s1">) &gt; </span><span class="s7">$i</span><span class="s1">++) {</span>
+                            <span class="s0">continue;</span>
+                        <span class="s1">}</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loadedVars</span><span class="s1">[] = </span><span class="s7">$vars </span><span class="s1">= </span><span class="s7">$loader</span><span class="s1">-&gt;</span><span class="s3">loadEnvVars</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$env </span><span class="s1">= </span><span class="s7">$vars</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                            <span class="s7">$ended </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                            <span class="s0">break;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$ended </span><span class="s1">|| </span><span class="s7">$count </span><span class="s1">=== </span><span class="s7">$i</span><span class="s1">) {</span>
+                        <span class="s7">$loaders </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaders</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParameterCircularReferenceException </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s2">// skip loaders that need an env var that is not defined</span>
+                <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaders </span><span class="s1">= </span><span class="s7">$loaders</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$env </span><span class="s1">|| </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$env</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s8">&quot;env(</span><span class="s7">$name</span><span class="s8">)&quot;</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">EnvNotFoundException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Environment variable not found: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$env </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s8">&quot;env(</span><span class="s7">$name</span><span class="s8">)&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$env</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getProvidedTypes</span><span class="s1">()[</span><span class="s7">$prefix</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported env var prefix &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Non-scalar env var &quot;%s&quot; cannot be cast to &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'string' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(string) </span><span class="s7">$env</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'bool' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(bool) (</span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">) ?: </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_INT</span><span class="s1">) ?: </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_FLOAT</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'int' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$env </span><span class="s1">= </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_INT</span><span class="s1">) ?: </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_FLOAT</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Non-numeric env var &quot;%s&quot; cannot be cast to int.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s7">$env</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'float' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$env </span><span class="s1">= </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_FLOAT</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Non-numeric env var &quot;%s&quot; cannot be cast to float.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s1">(float) </span><span class="s7">$env</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'const' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">defined</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Env var &quot;%s&quot; maps to undefined constant &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$env</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">constant</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'base64' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">base64_decode</span><span class="s1">(</span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s8">'-_'</span><span class="s0">, </span><span class="s8">'+/'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'json' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s3">json_decode</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">JSON_ERROR_NONE </span><span class="s1">!== </span><span class="s3">json_last_error</span><span class="s1">()) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid JSON in env var &quot;%s&quot;: '</span><span class="s1">.</span><span class="s3">json_last_error_msg</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$env </span><span class="s1">&amp;&amp; !\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid JSON env var &quot;%s&quot;: array or null expected, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$env</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'url' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s7">$parsedEnv </span><span class="s1">= </span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$parsedEnv</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid URL in env var &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$parsedEnv</span><span class="s1">[</span><span class="s8">'scheme'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$parsedEnv</span><span class="s1">[</span><span class="s8">'host'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid URL env var &quot;%s&quot;: schema and host expected, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$env</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$parsedEnv </span><span class="s1">+= [</span>
+                <span class="s8">'port' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'user' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'pass' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'path' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'query' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s8">'fragment' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s2">// remove the '/' separator</span>
+            <span class="s7">$parsedEnv</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">] = </span><span class="s8">'/' </span><span class="s1">=== </span><span class="s7">$parsedEnv</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">] ? </span><span class="s3">null </span><span class="s1">: </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$parsedEnv</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$parsedEnv</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'query_string' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s7">$queryString </span><span class="s1">= </span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s3">PHP_URL_QUERY</span><span class="s1">) ?: </span><span class="s7">$env</span><span class="s0">;</span>
+            <span class="s3">parse_str</span><span class="s1">(</span><span class="s7">$queryString</span><span class="s0">, </span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'resolve' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s8">'/%%|%([^%\s]+)%/'</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$match</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$name</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])) {</span>
+                    <span class="s0">return </span><span class="s8">'%'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parameter &quot;%s&quot; found when resolving env var &quot;%s&quot; must be scalar, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">, </span><span class="s7">$env</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'csv' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">str_getcsv</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s8">','</span><span class="s0">, </span><span class="s8">'&quot;'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&gt;= </span><span class="s9">70400 </span><span class="s1">? </span><span class="s8">'' </span><span class="s1">: </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'trim' </span><span class="s1">=== </span><span class="s7">$prefix</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported env var prefix &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<html>
+<head>
+<title>TimeDataCollector.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+TimeDataCollector.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s1">\</span><span class="s3">StopwatchEvent</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">TimeDataCollector </span><span class="s0">extends </span><span class="s3">DataCollector </span><span class="s0">implements </span><span class="s3">LateDataCollectorInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$kernel</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$stopwatch</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">KernelInterface </span><span class="s7">$kernel </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">Stopwatch </span><span class="s7">$stopwatch </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel </span><span class="s1">= </span><span class="s7">$kernel</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch </span><span class="s1">= </span><span class="s7">$stopwatch</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">collect</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$exception </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">) {</span>
+            <span class="s7">$startTime </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getStartTime</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$startTime </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'REQUEST_TIME_FLOAT'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= [</span>
+            <span class="s8">'token' </span><span class="s1">=&gt; </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'X-Debug-Token'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s8">'start_time' </span><span class="s1">=&gt; </span><span class="s7">$startTime </span><span class="s1">* </span><span class="s9">1000</span><span class="s0">,</span>
+            <span class="s8">'events' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'stopwatch_installed' </span><span class="s1">=&gt; </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">Stopwatch</span><span class="s1">::</span><span class="s0">class, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">reset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s1">-&gt;</span><span class="s3">reset</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">lateCollect</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'token'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setEvents</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s1">-&gt;</span><span class="s3">getSectionEvents</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'token'</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'token'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the request events.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">StopwatchEvent[] $events The request events</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setEvents</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$events</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$events </span><span class="s0">as </span><span class="s7">$event</span><span class="s1">) {</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">ensureStopped</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'events'</span><span class="s1">] = </span><span class="s7">$events</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the request events.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">StopwatchEvent[] The request events</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getEvents</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'events'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the request elapsed time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">float The elapsed time</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDuration</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'events'</span><span class="s1">][</span><span class="s8">'__section__'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$lastEvent </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'events'</span><span class="s1">][</span><span class="s8">'__section__'</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$lastEvent</span><span class="s1">-&gt;</span><span class="s3">getOrigin</span><span class="s1">() + </span><span class="s7">$lastEvent</span><span class="s1">-&gt;</span><span class="s3">getDuration</span><span class="s1">() - </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getStartTime</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the initialization time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is the time spent until the beginning of the request handling.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">float The elapsed time</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getInitTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'events'</span><span class="s1">][</span><span class="s8">'__section__'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'events'</span><span class="s1">][</span><span class="s8">'__section__'</span><span class="s1">]-&gt;</span><span class="s3">getOrigin</span><span class="s1">() - </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getStartTime</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the request time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">float</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStartTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'start_time'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool whether or not the stopwatch component is installed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isStopwatchInstalled</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s8">'stopwatch_installed'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">'time'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

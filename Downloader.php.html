@@ -1,0 +1,312 @@
+<html>
+<head>
+<title>Downloader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Downloader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Cache </span><span class="s0">as </span><span class="s3">ComposerCache</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Composer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">DependencyResolver</span><span class="s1">\</span><span class="s3">Operation</span><span class="s1">\</span><span class="s3">OperationInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">DependencyResolver</span><span class="s1">\</span><span class="s3">Operation</span><span class="s1">\</span><span class="s3">UninstallOperation</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">DependencyResolver</span><span class="s1">\</span><span class="s3">Operation</span><span class="s1">\</span><span class="s3">UpdateOperation</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Downloader</span><span class="s1">\</span><span class="s3">TransportException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">IO</span><span class="s1">\</span><span class="s3">IOInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Json</span><span class="s1">\</span><span class="s3">JsonFile</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Downloader</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$DEFAULT_ENDPOINT </span><span class="s1">= </span><span class="s8">'https://flex.symfony.com'</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$MAX_LENGTH </span><span class="s1">= </span><span class="s9">1000</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$versions</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$io</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$sess</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cache</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$rfs</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$degradedMode </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$endpoint</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$caFile</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$flexId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$enabled </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Composer </span><span class="s7">$composer</span><span class="s0">, </span><span class="s3">IoInterface </span><span class="s7">$io</span><span class="s0">, </span><span class="s3">ParallelDownloader </span><span class="s7">$rfs</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'SYMFONY_CAFILE'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">caFile </span><span class="s1">= </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'SYMFONY_CAFILE'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'SYMFONY_ENDPOINT'</span><span class="s1">) ?: (</span><span class="s7">$composer</span><span class="s1">-&gt;</span><span class="s3">getPackage</span><span class="s1">()-&gt;</span><span class="s3">getExtra</span><span class="s1">()[</span><span class="s8">'symfony'</span><span class="s1">][</span><span class="s8">'endpoint'</span><span class="s1">] ?? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$DEFAULT_ENDPOINT</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io </span><span class="s1">= </span><span class="s7">$io</span><span class="s0">;</span>
+        <span class="s7">$config </span><span class="s1">= </span><span class="s7">$composer</span><span class="s1">-&gt;</span><span class="s3">getConfig</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs </span><span class="s1">= </span><span class="s7">$rfs</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ComposerCache</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s7">$config</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'cache-repo-dir'</span><span class="s1">).</span><span class="s8">'/'</span><span class="s1">.</span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'{[^a-z0-9.]}i'</span><span class="s0">, </span><span class="s8">'-'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sess </span><span class="s1">= </span><span class="s3">bin2hex</span><span class="s1">(</span><span class="s3">random_bytes</span><span class="s1">(</span><span class="s9">16</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getSessionId</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sess</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setFlexId</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flexId </span><span class="s1">= </span><span class="s7">$id</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">isEnabled</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">enabled</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">disable</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">enabled </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getVersions</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$versions </span><span class="s1">?? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$versions </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'/versions.json'</span><span class="s1">)-&gt;</span><span class="s3">getBody</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Downloads recipes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">OperationInterface[] $operations</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRecipes</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$operations</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$paths </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$chunk </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$operations </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$operation</span><span class="s1">) {</span>
+            <span class="s7">$o </span><span class="s1">= </span><span class="s8">'i'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$operation </span><span class="s0">instanceof </span><span class="s3">UpdateOperation</span><span class="s1">) {</span>
+                <span class="s7">$package </span><span class="s1">= </span><span class="s7">$operation</span><span class="s1">-&gt;</span><span class="s3">getTargetPackage</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$o </span><span class="s1">= </span><span class="s8">'u'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$package </span><span class="s1">= </span><span class="s7">$operation</span><span class="s1">-&gt;</span><span class="s3">getPackage</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$operation </span><span class="s0">instanceof </span><span class="s3">UninstallOperation</span><span class="s1">) {</span>
+                    <span class="s7">$o </span><span class="s1">= </span><span class="s8">'r'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$version </span><span class="s1">= </span><span class="s7">$package</span><span class="s1">-&gt;</span><span class="s3">getPrettyVersion</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$version</span><span class="s0">, </span><span class="s8">'dev-'</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$package</span><span class="s1">-&gt;</span><span class="s3">getExtra</span><span class="s1">()[</span><span class="s8">'branch-alias'</span><span class="s1">])) {</span>
+                <span class="s7">$branchAliases </span><span class="s1">= </span><span class="s7">$package</span><span class="s1">-&gt;</span><span class="s3">getExtra</span><span class="s1">()[</span><span class="s8">'branch-alias'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span>
+                    <span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$branchAliases</span><span class="s1">[</span><span class="s7">$version</span><span class="s1">]) &amp;&amp; </span><span class="s7">$alias </span><span class="s1">= </span><span class="s7">$branchAliases</span><span class="s1">[</span><span class="s7">$version</span><span class="s1">]) ||</span>
+                    <span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$branchAliases</span><span class="s1">[</span><span class="s8">'dev-master'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$alias </span><span class="s1">= </span><span class="s7">$branchAliases</span><span class="s1">[</span><span class="s8">'dev-master'</span><span class="s1">])</span>
+                <span class="s1">) {</span>
+                    <span class="s7">$version </span><span class="s1">= </span><span class="s7">$alias</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// FIXME: Multi name with getNames()</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'/'</span><span class="s0">, </span><span class="s8">','</span><span class="s0">, </span><span class="s7">$package</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s,%s%s'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$o</span><span class="s0">, </span><span class="s7">$version</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$date </span><span class="s1">= </span><span class="s7">$package</span><span class="s1">-&gt;</span><span class="s3">getReleaseDate</span><span class="s1">()) {</span>
+                <span class="s7">$path </span><span class="s1">.= </span><span class="s8">','</span><span class="s1">.</span><span class="s7">$date</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s8">'U'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$chunk</span><span class="s1">) + \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">) &gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$MAX_LENGTH</span><span class="s1">) {</span>
+                <span class="s7">$paths</span><span class="s1">[] = [</span><span class="s8">'/p/'</span><span class="s1">.</span><span class="s7">$chunk</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$chunk </span><span class="s1">= </span><span class="s7">$path</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$chunk</span><span class="s1">) {</span>
+                <span class="s7">$chunk </span><span class="s1">.= </span><span class="s8">';'</span><span class="s1">.</span><span class="s7">$path</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$chunk </span><span class="s1">= </span><span class="s7">$path</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$chunk</span><span class="s1">) {</span>
+            <span class="s7">$paths</span><span class="s1">[] = [</span><span class="s8">'/p/'</span><span class="s1">.</span><span class="s7">$chunk</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">enabled </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$DEFAULT_ENDPOINT </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'&lt;warning&gt;Using &quot;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint</span><span class="s1">.</span><span class="s8">'&quot; as the Symfony endpoint&lt;/&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$bodies </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">download</span><span class="s1">(</span><span class="s7">$paths</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$path</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$bodies</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$body </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)-&gt;</span><span class="s3">getBody</span><span class="s1">()) {</span>
+                <span class="s7">$bodies</span><span class="s1">[] = </span><span class="s7">$body</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s7">$data </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$bodies </span><span class="s0">as </span><span class="s7">$body</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$body</span><span class="s1">[</span><span class="s8">'manifests'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$manifest</span><span class="s1">) {</span>
+                <span class="s7">$data</span><span class="s1">[</span><span class="s8">'manifests'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$manifest</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$body</span><span class="s1">[</span><span class="s8">'locks'</span><span class="s1">] ?? [] </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$lock</span><span class="s1">) {</span>
+                <span class="s7">$data</span><span class="s1">[</span><span class="s8">'locks'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$lock</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$data</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Decodes a JSON HTTP response body.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $path    The path to get on the server</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $headers An array of HTTP headers</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, array </span><span class="s7">$headers </span><span class="s1">= []</span><span class="s0">, </span><span class="s7">$cache </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">enabled </span><span class="s1">&amp;&amp; </span><span class="s8">'/versions.json' </span><span class="s1">!== </span><span class="s7">$path</span><span class="s1">) {</span>
+            <span class="s0">return new </span><span class="s3">Response</span><span class="s1">([])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$headers</span><span class="s1">[] = </span><span class="s8">'Package-Session: '</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sess</span><span class="s0">;</span>
+        <span class="s7">$url </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint</span><span class="s1">.</span><span class="s8">'/'</span><span class="s1">.</span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$cacheKey </span><span class="s1">= </span><span class="s7">$cache </span><span class="s1">? </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">) : </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$cacheKey </span><span class="s1">&amp;&amp; </span><span class="s7">$contents </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">-&gt;</span><span class="s3">read</span><span class="s1">(</span><span class="s7">$cacheKey</span><span class="s1">)) {</span>
+            <span class="s7">$cachedResponse </span><span class="s1">= </span><span class="s3">Response</span><span class="s1">::</span><span class="s3">fromJson</span><span class="s1">(</span><span class="s3">json_decode</span><span class="s1">(</span><span class="s7">$contents</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$lastModified </span><span class="s1">= </span><span class="s7">$cachedResponse</span><span class="s1">-&gt;</span><span class="s3">getHeader</span><span class="s1">(</span><span class="s8">'last-modified'</span><span class="s1">)) {</span>
+                <span class="s7">$response </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fetchFileIfLastModified</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$cacheKey</span><span class="s0">, </span><span class="s7">$lastModified</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">304 </span><span class="s1">=== </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()) {</span>
+                    <span class="s7">$response </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Response</span><span class="s1">(</span><span class="s7">$cachedResponse</span><span class="s1">-&gt;</span><span class="s3">getBody</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getOrigHeaders</span><span class="s1">()</span><span class="s0">, </span><span class="s9">304</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fetchFile</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$cacheKey</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">fetchFile</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$url</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cacheKey</span><span class="s0">, array </span><span class="s7">$headers</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$options </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">(</span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$retries </span><span class="s1">= </span><span class="s9">3</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s7">$retries</span><span class="s1">--) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$json </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">getContents</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint</span><span class="s0">, </span><span class="s7">$url</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseJson</span><span class="s1">(</span><span class="s7">$json</span><span class="s0">, </span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$cacheKey</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">getLastHeaders</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$e </span><span class="s0">instanceof </span><span class="s3">TransportException </span><span class="s1">&amp;&amp; </span><span class="s9">404 </span><span class="s1">=== </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()) {</span>
+                    <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$retries</span><span class="s1">) {</span>
+                    <span class="s3">usleep</span><span class="s1">(</span><span class="s9">100000</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$cacheKey </span><span class="s1">&amp;&amp; </span><span class="s7">$contents </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">-&gt;</span><span class="s3">read</span><span class="s1">(</span><span class="s7">$cacheKey</span><span class="s1">)) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">switchToDegradedMode</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">return </span><span class="s3">Response</span><span class="s1">::</span><span class="s3">fromJson</span><span class="s1">(</span><span class="s3">JsonFile</span><span class="s1">::</span><span class="s3">parseJson</span><span class="s1">(</span><span class="s7">$contents</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">-&gt;</span><span class="s3">getRoot</span><span class="s1">().</span><span class="s7">$cacheKey</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">fetchFileIfLastModified</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$url</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cacheKey</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$lastModifiedTime</span><span class="s0">, array </span><span class="s7">$headers</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$headers</span><span class="s1">[] = </span><span class="s8">'If-Modified-Since: '</span><span class="s1">.</span><span class="s7">$lastModifiedTime</span><span class="s0">;</span>
+        <span class="s7">$options </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">(</span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$retries </span><span class="s1">= </span><span class="s9">3</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s7">$retries</span><span class="s1">--) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$json </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">getContents</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endpoint</span><span class="s0">, </span><span class="s7">$url</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">304 </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">findStatusCode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">getLastHeaders</span><span class="s1">())) {</span>
+                    <span class="s0">return new </span><span class="s3">Response</span><span class="s1">(</span><span class="s8">''</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">getLastHeaders</span><span class="s1">()</span><span class="s0">, </span><span class="s9">304</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseJson</span><span class="s1">(</span><span class="s7">$json</span><span class="s0">, </span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$cacheKey</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rfs</span><span class="s1">-&gt;</span><span class="s3">getLastHeaders</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$e </span><span class="s0">instanceof </span><span class="s3">TransportException </span><span class="s1">&amp;&amp; </span><span class="s9">404 </span><span class="s1">=== </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()) {</span>
+                    <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$retries</span><span class="s1">) {</span>
+                    <span class="s3">usleep</span><span class="s1">(</span><span class="s9">100000</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">switchToDegradedMode</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return new </span><span class="s3">Response</span><span class="s1">(</span><span class="s8">''</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s9">304</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseJson</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$json</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$url</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cacheKey</span><span class="s0">, array </span><span class="s7">$lastHeaders</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$data </span><span class="s1">= </span><span class="s3">JsonFile</span><span class="s1">::</span><span class="s3">parseJson</span><span class="s1">(</span><span class="s7">$json</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s8">'warning'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'&lt;warning&gt;Warning from '</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">.</span><span class="s8">': '</span><span class="s1">.</span><span class="s7">$data</span><span class="s1">[</span><span class="s8">'warning'</span><span class="s1">].</span><span class="s8">'&lt;/&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s8">'info'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'&lt;info&gt;Info from '</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">.</span><span class="s8">': '</span><span class="s1">.</span><span class="s7">$data</span><span class="s1">[</span><span class="s8">'info'</span><span class="s1">].</span><span class="s8">'&lt;/&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$response </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Response</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$lastHeaders</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getHeader</span><span class="s1">(</span><span class="s8">'last-modified'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$cacheKey</span><span class="s0">, </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">switchToDegradedMode</span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$url</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">degradedMode</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'&lt;warning&gt;'</span><span class="s1">.</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">().</span><span class="s8">'&lt;/&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s8">'&lt;warning&gt;'</span><span class="s1">.</span><span class="s7">$url</span><span class="s1">.</span><span class="s8">' could not be fully loaded, package information was loaded from the local cache and may be out of date&lt;/&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">degradedMode </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getOptions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$headers</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$options </span><span class="s1">= [</span><span class="s8">'http' </span><span class="s1">=&gt; [</span><span class="s8">'header' </span><span class="s1">=&gt; </span><span class="s7">$headers</span><span class="s1">]]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flexId</span><span class="s1">) {</span>
+            <span class="s7">$options</span><span class="s1">[</span><span class="s8">'http'</span><span class="s1">][</span><span class="s8">'header'</span><span class="s1">][] = </span><span class="s8">'Project: '</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flexId</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">caFile</span><span class="s1">) {</span>
+            <span class="s7">$options</span><span class="s1">[</span><span class="s8">'ssl'</span><span class="s1">][</span><span class="s8">'cafile'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">caFile</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$options</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

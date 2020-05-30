@@ -1,0 +1,151 @@
+<html>
+<head>
+<title>SourceContextProvider.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SourceContextProvider.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s1">\</span><span class="s3">ContextProvider</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">FileLinkFormatter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">VarCloner</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s1">\</span><span class="s3">HtmlDumper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Twig</span><span class="s1">\</span><span class="s3">Template</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Tries to provide context from sources (class name, file, line, code excerpt, ...).</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Maxime Steinhausser </span><span class="s6">&lt;maxime.steinhausser</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">SourceContextProvider </span><span class="s0">implements </span><span class="s3">ContextProviderInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$limit</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$charset</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$projectDir</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fileLinkFormatter</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$charset </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$projectDir </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">FileLinkFormatter </span><span class="s7">$fileLinkFormatter </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$limit </span><span class="s1">= </span><span class="s8">9</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">charset </span><span class="s1">= </span><span class="s7">$charset</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir </span><span class="s1">= </span><span class="s7">$projectDir</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormatter </span><span class="s1">= </span><span class="s7">$fileLinkFormatter</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">limit </span><span class="s1">= </span><span class="s7">$limit</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getContext</span><span class="s1">(): ?</span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$trace </span><span class="s1">= </span><span class="s3">debug_backtrace</span><span class="s1">(</span><span class="s3">DEBUG_BACKTRACE_PROVIDE_OBJECT </span><span class="s1">| </span><span class="s3">DEBUG_BACKTRACE_IGNORE_ARGS</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">limit</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$file </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$line </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s8">1</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$name </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$fileExcerpt </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s8">2</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">limit</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'class'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'function'</span><span class="s1">])</span>
+                <span class="s1">&amp;&amp; </span><span class="s9">'dump' </span><span class="s1">=== </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'function'</span><span class="s1">]</span>
+                <span class="s1">&amp;&amp; </span><span class="s3">VarDumper</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'class'</span><span class="s1">]</span>
+            <span class="s1">) {</span>
+                <span class="s7">$file </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">] ?? </span><span class="s7">$file</span><span class="s0">;</span>
+                <span class="s7">$line </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">] ?? </span><span class="s7">$line</span><span class="s0">;</span>
+
+                <span class="s0">while </span><span class="s1">(++</span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">limit</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'function'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">]) &amp;&amp; </span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'class'</span><span class="s1">]) &amp;&amp; </span><span class="s8">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'function'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">'call_user_func'</span><span class="s1">)) {</span>
+                        <span class="s7">$file </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s7">$line </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">]</span><span class="s0">;</span>
+
+                        <span class="s0">break;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'object'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'object'</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">Template</span><span class="s1">) {</span>
+                        <span class="s7">$template </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'object'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s7">$name </span><span class="s1">= </span><span class="s7">$template</span><span class="s1">-&gt;</span><span class="s3">getTemplateName</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s7">$src </span><span class="s1">= </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$template</span><span class="s0">, </span><span class="s9">'getSourceContext'</span><span class="s1">) ? </span><span class="s7">$template</span><span class="s1">-&gt;</span><span class="s3">getSourceContext</span><span class="s1">()-&gt;</span><span class="s3">getCode</span><span class="s1">() : (</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$template</span><span class="s0">, </span><span class="s9">'getSource'</span><span class="s1">) ? </span><span class="s7">$template</span><span class="s1">-&gt;</span><span class="s3">getSource</span><span class="s1">() : </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$info </span><span class="s1">= </span><span class="s7">$template</span><span class="s1">-&gt;</span><span class="s3">getDebugInfo</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$info</span><span class="s1">[</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s8">1</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">]])) {</span>
+                            <span class="s7">$line </span><span class="s1">= </span><span class="s7">$info</span><span class="s1">[</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s8">1</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">]]</span><span class="s0">;</span>
+                            <span class="s7">$file </span><span class="s1">= </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$template</span><span class="s0">, </span><span class="s9">'getSourceContext'</span><span class="s1">) ? </span><span class="s7">$template</span><span class="s1">-&gt;</span><span class="s3">getSourceContext</span><span class="s1">()-&gt;</span><span class="s3">getPath</span><span class="s1">() : </span><span class="s3">null</span><span class="s0">;</span>
+
+                            <span class="s0">if </span><span class="s1">(</span><span class="s7">$src</span><span class="s1">) {</span>
+                                <span class="s7">$src </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s7">$src</span><span class="s1">)</span><span class="s0">;</span>
+                                <span class="s7">$fileExcerpt </span><span class="s1">= []</span><span class="s0">;</span>
+
+                                <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s7">$line </span><span class="s1">- </span><span class="s8">3</span><span class="s0">, </span><span class="s8">1</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$max </span><span class="s1">= </span><span class="s3">min</span><span class="s1">(</span><span class="s7">$line </span><span class="s1">+ </span><span class="s8">3</span><span class="s0">, </span><span class="s1">\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$src</span><span class="s1">))</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt;= </span><span class="s7">$max</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+                                    <span class="s7">$fileExcerpt</span><span class="s1">[] = </span><span class="s9">'&lt;li'</span><span class="s1">.(</span><span class="s7">$i </span><span class="s1">=== </span><span class="s7">$line </span><span class="s1">? </span><span class="s9">' class=&quot;selected&quot;' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">).</span><span class="s9">'&gt;&lt;code&gt;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">htmlEncode</span><span class="s1">(</span><span class="s7">$src</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s8">1</span><span class="s1">]).</span><span class="s9">'&lt;/code&gt;&lt;/li&gt;'</span><span class="s0">;</span>
+                                <span class="s1">}</span>
+
+                                <span class="s7">$fileExcerpt </span><span class="s1">= </span><span class="s9">'&lt;ol start=&quot;'</span><span class="s1">.</span><span class="s3">max</span><span class="s1">(</span><span class="s7">$line </span><span class="s1">- </span><span class="s8">3</span><span class="s0">, </span><span class="s8">1</span><span class="s1">).</span><span class="s9">'&quot;&gt;'</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s7">$fileExcerpt</span><span class="s1">).</span><span class="s9">'&lt;/ol&gt;'</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">}</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s9">'/'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">) + </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$context </span><span class="s1">= [</span><span class="s9">'name' </span><span class="s1">=&gt; </span><span class="s7">$name</span><span class="s0">, </span><span class="s9">'file' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">, </span><span class="s9">'line' </span><span class="s1">=&gt; </span><span class="s7">$line</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$context</span><span class="s1">[</span><span class="s9">'file_excerpt'</span><span class="s1">] = </span><span class="s7">$fileExcerpt</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s1">) {</span>
+            <span class="s7">$context</span><span class="s1">[</span><span class="s9">'project_dir'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s1">)) {</span>
+                <span class="s7">$context</span><span class="s1">[</span><span class="s9">'file_relative'</span><span class="s1">] = </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s1">))</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormatter </span><span class="s1">&amp;&amp; </span><span class="s7">$fileLink </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormatter</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s7">$context</span><span class="s1">[</span><span class="s9">'file'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">[</span><span class="s9">'line'</span><span class="s1">])) {</span>
+            <span class="s7">$context</span><span class="s1">[</span><span class="s9">'file_link'</span><span class="s1">] = </span><span class="s7">$fileLink</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$context</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">htmlEncode</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$s</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$html </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+
+        <span class="s7">$dumper </span><span class="s1">= </span><span class="s0">new </span><span class="s3">HtmlDumper</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$line</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$html</span><span class="s1">) { </span><span class="s7">$html </span><span class="s1">.= </span><span class="s7">$line</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">charset</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dumper</span><span class="s1">-&gt;</span><span class="s3">setDumpHeader</span><span class="s1">(</span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dumper</span><span class="s1">-&gt;</span><span class="s3">setDumpBoundaries</span><span class="s1">(</span><span class="s9">''</span><span class="s0">, </span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$cloner </span><span class="s1">= </span><span class="s0">new </span><span class="s3">VarCloner</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$dumper</span><span class="s1">-&gt;</span><span class="s3">dump</span><span class="s1">(</span><span class="s7">$cloner</span><span class="s1">-&gt;</span><span class="s3">cloneVar</span><span class="s1">(</span><span class="s7">$s</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s3">strip_tags</span><span class="s1">(</span><span class="s7">$html</span><span class="s1">)</span><span class="s0">, </span><span class="s8">1</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

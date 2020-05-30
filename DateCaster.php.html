@@ -1,0 +1,151 @@
+<html>
+<head>
+<title>DateCaster.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #9876aa;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DateCaster.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Casts DateTimeInterface related classes to array representation.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Dany Maillard </span><span class="s6">&lt;danymaillard93b</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DateCaster</span>
+<span class="s1">{</span>
+    <span class="s0">private const </span><span class="s3">PERIOD_LIMIT </span><span class="s1">= </span><span class="s7">3</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">castDateTime</span><span class="s1">(\</span><span class="s3">DateTimeInterface </span><span class="s8">$d</span><span class="s0">, array </span><span class="s8">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s8">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$isNested</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$filter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+        <span class="s8">$location </span><span class="s1">= </span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">getTimezone</span><span class="s1">()-&gt;</span><span class="s3">getLocation</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$fromNow </span><span class="s1">= (</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">())-&gt;</span><span class="s3">diff</span><span class="s1">(</span><span class="s8">$d</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$title </span><span class="s1">= </span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'l, F j, Y'</span><span class="s1">)</span>
+            <span class="s1">.</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatInterval</span><span class="s1">(</span><span class="s8">$fromNow</span><span class="s1">).</span><span class="s9">' from now'</span>
+            <span class="s1">.(</span><span class="s8">$location </span><span class="s1">? (</span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'I'</span><span class="s1">) ? </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">DST On&quot; </span><span class="s1">: </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">DST Off&quot;</span><span class="s1">) : </span><span class="s9">''</span><span class="s1">)</span>
+        <span class="s0">;</span>
+
+        <span class="s0">unset</span><span class="s1">(</span>
+            <span class="s8">$a</span><span class="s1">[</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_DYNAMIC</span><span class="s1">.</span><span class="s9">'date'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">$a</span><span class="s1">[</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_DYNAMIC</span><span class="s1">.</span><span class="s9">'timezone'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">$a</span><span class="s1">[</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_DYNAMIC</span><span class="s1">.</span><span class="s9">'timezone_type'</span><span class="s1">]</span>
+        <span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$a</span><span class="s1">[</span><span class="s8">$prefix</span><span class="s1">.</span><span class="s9">'date'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatDateTime</span><span class="s1">(</span><span class="s8">$d</span><span class="s0">, </span><span class="s8">$location </span><span class="s1">? </span><span class="s9">' e (P)' </span><span class="s1">: </span><span class="s9">' P'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$title</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$stub</span><span class="s1">-&gt;</span><span class="s3">class </span><span class="s1">.= </span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">' @U'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castInterval</span><span class="s1">(\</span><span class="s3">DateInterval </span><span class="s8">$interval</span><span class="s0">, array </span><span class="s8">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s8">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$isNested</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$filter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$now </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTimeImmutable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$numberOfSeconds </span><span class="s1">= </span><span class="s8">$now</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s8">$interval</span><span class="s1">)-&gt;</span><span class="s3">getTimestamp</span><span class="s1">() - </span><span class="s8">$now</span><span class="s1">-&gt;</span><span class="s3">getTimestamp</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$title </span><span class="s1">= </span><span class="s3">number_format</span><span class="s1">(</span><span class="s8">$numberOfSeconds</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s9">'.'</span><span class="s0">, </span><span class="s9">' '</span><span class="s1">).</span><span class="s9">'s'</span><span class="s0">;</span>
+
+        <span class="s8">$i </span><span class="s1">= [</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s9">'interval' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatInterval</span><span class="s1">(</span><span class="s8">$interval</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$title</span><span class="s1">)]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$filter </span><span class="s1">&amp; </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">EXCLUDE_VERBOSE </span><span class="s1">? </span><span class="s8">$i </span><span class="s1">: </span><span class="s8">$i </span><span class="s1">+ </span><span class="s8">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">formatInterval</span><span class="s1">(\</span><span class="s3">DateInterval </span><span class="s8">$i</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$format </span><span class="s1">= </span><span class="s9">'%R '</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">y </span><span class="s1">&amp;&amp; </span><span class="s7">0 </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">m </span><span class="s1">&amp;&amp; (</span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">h </span><span class="s1">&gt;= </span><span class="s7">24 </span><span class="s1">|| </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">i </span><span class="s1">&gt;= </span><span class="s7">60 </span><span class="s1">|| </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">s </span><span class="s1">&gt;= </span><span class="s7">60</span><span class="s1">)) {</span>
+            <span class="s8">$i </span><span class="s1">= </span><span class="s3">date_diff</span><span class="s1">(</span><span class="s8">$d </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">()</span><span class="s0">, </span><span class="s3">date_add</span><span class="s1">(</span><span class="s0">clone </span><span class="s8">$d</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">))</span><span class="s0">; </span><span class="s2">// recalculate carry over points</span>
+            <span class="s8">$format </span><span class="s1">.= </span><span class="s7">0 </span><span class="s1">&lt; </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">days </span><span class="s1">? </span><span class="s9">'%ad ' </span><span class="s1">: </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$format </span><span class="s1">.= (</span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">y </span><span class="s1">? </span><span class="s9">'%yy ' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">).(</span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">m </span><span class="s1">? </span><span class="s9">'%mm ' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">).(</span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">d </span><span class="s1">? </span><span class="s9">'%dd ' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$format </span><span class="s1">.= </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">h </span><span class="s1">|| </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">i </span><span class="s1">|| </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">s </span><span class="s1">|| </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">f </span><span class="s1">? </span><span class="s9">'%H:%I:'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatSeconds</span><span class="s1">(</span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">s</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">f</span><span class="s0">, </span><span class="s7">2</span><span class="s1">)) : </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s8">$format </span><span class="s1">= </span><span class="s9">'%R ' </span><span class="s1">=== </span><span class="s8">$format </span><span class="s1">? </span><span class="s9">'0s' </span><span class="s1">: </span><span class="s8">$format</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$i</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$format</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castTimeZone</span><span class="s1">(\</span><span class="s3">DateTimeZone </span><span class="s8">$timeZone</span><span class="s0">, array </span><span class="s8">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s8">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$isNested</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$filter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$location </span><span class="s1">= </span><span class="s8">$timeZone</span><span class="s1">-&gt;</span><span class="s3">getLocation</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$formatted </span><span class="s1">= (</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">(</span><span class="s9">'now'</span><span class="s0">, </span><span class="s8">$timeZone</span><span class="s1">))-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s8">$location </span><span class="s1">? </span><span class="s9">'e (P)' </span><span class="s1">: </span><span class="s9">'P'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$title </span><span class="s1">= </span><span class="s8">$location </span><span class="s1">&amp;&amp; \</span><span class="s3">extension_loaded</span><span class="s1">(</span><span class="s9">'intl'</span><span class="s1">) ? \</span><span class="s3">Locale</span><span class="s1">::</span><span class="s3">getDisplayRegion</span><span class="s1">(</span><span class="s9">'-'</span><span class="s1">.</span><span class="s8">$location</span><span class="s1">[</span><span class="s9">'country_code'</span><span class="s1">]) : </span><span class="s9">''</span><span class="s0">;</span>
+
+        <span class="s8">$z </span><span class="s1">= [</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s9">'timezone' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s8">$formatted</span><span class="s0">, </span><span class="s8">$title</span><span class="s1">)]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$filter </span><span class="s1">&amp; </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">EXCLUDE_VERBOSE </span><span class="s1">? </span><span class="s8">$z </span><span class="s1">: </span><span class="s8">$z </span><span class="s1">+ </span><span class="s8">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castPeriod</span><span class="s1">(\</span><span class="s3">DatePeriod </span><span class="s8">$p</span><span class="s0">, array </span><span class="s8">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s8">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$isNested</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$filter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$dates </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s0">clone </span><span class="s8">$p </span><span class="s0">as </span><span class="s8">$i </span><span class="s1">=&gt; </span><span class="s8">$d</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">PERIOD_LIMIT </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s8">$now </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTimeImmutable</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s8">$dates</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'%s more'</span><span class="s0">, </span><span class="s1">(</span><span class="s8">$end </span><span class="s1">= </span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">getEndDate</span><span class="s1">())</span>
+                    <span class="s1">? </span><span class="s3">ceil</span><span class="s1">((</span><span class="s8">$end</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U.u'</span><span class="s1">) - </span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U.u'</span><span class="s1">)) / ((int) </span><span class="s8">$now</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">getDateInterval</span><span class="s1">())-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U.u'</span><span class="s1">) - (int) </span><span class="s8">$now</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U.u'</span><span class="s1">)))</span>
+                    <span class="s1">: </span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">recurrences </span><span class="s1">- </span><span class="s8">$i</span>
+                <span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+            <span class="s8">$dates</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'%s) %s'</span><span class="s0">, </span><span class="s8">$i </span><span class="s1">+ </span><span class="s7">1</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatDateTime</span><span class="s1">(</span><span class="s8">$d</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$period </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span>
+            <span class="s9">'every %s, from %s (%s) %s'</span><span class="s0">,</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">formatInterval</span><span class="s1">(</span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">getDateInterval</span><span class="s1">())</span><span class="s0">,</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">formatDateTime</span><span class="s1">(</span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">getStartDate</span><span class="s1">())</span><span class="s0">,</span>
+            <span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">include_start_date </span><span class="s1">? </span><span class="s9">'included' </span><span class="s1">: </span><span class="s9">'excluded'</span><span class="s0">,</span>
+            <span class="s1">(</span><span class="s8">$end </span><span class="s1">= </span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">getEndDate</span><span class="s1">()) ? </span><span class="s9">'to '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatDateTime</span><span class="s1">(</span><span class="s8">$end</span><span class="s1">) : </span><span class="s9">'recurring '</span><span class="s1">.</span><span class="s8">$p</span><span class="s1">-&gt;</span><span class="s3">recurrences</span><span class="s1">.</span><span class="s9">' time/s'</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$p </span><span class="s1">= [</span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s9">'period' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s8">$period</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s8">$dates</span><span class="s1">))]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$filter </span><span class="s1">&amp; </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">EXCLUDE_VERBOSE </span><span class="s1">? </span><span class="s8">$p </span><span class="s1">: </span><span class="s8">$p </span><span class="s1">+ </span><span class="s8">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">formatDateTime</span><span class="s1">(\</span><span class="s3">DateTimeInterface </span><span class="s8">$d</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$extra </span><span class="s1">= </span><span class="s9">''</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'Y-m-d H:i:'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">formatSeconds</span><span class="s1">(</span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'s'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$d</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'u'</span><span class="s1">)).</span><span class="s8">$extra</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">formatSeconds</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$s</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$us</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'%02d.%s'</span><span class="s0">, </span><span class="s8">$s</span><span class="s0">, </span><span class="s7">0 </span><span class="s1">=== (</span><span class="s8">$len </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$t </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$us</span><span class="s0">, </span><span class="s9">'0'</span><span class="s1">))) ? </span><span class="s9">'0' </span><span class="s1">: (</span><span class="s8">$len </span><span class="s1">&lt;= </span><span class="s7">3 </span><span class="s1">? </span><span class="s3">str_pad</span><span class="s1">(</span><span class="s8">$t</span><span class="s0">, </span><span class="s7">3</span><span class="s0">, </span><span class="s9">'0'</span><span class="s1">) : </span><span class="s8">$us</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

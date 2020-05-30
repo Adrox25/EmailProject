@@ -1,0 +1,390 @@
+<html>
+<head>
+<title>PrototypedArrayNode.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PrototypedArrayNode.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">DuplicateKeyException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">Exception</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidConfigurationException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">UnsetKeyException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Represents a prototyped Array node in the config tree.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">PrototypedArrayNode </span><span class="s0">extends </span><span class="s3">ArrayNode</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$prototype</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$keyAttribute</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$removeKeyAttribute </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$minNumberOfElements </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$defaultValue </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$defaultChildren</span><span class="s0">;</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">NodeInterface[] An array of the prototypes of the simplified value children</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$valuePrototypes </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the minimum number of elements that a prototype based node must</span>
+     <span class="s4">* contain. By default this is zero, meaning no elements.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMinNumberOfElements</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$number</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">minNumberOfElements </span><span class="s1">= </span><span class="s7">$number</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the attribute which value is to be used as key.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is useful when you have an indexed array that should be an</span>
+     <span class="s4">* associative array. You can select an item from within the array</span>
+     <span class="s4">* to be the key of the particular item. For example, if &quot;id&quot; is the</span>
+     <span class="s4">* &quot;key&quot;, then:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     [</span>
+     <span class="s4">*         ['id' =&gt; 'my_name', 'foo' =&gt; 'bar'],</span>
+     <span class="s4">*     ];</span>
+     <span class="s4">*</span>
+     <span class="s4">*  becomes</span>
+     <span class="s4">*</span>
+     <span class="s4">*      [</span>
+     <span class="s4">*          'my_name' =&gt; ['foo' =&gt; 'bar'],</span>
+     <span class="s4">*      ];</span>
+     <span class="s4">*</span>
+     <span class="s4">* If you'd like &quot;'id' =&gt; 'my_name'&quot; to still be present in the resulting</span>
+     <span class="s4">* array, then you can set the second argument of this method to false.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $attribute The name of the attribute which value is to be used as a key</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool   $remove    Whether or not to remove the key</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setKeyAttribute</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$attribute</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$remove </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute </span><span class="s1">= </span><span class="s7">$attribute</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeKeyAttribute </span><span class="s1">= </span><span class="s7">$remove</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Retrieves the name of the attribute which value should be used as key.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The name of the attribute</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getKeyAttribute</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the default value of this node.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDefaultValue</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasDefaultValue</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds default children when none are set.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|string|array|null $children The number of children|The child name|The children names to be added</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAddChildrenIfNoneSet</span><span class="s1">(</span><span class="s7">$children </span><span class="s1">= [</span><span class="s9">'defaults'</span><span class="s1">])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$children</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultChildren </span><span class="s1">= [</span><span class="s9">'defaults'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultChildren </span><span class="s1">= \</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$children</span><span class="s1">) &amp;&amp; </span><span class="s7">$children </span><span class="s1">&gt; </span><span class="s8">0 </span><span class="s1">? </span><span class="s3">range</span><span class="s1">(</span><span class="s8">1</span><span class="s0">, </span><span class="s7">$children</span><span class="s1">) : (array) </span><span class="s7">$children</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* The default value could be either explicited or derived from the prototype</span>
+     <span class="s4">* default value.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDefaultValue</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultChildren</span><span class="s1">) {</span>
+            <span class="s7">$default </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">hasDefaultValue</span><span class="s1">() ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">getDefaultValue</span><span class="s1">() : []</span><span class="s0">;</span>
+            <span class="s7">$defaults </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_values</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultChildren</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$name</span><span class="s1">) {</span>
+                <span class="s7">$defaults</span><span class="s1">[</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute </span><span class="s1">? </span><span class="s7">$i </span><span class="s1">: </span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$default</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$defaults</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the node prototype.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPrototype</span><span class="s1">(</span><span class="s3">PrototypeNodeInterface </span><span class="s7">$node</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype </span><span class="s1">= </span><span class="s7">$node</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Retrieves the prototype.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">PrototypeNodeInterface The prototype</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Disable adding concrete children for prototyped nodes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">Exception</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addChild</span><span class="s1">(</span><span class="s3">NodeInterface </span><span class="s7">$node</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s3">Exception</span><span class="s1">(</span><span class="s9">'A prototyped array node can not have concrete children.'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finalizes the value of this node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The finalized value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">UnsetKeyException</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidConfigurationException if the node doesn't have enough children</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">finalizeValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">UnsetKeyException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unsetting key for path &quot;%s&quot;, value: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">, </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s7">$prototype </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPrototypeForChild</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$value</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$prototype</span><span class="s1">-&gt;</span><span class="s3">finalize</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">UnsetKeyException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &lt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">minNumberOfElements</span><span class="s1">) {</span>
+            <span class="s7">$ex </span><span class="s1">= </span><span class="s0">new </span><span class="s3">InvalidConfigurationException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The path &quot;%s&quot; should have at least %d element(s) defined.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">minNumberOfElements</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$ex</span><span class="s1">-&gt;</span><span class="s3">setPath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+
+            <span class="s0">throw </span><span class="s7">$ex</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Normalizes the value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value The value to normalize</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The normalized value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidConfigurationException</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">DuplicateKeyException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">normalizeValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">remapXml</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$isAssoc </span><span class="s1">= </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) !== </span><span class="s3">range</span><span class="s1">(</span><span class="s8">0</span><span class="s0">, </span><span class="s1">\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) - </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$normalized </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute </span><span class="s1">&amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s1">]) &amp;&amp; \</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">) &amp;&amp; !</span><span class="s7">$isAssoc</span><span class="s1">) {</span>
+                    <span class="s7">$ex </span><span class="s1">= </span><span class="s0">new </span><span class="s3">InvalidConfigurationException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The attribute &quot;%s&quot; must be set for path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()))</span><span class="s0">;</span>
+                    <span class="s7">$ex</span><span class="s1">-&gt;</span><span class="s3">setPath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s7">$ex</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s1">])) {</span>
+                    <span class="s7">$k </span><span class="s1">= </span><span class="s7">$v</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s1">]</span><span class="s0">;</span>
+
+                    <span class="s2">// remove the key attribute when required</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeKeyAttribute</span><span class="s1">) {</span>
+                        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s2">// if only &quot;value&quot; is left</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) === [</span><span class="s9">'value'</span><span class="s1">]) {</span>
+                        <span class="s7">$v </span><span class="s1">= </span><span class="s7">$v</span><span class="s1">[</span><span class="s9">'value'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype </span><span class="s0">instanceof </span><span class="s3">ArrayNode </span><span class="s1">&amp;&amp; (</span><span class="s7">$children </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">()) &amp;&amp; \</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s9">'value'</span><span class="s0">, </span><span class="s7">$children</span><span class="s1">)) {</span>
+                            <span class="s7">$valuePrototype </span><span class="s1">= </span><span class="s3">current</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">valuePrototypes</span><span class="s1">) ?: </span><span class="s0">clone </span><span class="s7">$children</span><span class="s1">[</span><span class="s9">'value'</span><span class="s1">]</span><span class="s0">;</span>
+                            <span class="s7">$valuePrototype</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s7">$this</span><span class="s0">;</span>
+                            <span class="s7">$originalClosures </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">normalizationClosures</span><span class="s0">;</span>
+                            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$originalClosures</span><span class="s1">)) {</span>
+                                <span class="s7">$valuePrototypeClosures </span><span class="s1">= </span><span class="s7">$valuePrototype</span><span class="s1">-&gt;</span><span class="s3">normalizationClosures</span><span class="s0">;</span>
+                                <span class="s7">$valuePrototype</span><span class="s1">-&gt;</span><span class="s3">normalizationClosures </span><span class="s1">= \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$valuePrototypeClosures</span><span class="s1">) ? </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$originalClosures</span><span class="s0">, </span><span class="s7">$valuePrototypeClosures</span><span class="s1">) : </span><span class="s7">$originalClosures</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">valuePrototypes</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$valuePrototype</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$normalized</span><span class="s1">)) {</span>
+                    <span class="s7">$ex </span><span class="s1">= </span><span class="s0">new </span><span class="s3">DuplicateKeyException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Duplicate key &quot;%s&quot; for path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()))</span><span class="s0">;</span>
+                    <span class="s7">$ex</span><span class="s1">-&gt;</span><span class="s3">setPath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s7">$ex</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$prototype </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPrototypeForChild</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute </span><span class="s1">|| </span><span class="s7">$isAssoc</span><span class="s1">) {</span>
+                <span class="s7">$normalized</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$prototype</span><span class="s1">-&gt;</span><span class="s3">normalize</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$normalized</span><span class="s1">[] = </span><span class="s7">$prototype</span><span class="s1">-&gt;</span><span class="s3">normalize</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$normalized</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Merges values together.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $leftSide  The left side to merge</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $rightSide The right side to merge</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The merged values</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidConfigurationException</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">mergeValues</span><span class="s1">(</span><span class="s7">$leftSide</span><span class="s0">, </span><span class="s7">$rightSide</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$rightSide</span><span class="s1">) {</span>
+            <span class="s2">// if this is still false after the last config has been merged the</span>
+            <span class="s2">// finalization pass will take care of removing this key entirely</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$leftSide </span><span class="s1">|| !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">performDeepMerging</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$rightSide</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$rightSide </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s2">// prototype, and key is irrelevant, append the element</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">keyAttribute</span><span class="s1">) {</span>
+                <span class="s7">$leftSide</span><span class="s1">[] = </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// no conflict</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$leftSide</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">allowNewKeys</span><span class="s1">) {</span>
+                    <span class="s7">$ex </span><span class="s1">= </span><span class="s0">new </span><span class="s3">InvalidConfigurationException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'You are not allowed to define new elements for path &quot;%s&quot;. Please define all elements for this path in one config file.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()))</span><span class="s0">;</span>
+                    <span class="s7">$ex</span><span class="s1">-&gt;</span><span class="s3">setPath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s7">$ex</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$leftSide</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$prototype </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPrototypeForChild</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$leftSide</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$prototype</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">(</span><span class="s7">$leftSide</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$leftSide</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a prototype for the child node that is associated to $key in the value array.</span>
+     <span class="s4">* For general child nodes, this will be $this-&gt;prototype.</span>
+     <span class="s4">* But if $this-&gt;removeKeyAttribute is true and there are only two keys in the child node:</span>
+     <span class="s4">* one is same as this-&gt;keyAttribute and the other is 'value', then the prototype will be different.</span>
+     <span class="s4">*</span>
+     <span class="s4">* For example, assume $this-&gt;keyAttribute is 'name' and the value array is as follows:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     [</span>
+     <span class="s4">*         [</span>
+     <span class="s4">*             'name' =&gt; 'name001',</span>
+     <span class="s4">*             'value' =&gt; 'value001'</span>
+     <span class="s4">*         ]</span>
+     <span class="s4">*     ]</span>
+     <span class="s4">*</span>
+     <span class="s4">* Now, the key is 0 and the child node is:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     [</span>
+     <span class="s4">*        'name' =&gt; 'name001',</span>
+     <span class="s4">*        'value' =&gt; 'value001'</span>
+     <span class="s4">*     ]</span>
+     <span class="s4">*</span>
+     <span class="s4">* When normalizing the value array, the 'name' element will removed from the child node</span>
+     <span class="s4">* and its value becomes the new key of the child node:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     [</span>
+     <span class="s4">*         'name001' =&gt; ['value' =&gt; 'value001']</span>
+     <span class="s4">*     ]</span>
+     <span class="s4">*</span>
+     <span class="s4">* Now only 'value' element is left in the child node which can be further simplified into a string:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     ['name001' =&gt; 'value001']</span>
+     <span class="s4">*</span>
+     <span class="s4">* Now, the key becomes 'name001' and the child node becomes 'value001' and</span>
+     <span class="s4">* the prototype of child node 'name001' should be a ScalarNode instead of an ArrayNode instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The prototype instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getPrototypeForChild</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prototype </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">valuePrototypes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">valuePrototypes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s0">;</span>
+        <span class="s7">$prototype</span><span class="s1">-&gt;</span><span class="s3">setName</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$prototype</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

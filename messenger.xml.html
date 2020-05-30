@@ -1,0 +1,155 @@
+<html>
+<head>
+<title>messenger.xml</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #e8bf6a;}
+.s1 { color: #bababa;}
+.s2 { color: #6a8759;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #808080;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+messenger.xml</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?</span><span class="s1">xml version</span><span class="s2">=&quot;1.0&quot; </span><span class="s0">?&gt;</span>
+
+<span class="s0">&lt;container </span><span class="s1">xmlns</span><span class="s2">=&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="s1">xmlns:xsi</span><span class="s2">=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="s1">xsi:schemaLocation</span><span class="s2">=&quot;http://symfony.com/schema/dic/services https://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="s0">&gt;</span>
+
+    <span class="s0">&lt;services&gt;</span>
+        <span class="s0">&lt;defaults </span><span class="s1">public</span><span class="s2">=&quot;false&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s4">&lt;!-- Asynchronous --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.senders_locator&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\Sender\SendersLocator&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;collection&quot; </span><span class="s0">/&gt; </span><span class="s4">&lt;!-- Per message senders map --&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- senders service locator --&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.send_message&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\SendMessageMiddleware&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;monolog.logger&quot; </span><span class="s1">channel</span><span class="s2">=&quot;messenger&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;messenger.senders_locator&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;event_dispatcher&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;call </span><span class="s1">method</span><span class="s2">=&quot;setLogger&quot;</span><span class="s0">&gt;</span>
+                <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;logger&quot; </span><span class="s1">on-invalid</span><span class="s2">=&quot;ignore&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;/call&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s4">&lt;!-- Message encoding/decoding --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport.symfony_serializer&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\Serialization\Serializer&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;serializer&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- Format --&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;collection&quot; </span><span class="s0">/&gt; </span><span class="s4">&lt;!-- Context --&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\Serialization\SerializerInterface&quot; </span><span class="s1">alias</span><span class="s2">=&quot;messenger.default_serializer&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport.native_php_serializer&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\Serialization\PhpSerializer&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s4">&lt;!-- Middleware --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.handle_message&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\HandleMessageMiddleware&quot; </span><span class="s1">abstract</span><span class="s2">=&quot;true&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;monolog.logger&quot; </span><span class="s1">channel</span><span class="s2">=&quot;messenger&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- Bus handler resolver --&gt;</span>
+            <span class="s0">&lt;call </span><span class="s1">method</span><span class="s2">=&quot;setLogger&quot;</span><span class="s0">&gt;</span>
+                <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;logger&quot; </span><span class="s1">on-invalid</span><span class="s2">=&quot;ignore&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;/call&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.add_bus_name_stamp_middleware&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\AddBusNameStampMiddleware&quot; </span><span class="s1">abstract</span><span class="s2">=&quot;true&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.dispatch_after_current_bus&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\DispatchAfterCurrentBusMiddleware&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.validation&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\ValidationMiddleware&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;validator&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.reject_redelivered_message_middleware&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\RejectRedeliveredMessageMiddleware&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.failed_message_processing_middleware&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\FailedMessageProcessingMiddleware&quot; </span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.middleware.traceable&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Middleware\TraceableMiddleware&quot; </span><span class="s1">abstract</span><span class="s2">=&quot;true&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;debug.stopwatch&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s4">&lt;!-- Discovery --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.receiver_locator&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;container.service_locator&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;collection&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s4">&lt;!-- transports --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport_factory&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\TransportFactory&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;tagged_iterator&quot; </span><span class="s1">tag</span><span class="s2">=&quot;messenger.transport_factory&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport.amqp.factory&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\AmqpExt\AmqpTransportFactory&quot;</span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport.redis.factory&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\RedisExt\RedisTransportFactory&quot;</span><span class="s0">/&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport.sync.factory&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\Sync\SyncTransportFactory&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;messenger.transport_factory&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;messenger.routable_message_bus&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.transport.in_memory.factory&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Transport\InMemoryTransportFactory&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;messenger.transport_factory&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;kernel.reset&quot; </span><span class="s1">method</span><span class="s2">=&quot;reset&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s4">&lt;!-- retry --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.retry_strategy_locator&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;container.service_locator&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;collection&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.retry.abstract_multiplier_retry_strategy&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\Retry\MultiplierRetryStrategy&quot; </span><span class="s1">abstract</span><span class="s2">=&quot;true&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- max retries --&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- delay ms --&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- multiplier --&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- max delay ms --&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s4">&lt;!-- worker event listeners --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.retry.send_failed_message_for_retry_listener&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\EventListener\SendFailedMessageForRetryListener&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;kernel.event_subscriber&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;monolog.logger&quot; </span><span class="s1">channel</span><span class="s2">=&quot;messenger&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- senders service locator --&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;messenger.retry_strategy_locator&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;logger&quot; </span><span class="s1">on-invalid</span><span class="s2">=&quot;ignore&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.failure.send_failed_message_to_failure_transport_listener&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\EventListener\SendFailedMessageToFailureTransportListener&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;kernel.event_subscriber&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;monolog.logger&quot; </span><span class="s1">channel</span><span class="s2">=&quot;messenger&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- Failure transport --&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;logger&quot; </span><span class="s1">on-invalid</span><span class="s2">=&quot;ignore&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.listener.dispatch_pcntl_signal_listener&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\EventListener\DispatchPcntlSignalListener&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;kernel.event_subscriber&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.listener.stop_worker_on_restart_signal_listener&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\EventListener\StopWorkerOnRestartSignalListener&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;kernel.event_subscriber&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;monolog.logger&quot; </span><span class="s1">channel</span><span class="s2">=&quot;messenger&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;cache.messenger.restart_workers_signal&quot; </span><span class="s0">/&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;logger&quot; </span><span class="s1">on-invalid</span><span class="s2">=&quot;ignore&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.listener.stop_worker_on_sigterm_signal_listener&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\EventListener\StopWorkerOnSigtermSignalListener&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;tag </span><span class="s1">name</span><span class="s2">=&quot;kernel.event_subscriber&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+
+        <span class="s4">&lt;!-- routable message bus --&gt;</span>
+        <span class="s0">&lt;service </span><span class="s1">id</span><span class="s2">=&quot;messenger.routable_message_bus&quot; </span><span class="s1">class</span><span class="s2">=&quot;Symfony\Component\Messenger\RoutableMessageBus&quot;</span><span class="s0">&gt;</span>
+            <span class="s0">&lt;argument /&gt; </span><span class="s4">&lt;!-- Message bus locator --&gt;</span>
+            <span class="s0">&lt;argument </span><span class="s1">type</span><span class="s2">=&quot;service&quot; </span><span class="s1">id</span><span class="s2">=&quot;messenger.default_bus&quot; </span><span class="s0">/&gt;</span>
+        <span class="s0">&lt;/service&gt;</span>
+    <span class="s0">&lt;/services&gt;</span>
+<span class="s0">&lt;/container&gt;</span>
+</pre>
+</body>
+</html>

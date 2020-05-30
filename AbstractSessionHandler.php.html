@@ -1,0 +1,175 @@
+<html>
+<head>
+<title>AbstractSessionHandler.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AbstractSessionHandler.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">Storage</span><span class="s1">\</span><span class="s3">Handler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">SessionUtils</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* This abstract session handler provides a generic implementation</span>
+ <span class="s4">* of the PHP 7.0 SessionUpdateTimestampHandlerInterface,</span>
+ <span class="s4">* enabling strict and lazy session handling.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">AbstractSessionHandler </span><span class="s0">implements </span><span class="s1">\</span><span class="s3">SessionHandlerInterface</span><span class="s0">, </span><span class="s1">\</span><span class="s3">SessionUpdateTimestampHandlerInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$sessionName</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$prefetchId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$prefetchData</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$newSessionId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$igbinaryEmptyData</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">open</span><span class="s1">(</span><span class="s7">$savePath</span><span class="s0">, </span><span class="s7">$sessionName</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionName </span><span class="s1">= </span><span class="s7">$sessionName</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">headers_sent</span><span class="s1">() &amp;&amp; !</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cache_limiter'</span><span class="s1">) &amp;&amp; </span><span class="s8">'0' </span><span class="s1">!== </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cache_limiter'</span><span class="s1">)) {</span>
+            <span class="s3">header</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Cache-Control: max-age=%d, private, must-revalidate'</span><span class="s0">, </span><span class="s9">60 </span><span class="s1">* (int) </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cache_expire'</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">doRead</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">doWrite</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">doDestroy</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">validateId</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchData </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">read</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchId </span><span class="s1">= </span><span class="s7">$sessionId</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70317 </span><span class="s1">|| (</span><span class="s9">70400 </span><span class="s1">&lt;= \</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&amp;&amp; \</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70405</span><span class="s1">)) {</span>
+            <span class="s2">// work around https://bugs.php.net/79413</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">debug_backtrace</span><span class="s1">(</span><span class="s3">DEBUG_BACKTRACE_IGNORE_ARGS</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$frame</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$frame</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">]) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$frame</span><span class="s1">[</span><span class="s8">'function'</span><span class="s1">]) &amp;&amp; \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$frame</span><span class="s1">[</span><span class="s8">'function'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'session_regenerate_id'</span><span class="s0">, </span><span class="s8">'session_create_id'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s0">return </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchData</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchData</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">read</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchId</span><span class="s1">) {</span>
+            <span class="s7">$prefetchId </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchId</span><span class="s0">;</span>
+            <span class="s7">$prefetchData </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchData</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchId </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefetchData </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$prefetchId </span><span class="s1">=== </span><span class="s7">$sessionId </span><span class="s1">|| </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$prefetchData</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">newSessionId </span><span class="s1">= </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$prefetchData </span><span class="s1">? </span><span class="s7">$sessionId </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$prefetchData</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$data </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doRead</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">newSessionId </span><span class="s1">= </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$data </span><span class="s1">? </span><span class="s7">$sessionId </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$data</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">write</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">igbinaryEmptyData</span><span class="s1">) {</span>
+            <span class="s2">// see https://github.com/igbinary/igbinary/issues/146</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">igbinaryEmptyData </span><span class="s1">= \</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'igbinary_serialize'</span><span class="s1">) ? </span><span class="s3">igbinary_serialize</span><span class="s1">([]) : </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$data </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">igbinaryEmptyData </span><span class="s1">=== </span><span class="s7">$data</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">destroy</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">newSessionId </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doWrite</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">destroy</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">headers_sent</span><span class="s1">() &amp;&amp; </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.use_cookies'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionName</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Session name cannot be empty, did you forget to call &quot;parent::open()&quot; in &quot;%s&quot;?.'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$cookie </span><span class="s1">= </span><span class="s3">SessionUtils</span><span class="s1">::</span><span class="s3">popSessionCookie</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionName</span><span class="s0">, </span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">/* 
+             * We send an invalidation Set-Cookie header (zero lifetime) 
+             * when either the session was started or a cookie with 
+             * the session name was sent by the client (in which case 
+             * we know it's invalid as a valid session cookie would've 
+             * started the session). 
+             */</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$cookie </span><span class="s1">|| </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_COOKIE</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionName</span><span class="s1">])) {</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70300</span><span class="s1">) {</span>
+                    <span class="s3">setcookie</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionName</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cookie_path'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cookie_domain'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cookie_secure'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">)</span><span class="s0">, </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'session.cookie_httponly'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$params </span><span class="s1">= </span><span class="s3">session_get_cookie_params</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'lifetime'</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s3">setcookie</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sessionName</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">newSessionId </span><span class="s1">=== </span><span class="s7">$sessionId </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doDestroy</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

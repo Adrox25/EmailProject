@@ -1,0 +1,311 @@
+<html>
+<head>
+<title>ParameterBag.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ParameterBag.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParameterCircularReferenceException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParameterNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Holds parameters.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ParameterBag </span><span class="s0">implements </span><span class="s3">ParameterBagInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$parameters </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$resolved </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $parameters An array of parameters</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$parameters </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Clears all parameters.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clear</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds parameters to the service container parameters.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $parameters An array of parameters</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">add</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$parameters</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$parameters </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">all</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$name</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">ParameterNotFoundException</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$alternatives </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$parameterValue</span><span class="s1">) {</span>
+                <span class="s7">$lev </span><span class="s1">= </span><span class="s3">levenshtein</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$lev </span><span class="s1">&lt;= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">) / </span><span class="s8">3 </span><span class="s1">|| </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)) {</span>
+                    <span class="s7">$alternatives</span><span class="s1">[] = </span><span class="s7">$key</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$nonNestedAlternative </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$alternatives</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">'.'</span><span class="s1">)) {</span>
+                <span class="s7">$namePartsLength </span><span class="s1">= </span><span class="s3">array_map</span><span class="s1">(</span><span class="s9">'strlen'</span><span class="s0">, </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$key </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1 </span><span class="s1">* (</span><span class="s8">1 </span><span class="s1">+ </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$namePartsLength</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s0">while </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$namePartsLength</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+                        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))) {</span>
+                            <span class="s7">$nonNestedAlternative </span><span class="s1">= </span><span class="s7">$key</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$key </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1 </span><span class="s1">* (</span><span class="s8">1 </span><span class="s1">+ </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$namePartsLength</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s3">ParameterNotFoundException</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$alternatives</span><span class="s0">, </span><span class="s7">$nonNestedAlternative</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a service container parameter.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name  The parameter name</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed  $value The parameter value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">set</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">has</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">array_key_exists</span><span class="s1">((string) </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes a parameter.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name The parameter name</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">remove</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">resolve</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolved</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$parameters </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$parameters</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unescapeValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParameterNotFoundException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">setSourceKey</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters </span><span class="s1">= </span><span class="s7">$parameters</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolved </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Replaces parameter placeholders (%name%) by their values.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value     A value</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $resolving An array of keys that are being resolved (used internally to detect circular references)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The resolved value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParameterNotFoundException          if a placeholder references a parameter that does not exist</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParameterCircularReferenceException if a circular reference if detected</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException                    when a given parameter has a type problem</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, array </span><span class="s7">$resolving </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s7">$args </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$args</span><span class="s1">[\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$resolving</span><span class="s1">) : </span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s7">$resolving</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$args</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) || </span><span class="s8">2 </span><span class="s1">&gt; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveString</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$resolving</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Resolves parameters inside a string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $resolving An array of keys that are being resolved (used internally to detect circular references)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The resolved string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParameterNotFoundException          if a placeholder references a parameter that does not exist</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParameterCircularReferenceException if a circular reference if detected</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException                    when a given parameter has a type problem</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">resolveString</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$value</span><span class="s0">, array </span><span class="s7">$resolving </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s2">// we do this to deal with non string values (Boolean, integer, ...)</span>
+        <span class="s2">// as the preg_replace_callback throw an exception when trying</span>
+        <span class="s2">// a non-string in a parameter value</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'/^%([^%\s]+)%$/'</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$match</span><span class="s1">)) {</span>
+            <span class="s7">$key </span><span class="s1">= </span><span class="s7">$match</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$resolving</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">ParameterCircularReferenceException</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$resolving</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$resolving</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolved </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">) : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$resolving</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s9">'/%%|%([^%\s]+)%/'</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$match</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$resolving</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s2">// skip %%</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s9">'%%'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$key </span><span class="s1">= </span><span class="s7">$match</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$resolving</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">ParameterCircularReferenceException</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$resolving</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$resolved </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$resolved</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$resolved</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'A string value must be composed of strings and/or numbers, but found parameter &quot;%s&quot; of type &quot;%s&quot; inside string value &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$resolved</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$resolved </span><span class="s1">= (string) </span><span class="s7">$resolved</span><span class="s0">;</span>
+            <span class="s7">$resolving</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isResolved</span><span class="s1">() ? </span><span class="s7">$resolved </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveString</span><span class="s1">(</span><span class="s7">$resolved</span><span class="s0">, </span><span class="s7">$resolving</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">isResolved</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolved</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">escapeValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'%'</span><span class="s0">, </span><span class="s9">'%%'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s7">$result </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$result</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">escapeValue</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">unescapeValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'%%'</span><span class="s0">, </span><span class="s9">'%'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s7">$result </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$result</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unescapeValue</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

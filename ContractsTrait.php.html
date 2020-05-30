@@ -1,0 +1,122 @@
+<html>
+<head>
+<title>ContractsTrait.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ContractsTrait.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">AdapterInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">LockRegistry</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheTrait</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">ItemInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">trait </span><span class="s3">ContractsTrait</span>
+<span class="s1">{</span>
+    <span class="s0">use </span><span class="s3">CacheTrait </span><span class="s1">{</span>
+        <span class="s3">doGet </span><span class="s0">as private </span><span class="s3">contractsGet</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private </span><span class="s7">$callbackWrapper </span><span class="s1">= [</span><span class="s3">LockRegistry</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'compute'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$computing </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Wraps the callback passed to -&gt;get() in a callable.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">callable the previous callback wrapper</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCallbackWrapper</span><span class="s1">(?</span><span class="s0">callable </span><span class="s7">$callbackWrapper</span><span class="s1">): </span><span class="s0">callable</span>
+    <span class="s1">{</span>
+        <span class="s7">$previousWrapper </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callbackWrapper</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callbackWrapper </span><span class="s1">= </span><span class="s7">$callbackWrapper </span><span class="s1">?? </span><span class="s0">function </span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$callback</span><span class="s0">, </span><span class="s3">ItemInterface </span><span class="s7">$item</span><span class="s0">, </span><span class="s3">bool </span><span class="s1">&amp;</span><span class="s7">$save</span><span class="s0">, </span><span class="s3">CacheInterface </span><span class="s7">$pool</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Closure </span><span class="s7">$setMetadata</span><span class="s0">, </span><span class="s1">?</span><span class="s3">LoggerInterface </span><span class="s7">$logger</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$callback</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$previousWrapper</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">doGet</span><span class="s1">(</span><span class="s3">AdapterInterface </span><span class="s7">$pool</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, callable </span><span class="s7">$callback</span><span class="s0">, </span><span class="s1">?</span><span class="s3">float </span><span class="s7">$beta</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$metadata </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&gt; </span><span class="s7">$beta </span><span class="s1">= </span><span class="s7">$beta </span><span class="s1">?? </span><span class="s9">1.0</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Argument &quot;$beta&quot; provided to &quot;%s::get()&quot; must be a positive number, %f given.'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class, </span><span class="s7">$beta</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">static </span><span class="s7">$setMetadata</span><span class="s0">;</span>
+
+        <span class="s7">$setMetadata </span><span class="s1">= </span><span class="s7">$setMetadata </span><span class="s1">?? \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s3">CacheItem </span><span class="s7">$item</span><span class="s0">, </span><span class="s3">float </span><span class="s7">$startTime</span><span class="s0">, </span><span class="s1">?</span><span class="s0">array </span><span class="s1">&amp;</span><span class="s7">$metadata</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">expiry </span><span class="s1">&gt; </span><span class="s7">$endTime </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">newMetadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY</span><span class="s1">] = </span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY</span><span class="s1">] = </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">expiry</span><span class="s0">;</span>
+                    <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">newMetadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_CTIME</span><span class="s1">] = </span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_CTIME</span><span class="s1">] = (int) </span><span class="s3">ceil</span><span class="s1">(</span><span class="s9">1000 </span><span class="s1">* (</span><span class="s7">$endTime </span><span class="s1">- </span><span class="s7">$startTime</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_CTIME</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">contractsGet</span><span class="s1">(</span><span class="s7">$pool</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, function </span><span class="s1">(</span><span class="s3">CacheItem </span><span class="s7">$item</span><span class="s0">, </span><span class="s3">bool </span><span class="s1">&amp;</span><span class="s7">$save</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$pool</span><span class="s0">, </span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$setMetadata</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$metadata</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">) {</span>
+            <span class="s2">// don't wrap nor save recursive calls</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">computing</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$callback</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$save </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">computing</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$key</span><span class="s0">;</span>
+            <span class="s7">$startTime </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">= (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callbackWrapper</span><span class="s1">)(</span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s0">, </span><span class="s7">$pool</span><span class="s0">, function </span><span class="s1">(</span><span class="s3">CacheItem </span><span class="s7">$item</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$setMetadata</span><span class="s0">, </span><span class="s7">$startTime</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$metadata</span><span class="s1">) {</span>
+                    <span class="s7">$setMetadata</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$startTime</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">?? </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$setMetadata</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$startTime</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">computing</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$beta</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">?? </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

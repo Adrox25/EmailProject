@@ -1,0 +1,529 @@
+<html>
+<head>
+<title>QuestionHelper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+QuestionHelper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Helper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">MissingInputException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">OutputFormatter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">OutputFormatterStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">StreamableInputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleOutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleSectionOutput</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Question</span><span class="s1">\</span><span class="s3">ChoiceQuestion</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Question</span><span class="s1">\</span><span class="s3">Question</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Terminal</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* The QuestionHelper class provides helpers to interact with the user.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">QuestionHelper </span><span class="s0">extends </span><span class="s3">Helper</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$inputStream</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$shell</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$stty</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Asks a question to the user.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The user answer</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException If there is no data to read in the input stream</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ask</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">Question </span><span class="s7">$question</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$output </span><span class="s0">instanceof </span><span class="s3">ConsoleOutputInterface</span><span class="s1">) {</span>
+            <span class="s7">$output </span><span class="s1">= </span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">getErrorOutput</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">isInteractive</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefaultAnswer</span><span class="s1">(</span><span class="s7">$question</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$input </span><span class="s0">instanceof </span><span class="s3">StreamableInputInterface </span><span class="s1">&amp;&amp; </span><span class="s7">$stream </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getStream</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inputStream </span><span class="s1">= </span><span class="s7">$stream</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getValidator</span><span class="s1">()) {</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doAsk</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$question</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$interviewer </span><span class="s1">= </span><span class="s0">function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$question</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doAsk</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$question</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validateAttempts</span><span class="s1">(</span><span class="s7">$interviewer</span><span class="s0">, </span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$question</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">MissingInputException </span><span class="s7">$exception</span><span class="s1">) {</span>
+            <span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">setInteractive</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$fallbackOutput </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefaultAnswer</span><span class="s1">(</span><span class="s7">$question</span><span class="s1">)) {</span>
+                <span class="s0">throw </span><span class="s7">$exception</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$fallbackOutput</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">'question'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Prevents usage of stty.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">disableStty</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$stty </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Asks the question to the user.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool|mixed|string|null</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException In case the fallback is deactivated and the response cannot be hidden</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">doAsk</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">Question </span><span class="s7">$question</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writePrompt</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$question</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$inputStream </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inputStream </span><span class="s1">?: </span><span class="s3">STDIN</span><span class="s0">;</span>
+        <span class="s7">$autocomplete </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getAutocompleterCallback</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$autocomplete </span><span class="s1">|| !</span><span class="s3">Terminal</span><span class="s1">::</span><span class="s3">hasSttyAvailable</span><span class="s1">()) {</span>
+            <span class="s7">$ret </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isHidden</span><span class="s1">()) {</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s7">$hiddenResponse </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHiddenResponse</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isTrimmable</span><span class="s1">())</span><span class="s0">;</span>
+                    <span class="s7">$ret </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isTrimmable</span><span class="s1">() ? </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$hiddenResponse</span><span class="s1">) : </span><span class="s7">$hiddenResponse</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">RuntimeException </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isHiddenFallback</span><span class="s1">()) {</span>
+                        <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$ret</span><span class="s1">) {</span>
+                <span class="s7">$ret </span><span class="s1">= </span><span class="s3">fgets</span><span class="s1">(</span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s9">4096</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$ret</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">MissingInputException</span><span class="s1">(</span><span class="s8">'Aborted.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isTrimmable</span><span class="s1">()) {</span>
+                    <span class="s7">$ret </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$autocomplete </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">autocomplete</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$question</span><span class="s0">, </span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s7">$autocomplete</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$ret </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isTrimmable</span><span class="s1">() ? </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$autocomplete</span><span class="s1">) : </span><span class="s7">$autocomplete</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$output </span><span class="s0">instanceof </span><span class="s3">ConsoleSectionOutput</span><span class="s1">) {</span>
+            <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">addContent</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$ret </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">) &gt; </span><span class="s9">0 </span><span class="s1">? </span><span class="s7">$ret </span><span class="s1">: </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getDefault</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$normalizer </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getNormalizer</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$normalizer</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$ret</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getDefaultAnswer</span><span class="s1">(</span><span class="s3">Question </span><span class="s7">$question</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$default </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getDefault</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$default</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$default</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$validator </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getValidator</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">call_user_func</span><span class="s1">(</span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getValidator</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$question </span><span class="s0">instanceof </span><span class="s3">ChoiceQuestion</span><span class="s1">) {</span>
+            <span class="s7">$choices </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getChoices</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isMultiselect</span><span class="s1">()) {</span>
+                <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$default</span><span class="s1">]) ? </span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$default</span><span class="s1">] : </span><span class="s7">$default</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$default </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">','</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$default </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$v </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isTrimmable</span><span class="s1">() ? </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) : </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s7">$default</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">]) ? </span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">] : </span><span class="s7">$v</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$default</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Outputs the question prompt.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">writePrompt</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">Question </span><span class="s7">$question</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$message </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getQuestion</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$question </span><span class="s0">instanceof </span><span class="s3">ChoiceQuestion</span><span class="s1">) {</span>
+            <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">([</span>
+                <span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getQuestion</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatChoiceQuestionChoices</span><span class="s1">(</span><span class="s7">$question</span><span class="s0">, </span><span class="s8">'info'</span><span class="s1">)))</span><span class="s0">;</span>
+
+            <span class="s7">$message </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getPrompt</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">formatChoiceQuestionChoices</span><span class="s1">(</span><span class="s3">ChoiceQuestion </span><span class="s7">$question</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$tag</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$messages </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s7">$maxWidth </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s8">'self::strlen'</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$choices </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getChoices</span><span class="s1">())))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$choices </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s7">$padding </span><span class="s1">= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s8">' '</span><span class="s0">, </span><span class="s7">$maxWidth </span><span class="s1">- </span><span class="s3">self</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s7">$messages</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;  [&lt;</span><span class="s7">$tag</span><span class="s8">&gt;%s</span><span class="s7">$padding</span><span class="s8">&lt;/</span><span class="s7">$tag</span><span class="s8">&gt;] %s&quot;</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$messages</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Outputs an error message.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">writeError</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Exception </span><span class="s7">$error</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHelperSet</span><span class="s1">() &amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHelperSet</span><span class="s1">()-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'formatter'</span><span class="s1">)) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHelperSet</span><span class="s1">()-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'formatter'</span><span class="s1">)-&gt;</span><span class="s3">formatBlock</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s8">'error'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s8">'&lt;error&gt;'</span><span class="s1">.</span><span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">().</span><span class="s8">'&lt;/error&gt;'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Autocompletes a question.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource $inputStream</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">autocomplete</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">Question </span><span class="s7">$question</span><span class="s0">, </span><span class="s7">$inputStream</span><span class="s0">, callable </span><span class="s7">$autocomplete</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$fullChoice </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$ret </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$ofs </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s7">$matches </span><span class="s1">= </span><span class="s7">$autocomplete</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$numMatches </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$sttyMode </span><span class="s1">= </span><span class="s3">shell_exec</span><span class="s1">(</span><span class="s8">'stty -g'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Disable icanon (so we can fread each keypress) and echo (we'll do echoing here instead)</span>
+        <span class="s3">shell_exec</span><span class="s1">(</span><span class="s8">'stty -icanon -echo'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Add highlighted text style</span>
+        <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s8">'hl'</span><span class="s0">, new </span><span class="s3">OutputFormatterStyle</span><span class="s1">(</span><span class="s8">'black'</span><span class="s0">, </span><span class="s8">'white'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s2">// Read a keypress</span>
+        <span class="s0">while </span><span class="s1">(!</span><span class="s3">feof</span><span class="s1">(</span><span class="s7">$inputStream</span><span class="s1">)) {</span>
+            <span class="s7">$c </span><span class="s1">= </span><span class="s3">fread</span><span class="s1">(</span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// as opposed to fgets(), fread() returns an empty string when the stream content is empty, not false.</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$c </span><span class="s1">|| (</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$ret </span><span class="s1">&amp;&amp; </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$c </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getDefault</span><span class="s1">())) {</span>
+                <span class="s3">shell_exec</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'stty %s'</span><span class="s0">, </span><span class="s7">$sttyMode</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s0">throw new </span><span class="s3">MissingInputException</span><span class="s1">(</span><span class="s8">'Aborted.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\177</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">) { </span><span class="s2">// Backspace Character</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$numMatches </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">!== </span><span class="s7">$i</span><span class="s1">) {</span>
+                    <span class="s1">--</span><span class="s7">$i</span><span class="s0">;</span>
+                    <span class="s7">$fullChoice </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$fullChoice</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s2">// Move cursor backwards</span>
+                    <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[1D&quot;</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$i</span><span class="s1">) {</span>
+                    <span class="s7">$ofs </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+                    <span class="s7">$matches </span><span class="s1">= </span><span class="s7">$autocomplete</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$numMatches </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$numMatches </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// Pop the last character off the end of our string</span>
+                <span class="s7">$ret </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$ret</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">) {</span>
+                <span class="s2">// Did we read an escape sequence?</span>
+                <span class="s7">$c </span><span class="s1">.= </span><span class="s3">fread</span><span class="s1">(</span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s2">// A = Up Arrow. B = Down Arrow</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]) &amp;&amp; (</span><span class="s8">'A' </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s9">2</span><span class="s1">] || </span><span class="s8">'B' </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s9">2</span><span class="s1">])) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">'A' </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s9">2</span><span class="s1">] &amp;&amp; -</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$ofs</span><span class="s1">) {</span>
+                        <span class="s7">$ofs </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$numMatches</span><span class="s1">) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$ofs </span><span class="s1">+= (</span><span class="s8">'A' </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]) ? -</span><span class="s9">1 </span><span class="s1">: </span><span class="s9">1</span><span class="s0">;</span>
+                    <span class="s7">$ofs </span><span class="s1">= (</span><span class="s7">$numMatches </span><span class="s1">+ </span><span class="s7">$ofs</span><span class="s1">) % </span><span class="s7">$numMatches</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">) &lt; </span><span class="s9">32</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\t</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c </span><span class="s1">|| </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$numMatches </span><span class="s1">&gt; </span><span class="s9">0 </span><span class="s1">&amp;&amp; -</span><span class="s9">1 </span><span class="s1">!== </span><span class="s7">$ofs</span><span class="s1">) {</span>
+                        <span class="s7">$ret </span><span class="s1">= (string) </span><span class="s7">$matches</span><span class="s1">[</span><span class="s7">$ofs</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s2">// Echo out remaining chars for current match</span>
+                        <span class="s7">$remainingCharacters </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$ret</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mostRecentlyEnteredValue</span><span class="s1">(</span><span class="s7">$fullChoice</span><span class="s1">))))</span><span class="s0">;</span>
+                        <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$remainingCharacters</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$fullChoice </span><span class="s1">.= </span><span class="s7">$remainingCharacters</span><span class="s0">;</span>
+                        <span class="s7">$i </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$fullChoice</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s7">$matches </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span>
+                            <span class="s7">$autocomplete</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">,</span>
+                            <span class="s0">function </span><span class="s1">(</span><span class="s7">$match</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">) {</span>
+                                <span class="s0">return </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$ret </span><span class="s1">|| </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$match</span><span class="s0">, </span><span class="s7">$ret</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$numMatches </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$ofs </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">) {</span>
+                        <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$numMatches </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\x80</span><span class="s8">&quot; </span><span class="s1">&lt;= </span><span class="s7">$c</span><span class="s1">) {</span>
+                    <span class="s7">$c </span><span class="s1">.= </span><span class="s3">fread</span><span class="s1">(</span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\xC0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s9">1</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\xD0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s9">1</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\xE0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s9">2</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\xF0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s9">3</span><span class="s1">][</span><span class="s7">$c </span><span class="s1">&amp; </span><span class="s8">&quot;</span><span class="s0">\xF0</span><span class="s8">&quot;</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$ret </span><span class="s1">.= </span><span class="s7">$c</span><span class="s0">;</span>
+                <span class="s7">$fullChoice </span><span class="s1">.= </span><span class="s7">$c</span><span class="s0">;</span>
+                <span class="s1">++</span><span class="s7">$i</span><span class="s0">;</span>
+
+                <span class="s7">$tempRet </span><span class="s1">= </span><span class="s7">$ret</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$question </span><span class="s0">instanceof </span><span class="s3">ChoiceQuestion </span><span class="s1">&amp;&amp; </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">isMultiselect</span><span class="s1">()) {</span>
+                    <span class="s7">$tempRet </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mostRecentlyEnteredValue</span><span class="s1">(</span><span class="s7">$fullChoice</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$numMatches </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                <span class="s7">$ofs </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$autocomplete</span><span class="s1">(</span><span class="s7">$ret</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$value</span><span class="s1">) {</span>
+                    <span class="s2">// If typed characters match the beginning chunk of value (e.g. [AcmeDe]moBundle)</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$tempRet</span><span class="s1">)) {</span>
+                        <span class="s7">$matches</span><span class="s1">[</span><span class="s7">$numMatches</span><span class="s1">++] = </span><span class="s7">$value</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// Erase characters from cursor to end of line</span>
+            <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[K&quot;</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$numMatches </span><span class="s1">&gt; </span><span class="s9">0 </span><span class="s1">&amp;&amp; -</span><span class="s9">1 </span><span class="s1">!== </span><span class="s7">$ofs</span><span class="s1">) {</span>
+                <span class="s2">// Save cursor position</span>
+                <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">7&quot;</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s2">// Write highlighted text, complete the partially entered response</span>
+                <span class="s7">$charactersEntered </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mostRecentlyEnteredValue</span><span class="s1">(</span><span class="s7">$fullChoice</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s8">'&lt;hl&gt;'</span><span class="s1">.</span><span class="s3">OutputFormatter</span><span class="s1">::</span><span class="s3">escapeTrailingBackslash</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s7">$ofs</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$charactersEntered</span><span class="s1">)).</span><span class="s8">'&lt;/hl&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s2">// Restore cursor position</span>
+                <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">8&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Reset stty so it behaves normally again</span>
+        <span class="s3">shell_exec</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'stty %s'</span><span class="s0">, </span><span class="s7">$sttyMode</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$fullChoice</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">mostRecentlyEnteredValue</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$entered</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s2">// Determine the most recent value that the user entered</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$entered</span><span class="s0">, </span><span class="s8">','</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$entered</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$choices </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">','</span><span class="s0">, </span><span class="s7">$entered</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$lastChoice </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">[\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">) - </span><span class="s9">1</span><span class="s1">])) &gt; </span><span class="s9">0</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$lastChoice</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$entered</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a hidden response from user.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource $inputStream The handler resource</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool     $trimmable   Is the answer trimmable</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException In case the fallback is deactivated and the response cannot be hidden</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getHiddenResponse</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$trimmable </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+            <span class="s7">$exe </span><span class="s1">= </span><span class="s3">__DIR__</span><span class="s1">.</span><span class="s8">'/../Resources/bin/hiddeninput.exe'</span><span class="s0">;</span>
+
+            <span class="s2">// handle code running from a phar</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'phar:' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s3">__FILE__</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">5</span><span class="s1">)) {</span>
+                <span class="s7">$tmpExe </span><span class="s1">= </span><span class="s3">sys_get_temp_dir</span><span class="s1">().</span><span class="s8">'/hiddeninput.exe'</span><span class="s0">;</span>
+                <span class="s3">copy</span><span class="s1">(</span><span class="s7">$exe</span><span class="s0">, </span><span class="s7">$tmpExe</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$exe </span><span class="s1">= </span><span class="s7">$tmpExe</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$sExec </span><span class="s1">= </span><span class="s3">shell_exec</span><span class="s1">(</span><span class="s7">$exe</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s7">$trimmable </span><span class="s1">? </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$sExec</span><span class="s1">) : </span><span class="s7">$sExec</span><span class="s0">;</span>
+            <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tmpExe</span><span class="s1">)) {</span>
+                <span class="s3">unlink</span><span class="s1">(</span><span class="s7">$tmpExe</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Terminal</span><span class="s1">::</span><span class="s3">hasSttyAvailable</span><span class="s1">()) {</span>
+            <span class="s7">$sttyMode </span><span class="s1">= </span><span class="s3">shell_exec</span><span class="s1">(</span><span class="s8">'stty -g'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s3">shell_exec</span><span class="s1">(</span><span class="s8">'stty -echo'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s3">fgets</span><span class="s1">(</span><span class="s7">$inputStream</span><span class="s0">, </span><span class="s9">4096</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">shell_exec</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'stty %s'</span><span class="s0">, </span><span class="s7">$sttyMode</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">MissingInputException</span><span class="s1">(</span><span class="s8">'Aborted.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$trimmable</span><span class="s1">) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$shell </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getShell</span><span class="s1">()) {</span>
+            <span class="s7">$readCmd </span><span class="s1">= </span><span class="s8">'csh' </span><span class="s1">=== </span><span class="s7">$shell </span><span class="s1">? </span><span class="s8">'set mypassword = $&lt;' </span><span class="s1">: </span><span class="s8">'read -r mypassword'</span><span class="s0">;</span>
+            <span class="s7">$command </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;/usr/bin/env %s -c 'stty -echo; %s; stty echo; echo </span><span class="s0">\$</span><span class="s8">mypassword'&quot;</span><span class="s0">, </span><span class="s7">$shell</span><span class="s0">, </span><span class="s7">$readCmd</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$sCommand </span><span class="s1">= </span><span class="s3">shell_exec</span><span class="s1">(</span><span class="s7">$command</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s7">$trimmable </span><span class="s1">? </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$sCommand</span><span class="s1">) : </span><span class="s7">$sCommand</span><span class="s0">;</span>
+            <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'Unable to hide the response.'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validates an attempt.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable $interviewer A callable that will ask for a question and return the result</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The validated response</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\Exception In case the max number of attempts has been reached and no valid response has been given</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">validateAttempts</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$interviewer</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">Question </span><span class="s7">$question</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$error </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$attempts </span><span class="s1">= </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getMaxAttempts</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$attempts </span><span class="s1">|| </span><span class="s7">$attempts</span><span class="s1">--) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$error</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$error</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s0">return </span><span class="s7">$question</span><span class="s1">-&gt;</span><span class="s3">getValidator</span><span class="s1">()(</span><span class="s7">$interviewer</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">RuntimeException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$error</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw </span><span class="s7">$error</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a valid unix shell.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|bool The valid shell name, false in case no valid shell is found</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getShell</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$shell</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$shell</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$shell </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">'/usr/bin/env'</span><span class="s1">)) {</span>
+            <span class="s2">// handle other OSs with bash/zsh/ksh/csh if available to hide the answer</span>
+            <span class="s7">$test </span><span class="s1">= </span><span class="s8">&quot;/usr/bin/env %s -c 'echo OK' 2&gt; /dev/null&quot;</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'bash'</span><span class="s0">, </span><span class="s8">'zsh'</span><span class="s0">, </span><span class="s8">'ksh'</span><span class="s0">, </span><span class="s8">'csh'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$sh</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'OK' </span><span class="s1">=== </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s3">shell_exec</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">$test</span><span class="s0">, </span><span class="s7">$sh</span><span class="s1">)))) {</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s7">$shell </span><span class="s1">= </span><span class="s7">$sh</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$shell</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

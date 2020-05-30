@@ -1,0 +1,157 @@
+<html>
+<head>
+<title>ContainerConfigurator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ContainerConfigurator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">Configurator</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">IteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ServiceLocatorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">TaggedIteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Extension</span><span class="s1">\</span><span class="s3">ExtensionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">PhpFileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s1">\</span><span class="s3">Expression</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ContainerConfigurator </span><span class="s0">extends </span><span class="s3">AbstractConfigurator</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">FACTORY </span><span class="s1">= </span><span class="s7">'container'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$container</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$loader</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$instanceof</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$path</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$file</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$anonymousCount </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s8">$container</span><span class="s0">, </span><span class="s3">PhpFileLoader </span><span class="s8">$loader</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s8">$instanceof</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s8">$container</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loader </span><span class="s1">= </span><span class="s8">$loader</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= &amp;</span><span class="s8">$instanceof</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">path </span><span class="s1">= </span><span class="s8">$path</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">file </span><span class="s1">= </span><span class="s8">$file</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">final public function </span><span class="s3">extension</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$namespace</span><span class="s0">, array </span><span class="s8">$config</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasExtension</span><span class="s1">(</span><span class="s8">$namespace</span><span class="s1">)) {</span>
+            <span class="s8">$extensions </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s3">ExtensionInterface </span><span class="s8">$ext</span><span class="s1">) { </span><span class="s0">return </span><span class="s8">$ext</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">()</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getExtensions</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'There is no extension able to load the configuration for &quot;%s&quot; (in &quot;%s&quot;). Looked for namespace &quot;%s&quot;, found &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s0">, </span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$extensions </span><span class="s1">? </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">'&quot;, &quot;'</span><span class="s0">, </span><span class="s8">$extensions</span><span class="s1">) : </span><span class="s7">'none'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">loadFromExtension</span><span class="s1">(</span><span class="s8">$namespace</span><span class="s0">, static</span><span class="s1">::</span><span class="s3">processValue</span><span class="s1">(</span><span class="s8">$config</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">final public function </span><span class="s3">import</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s8">$ignoreErrors </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">-&gt;</span><span class="s3">setCurrentDir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">-&gt;</span><span class="s3">import</span><span class="s1">(</span><span class="s8">$resource</span><span class="s0">, </span><span class="s8">$type</span><span class="s0">, </span><span class="s8">$ignoreErrors</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">final public function </span><span class="s3">parameters</span><span class="s1">(): </span><span class="s3">ParametersConfigurator</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ParametersConfigurator</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">final public function </span><span class="s3">services</span><span class="s1">(): </span><span class="s3">ServicesConfigurator</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ServicesConfigurator</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">path</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">anonymousCount</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates a service reference.</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">ref</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$id</span><span class="s1">): </span><span class="s3">ReferenceConfigurator</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">ReferenceConfigurator</span><span class="s1">(</span><span class="s8">$id</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates an inline service.</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">inline</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$class </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">InlineServiceConfigurator</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">InlineServiceConfigurator</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Definition</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">))</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates a service locator.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@param </span><span class="s4">ReferenceConfigurator[] $values</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">service_locator</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$values</span><span class="s1">): </span><span class="s3">ServiceLocatorArgument</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">ServiceLocatorArgument</span><span class="s1">(</span><span class="s3">AbstractConfigurator</span><span class="s1">::</span><span class="s3">processValue</span><span class="s1">(</span><span class="s8">$values</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates a lazy iterator.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@param </span><span class="s4">ReferenceConfigurator[] $values</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">iterator</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$values</span><span class="s1">): </span><span class="s3">IteratorArgument</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">IteratorArgument</span><span class="s1">(</span><span class="s3">AbstractConfigurator</span><span class="s1">::</span><span class="s3">processValue</span><span class="s1">(</span><span class="s8">$values</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates a lazy iterator by tag name.</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">tagged_iterator</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$tag</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$indexAttribute </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$defaultIndexMethod </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$defaultPriorityMethod </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">TaggedIteratorArgument</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">TaggedIteratorArgument</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$indexAttribute</span><span class="s0">, </span><span class="s8">$defaultIndexMethod</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$defaultPriorityMethod</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates a service locator by tag name.</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">tagged_locator</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$tag</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$indexAttribute </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$defaultIndexMethod </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">ServiceLocatorArgument</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">ServiceLocatorArgument</span><span class="s1">(</span><span class="s0">new </span><span class="s3">TaggedIteratorArgument</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$indexAttribute</span><span class="s0">, </span><span class="s8">$defaultIndexMethod</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s4">/**</span>
+ <span class="s4">* Creates an expression.</span>
+ <span class="s4">*/</span>
+<span class="s0">function </span><span class="s3">expr</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$expression</span><span class="s1">): </span><span class="s3">Expression</span>
+<span class="s1">{</span>
+    <span class="s0">return new </span><span class="s3">Expression</span><span class="s1">(</span><span class="s8">$expression</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

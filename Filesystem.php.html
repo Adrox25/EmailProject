@@ -1,0 +1,763 @@
+<html>
+<head>
+<title>Filesystem.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Filesystem.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FileNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">IOException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Provides basic utility to manipulate the file system.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Filesystem</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$lastError</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Copies a file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If the target file is older than the origin file, it's always overwritten.</span>
+     <span class="s4">* If the target file is newer, it is overwritten only when the</span>
+     <span class="s4">* $overwriteNewerFiles option is set to true.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FileNotFoundException When originFile doesn't exist</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException           When copy fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">copy</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$targetFile</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$overwriteNewerFiles </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$originIsLocal </span><span class="s1">= </span><span class="s3">stream_is_local</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">) || </span><span class="s8">0 </span><span class="s1">=== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s0">, </span><span class="s9">'file://'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$originIsLocal </span><span class="s1">&amp;&amp; !</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">FileNotFoundException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to copy &quot;%s&quot; because file does not exist.'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$doCopy </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$overwriteNewerFiles </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s0">, </span><span class="s3">PHP_URL_HOST</span><span class="s1">) &amp;&amp; </span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">)) {</span>
+            <span class="s7">$doCopy </span><span class="s1">= </span><span class="s3">filemtime</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">) &gt; </span><span class="s3">filemtime</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$doCopy</span><span class="s1">) {</span>
+            <span class="s2">// https://bugs.php.net/64634</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$source </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s0">, </span><span class="s9">'r'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to copy &quot;%s&quot; to &quot;%s&quot; because source file could not be opened for reading.'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFile</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// Stream context created to allow files overwrite when using FTP stream wrapper - disabled by default</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$target </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s0">, </span><span class="s9">'w'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">stream_context_create</span><span class="s1">([</span><span class="s9">'ftp' </span><span class="s1">=&gt; [</span><span class="s9">'overwrite' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">]]))) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to copy &quot;%s&quot; to &quot;%s&quot; because target file could not be opened for writing.'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFile</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$bytesCopied </span><span class="s1">= </span><span class="s3">stream_copy_to_stream</span><span class="s1">(</span><span class="s7">$source</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$source</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$source</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to copy &quot;%s&quot; to &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFile</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$originIsLocal</span><span class="s1">) {</span>
+                <span class="s2">// Like `cp`, preserve executable permission bits</span>
+                <span class="s1">@</span><span class="s3">chmod</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s0">, </span><span class="s3">fileperms</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">) | (</span><span class="s3">fileperms</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">) &amp; </span><span class="s8">0111</span><span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$bytesCopied </span><span class="s1">!== </span><span class="s7">$bytesOrigin </span><span class="s1">= </span><span class="s3">filesize</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to copy the whole content of &quot;%s&quot; to &quot;%s&quot; (%g of %g bytes copied).'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFile</span><span class="s0">, </span><span class="s7">$bytesCopied</span><span class="s0">, </span><span class="s7">$bytesOrigin</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates a directory recursively.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $dirs The directory path</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException On any directory creation failure</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$dirs</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$mode </span><span class="s1">= </span><span class="s8">0777</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$dirs</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$dir</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'mkdir'</span><span class="s0">, </span><span class="s7">$dir</span><span class="s0">, </span><span class="s7">$mode</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                    <span class="s2">// The directory was not created by a concurrent process. Let's throw an exception with a developer friendly error message if we have one</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to create &quot;%s&quot;: '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to create &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks the existence of files or directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $files A filename, an array of files, or a \Traversable instance to check</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if the file exists, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$maxPathLength </span><span class="s1">= </span><span class="s3">PHP_MAXPATHLEN </span><span class="s1">- </span><span class="s8">2</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &gt; </span><span class="s7">$maxPathLength</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Could not check if file exist because path length exceeds %d characters.'</span><span class="s0">, </span><span class="s7">$maxPathLength</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets access and modification time of file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $files A filename, an array of files, or a \Traversable instance to create</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null        $time  The touch time as a Unix timestamp, if not supplied the current system time is used</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null        $atime The access time as a Unix timestamp, if not supplied the current system time is used</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When touch fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">touch</span><span class="s1">(</span><span class="s7">$files</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$time </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$atime </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$touch </span><span class="s1">= </span><span class="s7">$time </span><span class="s1">? @</span><span class="s3">touch</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$time</span><span class="s0">, </span><span class="s7">$atime</span><span class="s1">) : @</span><span class="s3">touch</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== </span><span class="s7">$touch</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to touch &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes files or directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $files A filename, an array of files, or a \Traversable instance to remove</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When removal fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$files </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Traversable</span><span class="s1">) {</span>
+            <span class="s7">$files </span><span class="s1">= </span><span class="s3">iterator_to_array</span><span class="s1">(</span><span class="s7">$files</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">)) {</span>
+            <span class="s7">$files </span><span class="s1">= [</span><span class="s7">$files</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$files </span><span class="s1">= </span><span class="s3">array_reverse</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$files </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s2">// See https://bugs.php.net/52176</span>
+                <span class="s0">if </span><span class="s1">(!(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'unlink'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">) || </span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">!== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">|| </span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'rmdir'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)) &amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to remove symlink &quot;%s&quot;: '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">FilesystemIterator</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s1">\</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">CURRENT_AS_PATHNAME </span><span class="s1">| \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS</span><span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'rmdir'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">) &amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to remove directory &quot;%s&quot;: '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'unlink'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">) &amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to remove file &quot;%s&quot;: '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Change mode for an array of files or directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $files     A filename, an array of files, or a \Traversable instance to change mode</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int             $mode      The new mode (octal)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int             $umask     The mode mask (octal)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool            $recursive Whether change the mod recursively or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When the change fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">chmod</span><span class="s1">(</span><span class="s7">$files</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$mode</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$umask </span><span class="s1">= </span><span class="s8">0000</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$recursive </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== @</span><span class="s3">chmod</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$mode </span><span class="s1">&amp; ~</span><span class="s7">$umask</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to chmod file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$recursive </span><span class="s1">&amp;&amp; </span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">chmod</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">FilesystemIterator</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$mode</span><span class="s0">, </span><span class="s7">$umask</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Change the owner of an array of files or directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $files     A filename, an array of files, or a \Traversable instance to change owner</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|int      $user      A user name or number</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool            $recursive Whether change the owner recursively or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When the change fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">chown</span><span class="s1">(</span><span class="s7">$files</span><span class="s0">, </span><span class="s7">$user</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$recursive </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$recursive </span><span class="s1">&amp;&amp; </span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">chown</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">FilesystemIterator</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$user</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &amp;&amp; \</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'lchown'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== @</span><span class="s3">lchown</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$user</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to chown file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== @</span><span class="s3">chown</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$user</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to chown file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Change the group of an array of files or directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|iterable $files     A filename, an array of files, or a \Traversable instance to change group</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|int      $group     A group name or number</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool            $recursive Whether change the group recursively or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When the change fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">chgrp</span><span class="s1">(</span><span class="s7">$files</span><span class="s0">, </span><span class="s7">$group</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$recursive </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$recursive </span><span class="s1">&amp;&amp; </span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">chgrp</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">FilesystemIterator</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$group</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &amp;&amp; \</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'lchgrp'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== @</span><span class="s3">lchgrp</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$group</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to chgrp file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== @</span><span class="s3">chgrp</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$group</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to chgrp file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renames a file or a directory.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When target file or directory already exists</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When origin cannot be renamed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">rename</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$origin</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$target</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$overwrite </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// we check that target does not exist</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$overwrite </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isReadable</span><span class="s1">(</span><span class="s7">$target</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Cannot rename because the target &quot;%s&quot; already exists.'</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">!== @</span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$origin</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$origin</span><span class="s1">)) {</span>
+                <span class="s2">// See https://bugs.php.net/54097 &amp; https://php.net/rename#113943</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mirror</span><span class="s1">(</span><span class="s7">$origin</span><span class="s0">, </span><span class="s7">$target</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'override' </span><span class="s1">=&gt; </span><span class="s7">$overwrite</span><span class="s0">, </span><span class="s9">'delete' </span><span class="s1">=&gt; </span><span class="s7">$overwrite</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$origin</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Cannot rename &quot;%s&quot; to &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$origin</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Tells whether a file exists and is readable.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When windows path is longer than 258 characters</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isReadable</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$filename</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$maxPathLength </span><span class="s1">= </span><span class="s3">PHP_MAXPATHLEN </span><span class="s1">- </span><span class="s8">2</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">) &gt; </span><span class="s7">$maxPathLength</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Could not check if file is readable because path length exceeds %d characters.'</span><span class="s0">, </span><span class="s7">$maxPathLength</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">is_readable</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates a symbolic link or copy a directory.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When symlink fails</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">symlink</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$originDir</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$targetDir</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$copyOnWindows </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+            <span class="s7">$originDir </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s0">, </span><span class="s9">'/'</span><span class="s0">, </span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$targetDir </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s0">, </span><span class="s9">'/'</span><span class="s0">, </span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$copyOnWindows</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mirror</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s0">, </span><span class="s7">$targetDir</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">readlink</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">) === </span><span class="s7">$originDir</span><span class="s1">) {</span>
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'symlink'</span><span class="s0">, </span><span class="s7">$originDir</span><span class="s0">, </span><span class="s7">$targetDir</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">linkException</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s0">, </span><span class="s7">$targetDir</span><span class="s0">, </span><span class="s9">'symbolic'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates a hard link, or several hard links to a file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $targetFiles The target file(s)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FileNotFoundException When original file is missing or not a file</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException           When link fails, including if link already exists</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hardlink</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFiles</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">FileNotFoundException</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">FileNotFoundException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Origin file &quot;%s&quot; is not a file.'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$targetFiles</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$targetFile</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">fileinode</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s1">) === </span><span class="s3">fileinode</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">)) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$targetFile</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s3">box</span><span class="s1">(</span><span class="s9">'link'</span><span class="s0">, </span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFile</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">linkException</span><span class="s1">(</span><span class="s7">$originFile</span><span class="s0">, </span><span class="s7">$targetFile</span><span class="s0">, </span><span class="s9">'hard'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $linkType Name of the link type, typically 'symbolic' or 'hard'</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">linkException</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$origin</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$target</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$linkType</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError</span><span class="s0">, </span><span class="s9">'error code(1314)'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to create &quot;%s&quot; link due to error code 1314: </span><span class="s0">\'</span><span class="s9">A required privilege is not held by the client</span><span class="s0">\'</span><span class="s9">. Do you have the required Administrator-rights?'</span><span class="s0">, </span><span class="s7">$linkType</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to create &quot;%s&quot; link from &quot;%s&quot; to &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$linkType</span><span class="s0">, </span><span class="s7">$origin</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Resolves links in paths.</span>
+     <span class="s4">*</span>
+     <span class="s4">* With $canonicalize = false (default)</span>
+     <span class="s4">*      - if $path does not exist or is not a link, returns null</span>
+     <span class="s4">*      - if $path is a link, returns the next direct target of the link without considering the existence of the target</span>
+     <span class="s4">*</span>
+     <span class="s4">* With $canonicalize = true</span>
+     <span class="s4">*      - if $path does not exist, returns null</span>
+     <span class="s4">*      - if $path exists, returns its absolute fully resolved final version</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">readlink</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$canonicalize </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$canonicalize </span><span class="s1">&amp;&amp; !</span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$canonicalize</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+                <span class="s7">$path </span><span class="s1">= </span><span class="s3">readlink</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">readlink</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Given an existing path, convert it to a path relative to a given starting path.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string Path of target relative to starting path</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">makePathRelative</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$endPath</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$startPath</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isAbsolutePath</span><span class="s1">(</span><span class="s7">$startPath</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The start path &quot;%s&quot; is not absolute.'</span><span class="s0">, </span><span class="s7">$startPath</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isAbsolutePath</span><span class="s1">(</span><span class="s7">$endPath</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The end path &quot;%s&quot; is not absolute.'</span><span class="s0">, </span><span class="s7">$endPath</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Normalize separators on Windows</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+            <span class="s7">$endPath </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s9">'/'</span><span class="s0">, </span><span class="s7">$endPath</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$startPath </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s9">'/'</span><span class="s0">, </span><span class="s7">$startPath</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$stripDriveLetter </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s7">$path</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">) &gt; </span><span class="s8">2 </span><span class="s1">&amp;&amp; </span><span class="s9">':' </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] &amp;&amp; </span><span class="s9">'/' </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">[</span><span class="s8">2</span><span class="s1">] &amp;&amp; </span><span class="s3">ctype_alpha</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">2</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s7">$endPath </span><span class="s1">= </span><span class="s7">$stripDriveLetter</span><span class="s1">(</span><span class="s7">$endPath</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$startPath </span><span class="s1">= </span><span class="s7">$stripDriveLetter</span><span class="s1">(</span><span class="s7">$startPath</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Split the paths into arrays</span>
+        <span class="s7">$startPathArr </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'/'</span><span class="s0">, </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$startPath</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$endPathArr </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'/'</span><span class="s0">, </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$endPath</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$normalizePathArray </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s7">$pathSegments</span><span class="s1">) {</span>
+            <span class="s7">$result </span><span class="s1">= []</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$pathSegments </span><span class="s0">as </span><span class="s7">$segment</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">'..' </span><span class="s1">=== </span><span class="s7">$segment</span><span class="s1">) {</span>
+                    <span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">'.' </span><span class="s1">!== </span><span class="s7">$segment</span><span class="s1">) {</span>
+                    <span class="s7">$result</span><span class="s1">[] = </span><span class="s7">$segment</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s7">$startPathArr </span><span class="s1">= </span><span class="s7">$normalizePathArray</span><span class="s1">(</span><span class="s7">$startPathArr</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$endPathArr </span><span class="s1">= </span><span class="s7">$normalizePathArray</span><span class="s1">(</span><span class="s7">$endPathArr</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Find for which directory the common path stops</span>
+        <span class="s7">$index </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$startPathArr</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">]) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$endPathArr</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">]) &amp;&amp; </span><span class="s7">$startPathArr</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">] === </span><span class="s7">$endPathArr</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">]) {</span>
+            <span class="s1">++</span><span class="s7">$index</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Determine how deep the start path is relative to the common path (ie, &quot;web/bundles&quot; = 2 levels)</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$startPathArr</span><span class="s1">) &amp;&amp; </span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$startPathArr</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) {</span>
+            <span class="s7">$depth </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$depth </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$startPathArr</span><span class="s1">) - </span><span class="s7">$index</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Repeated &quot;../&quot; for each level need to reach the common path</span>
+        <span class="s7">$traverser </span><span class="s1">= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s9">'../'</span><span class="s0">, </span><span class="s7">$depth</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$endPathRemainder </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">'/'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$endPathArr</span><span class="s0">, </span><span class="s7">$index</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s2">// Construct $endPath from traversing to the common path, then to the remaining $endPath</span>
+        <span class="s7">$relativePath </span><span class="s1">= </span><span class="s7">$traverser</span><span class="s1">.(</span><span class="s9">'' </span><span class="s1">!== </span><span class="s7">$endPathRemainder </span><span class="s1">? </span><span class="s7">$endPathRemainder</span><span class="s1">.</span><span class="s9">'/' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$relativePath </span><span class="s1">? </span><span class="s9">'./' </span><span class="s1">: </span><span class="s7">$relativePath</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Mirrors a directory to another.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Copies files and directories from the origin directory into the target directory. By default:</span>
+     <span class="s4">*</span>
+     <span class="s4">*  - existing files in the target directory will be overwritten, except if they are newer (see the `override` option)</span>
+     <span class="s4">*  - files in the target directory that do not exist in the source directory will not be deleted (see the `delete` option)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\Traversable|null $iterator Iterator that filters which files and directories to copy, if null a recursive iterator is created</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array             $options  An array of boolean options</span>
+     <span class="s4">*                                    Valid options are:</span>
+     <span class="s4">*                                    - $options['override'] If true, target files newer than origin files are overwritten (see copy(), defaults to false)</span>
+     <span class="s4">*                                    - $options['copy_on_windows'] Whether to copy files instead of links on Windows (see symlink(), defaults to false)</span>
+     <span class="s4">*                                    - $options['delete'] Whether to delete files that are not in the source directory (defaults to false)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException When file type is unknown</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">mirror</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$originDir</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$targetDir</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Traversable </span><span class="s7">$iterator </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$targetDir </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s0">, </span><span class="s9">'/</span><span class="s0">\\</span><span class="s9">'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$originDir </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s0">, </span><span class="s9">'/</span><span class="s0">\\</span><span class="s9">'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$originDirLen </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The origin directory specified &quot;%s&quot; was not found.'</span><span class="s0">, </span><span class="s7">$originDir</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$originDir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Iterate in destination folder to remove obsolete entries</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s9">'delete'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s9">'delete'</span><span class="s1">]) {</span>
+            <span class="s7">$deleteIterator </span><span class="s1">= </span><span class="s7">$iterator</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$deleteIterator</span><span class="s1">) {</span>
+                <span class="s7">$flags </span><span class="s1">= \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS</span><span class="s0">;</span>
+                <span class="s7">$deleteIterator </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">, </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">::</span><span class="s3">CHILD_FIRST</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$targetDirLen </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$deleteIterator </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+                <span class="s7">$origin </span><span class="s1">= </span><span class="s7">$originDir</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$targetDirLen</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$origin</span><span class="s1">)) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$copyOnWindows </span><span class="s1">= </span><span class="s7">$options</span><span class="s1">[</span><span class="s9">'copy_on_windows'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$iterator</span><span class="s1">) {</span>
+            <span class="s7">$flags </span><span class="s1">= </span><span class="s7">$copyOnWindows </span><span class="s1">? \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS </span><span class="s1">| \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">FOLLOW_SYMLINKS </span><span class="s1">: \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS</span><span class="s0">;</span>
+            <span class="s7">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">(</span><span class="s7">$originDir</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">, </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">::</span><span class="s3">SELF_FIRST</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$targetDir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$filesCreatedWhileMirroring </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$iterator </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">() === </span><span class="s7">$targetDir </span><span class="s1">|| </span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getRealPath</span><span class="s1">() === </span><span class="s7">$targetDir </span><span class="s1">|| </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$filesCreatedWhileMirroring</span><span class="s1">[</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getRealPath</span><span class="s1">()])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$target </span><span class="s1">= </span><span class="s7">$targetDir</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$originDirLen</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$filesCreatedWhileMirroring</span><span class="s1">[</span><span class="s7">$target</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$copyOnWindows </span><span class="s1">&amp;&amp; </span><span class="s3">is_link</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symlink</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getLinkTarget</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$target</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">copy</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$target</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s9">'override'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s9">'override'</span><span class="s1">] : </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to guess &quot;%s&quot; file type.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns whether the file path is an absolute path.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isAbsolutePath</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">strspn</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s9">'/</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s8">1</span><span class="s1">)</span>
+            <span class="s1">|| (\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) &gt; </span><span class="s8">3 </span><span class="s1">&amp;&amp; </span><span class="s3">ctype_alpha</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])</span>
+                <span class="s1">&amp;&amp; </span><span class="s9">':' </span><span class="s1">=== </span><span class="s7">$file</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span>
+                <span class="s1">&amp;&amp; </span><span class="s3">strspn</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s9">'/</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s8">2</span><span class="s0">, </span><span class="s8">1</span><span class="s1">)</span>
+            <span class="s1">)</span>
+            <span class="s1">|| </span><span class="s3">null </span><span class="s1">!== </span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">PHP_URL_SCHEME</span><span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates a temporary file with support for custom stream wrappers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $prefix The prefix of the generated temporary filename</span>
+     <span class="s4">*                       Note: Windows uses only the first three characters of prefix</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The new temporary filename (with path), or throw an exception on failure</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">tempnam</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$dir</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$prefix</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">list</span><span class="s1">(</span><span class="s7">$scheme</span><span class="s0">, </span><span class="s7">$hierarchy</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSchemeAndHierarchy</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// If no scheme or scheme is &quot;file&quot; or &quot;gs&quot; (Google Cloud) create temp file in local filesystem</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$scheme </span><span class="s1">|| </span><span class="s9">'file' </span><span class="s1">=== </span><span class="s7">$scheme </span><span class="s1">|| </span><span class="s9">'gs' </span><span class="s1">=== </span><span class="s7">$scheme</span><span class="s1">) {</span>
+            <span class="s7">$tmpFile </span><span class="s1">= @</span><span class="s3">tempnam</span><span class="s1">(</span><span class="s7">$hierarchy</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// If tempnam failed or no scheme return the filename otherwise prepend the scheme</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$tmpFile</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$scheme </span><span class="s1">&amp;&amp; </span><span class="s9">'gs' </span><span class="s1">!== </span><span class="s7">$scheme</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$scheme</span><span class="s1">.</span><span class="s9">'://'</span><span class="s1">.</span><span class="s7">$tmpFile</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$tmpFile</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s9">'A temporary file could not be created.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Loop until we create a valid temp file or have reached 10 attempts</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s8">0</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s8">10</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s2">// Create a unique filename</span>
+            <span class="s7">$tmpFile </span><span class="s1">= </span><span class="s7">$dir</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s3">uniqid</span><span class="s1">(</span><span class="s3">mt_rand</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// Use fopen instead of file_exists as some streams do not support stat</span>
+            <span class="s2">// Use mode 'x+' to atomically check existence and create to avoid a TOCTOU vulnerability</span>
+            <span class="s7">$handle </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s0">, </span><span class="s9">'x+'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// If unsuccessful restart the loop</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$handle</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// Close the file if it was successfully opened</span>
+            <span class="s1">@</span><span class="s3">fclose</span><span class="s1">(</span><span class="s7">$handle</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$tmpFile</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s9">'A temporary file could not be created.'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Atomically dumps content into a file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|resource $content The data to write into the file</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException if the file cannot be written to</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dumpFile</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$filename</span><span class="s0">, </span><span class="s7">$content</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">TypeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Argument 2 passed to &quot;%s()&quot; must be string or resource, array given.'</span><span class="s0">, </span><span class="s3">__METHOD__</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$dir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_writable</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to write to the &quot;%s&quot; directory.'</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Will create a temp file with 0600 access rights</span>
+        <span class="s2">// when the filesystem supports chmod.</span>
+        <span class="s7">$tmpFile </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tempnam</span><span class="s1">(</span><span class="s7">$dir</span><span class="s0">, </span><span class="s3">basename</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s0">, </span><span class="s7">$content</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to write file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s1">@</span><span class="s3">chmod</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s0">, </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">) ? </span><span class="s3">fileperms</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">) : </span><span class="s8">0666 </span><span class="s1">&amp; ~</span><span class="s3">umask</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$tmpFile</span><span class="s0">, </span><span class="s7">$filename</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Appends content to an existing file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|resource $content The content to append</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">IOException If the file is not writable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">appendToFile</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$filename</span><span class="s0">, </span><span class="s7">$content</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">TypeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Argument 2 passed to &quot;%s()&quot; must be string or resource, array given.'</span><span class="s0">, </span><span class="s3">__METHOD__</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$dir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_writable</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to write to the &quot;%s&quot; directory.'</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$filename</span><span class="s0">, </span><span class="s7">$content</span><span class="s0">, </span><span class="s3">FILE_APPEND</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">IOException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Failed to write file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">toIterable</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$files</span><span class="s1">) || </span><span class="s7">$files </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Traversable </span><span class="s1">? </span><span class="s7">$files </span><span class="s1">: [</span><span class="s7">$files</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a 2-tuple of scheme (may be null) and hierarchical part of a filename (e.g. file:///tmp -&gt; [file, tmp]).</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getSchemeAndHierarchy</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$filename</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$components </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'://'</span><span class="s0">, </span><span class="s7">$filename</span><span class="s0">, </span><span class="s8">2</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">2 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$components</span><span class="s1">) ? [</span><span class="s7">$components</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$components</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]] : [</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$components</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">box</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$func</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s9">'::handleError'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$result </span><span class="s1">= </span><span class="s7">$func</span><span class="s1">(...\</span><span class="s3">array_slice</span><span class="s1">(\</span><span class="s3">func_get_args</span><span class="s1">()</span><span class="s0">, </span><span class="s8">1</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+        <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">handleError</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$msg</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$lastError </span><span class="s1">= </span><span class="s7">$msg</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

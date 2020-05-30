@@ -1,0 +1,453 @@
+<html>
+<head>
+<title>AbstractController.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AbstractController.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Controller</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Persistence</span><span class="s1">\</span><span class="s3">ManagerRegistry</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Container</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Link</span><span class="s1">\</span><span class="s3">LinkInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ServiceNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s1">\</span><span class="s3">ContainerBagInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Form</span><span class="s1">\</span><span class="s3">Extension</span><span class="s1">\</span><span class="s3">Core</span><span class="s1">\</span><span class="s3">Type</span><span class="s1">\</span><span class="s3">FormType</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Form</span><span class="s1">\</span><span class="s3">FormBuilderInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Form</span><span class="s1">\</span><span class="s3">FormFactoryInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Form</span><span class="s1">\</span><span class="s3">FormInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">BinaryFileResponse</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">JsonResponse</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RedirectResponse</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">ResponseHeaderBag</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">SessionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">StreamedResponse</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NotFoundHttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpKernelInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Messenger</span><span class="s1">\</span><span class="s3">Envelope</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Messenger</span><span class="s1">\</span><span class="s3">MessageBusInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Generator</span><span class="s1">\</span><span class="s3">UrlGeneratorInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouterInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Security</span><span class="s1">\</span><span class="s3">Core</span><span class="s1">\</span><span class="s3">Authentication</span><span class="s1">\</span><span class="s3">Token</span><span class="s1">\</span><span class="s3">Storage</span><span class="s1">\</span><span class="s3">TokenStorageInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Security</span><span class="s1">\</span><span class="s3">Core</span><span class="s1">\</span><span class="s3">Authorization</span><span class="s1">\</span><span class="s3">AuthorizationCheckerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Security</span><span class="s1">\</span><span class="s3">Core</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">AccessDeniedException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Security</span><span class="s1">\</span><span class="s3">Core</span><span class="s1">\</span><span class="s3">User</span><span class="s1">\</span><span class="s3">UserInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Security</span><span class="s1">\</span><span class="s3">Csrf</span><span class="s1">\</span><span class="s3">CsrfToken</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Security</span><span class="s1">\</span><span class="s3">Csrf</span><span class="s1">\</span><span class="s3">CsrfTokenManagerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Serializer</span><span class="s1">\</span><span class="s3">SerializerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">WebLink</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s1">\</span><span class="s3">AddLinkHeaderListener</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">WebLink</span><span class="s1">\</span><span class="s3">GenericLinkProvider</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Service</span><span class="s1">\</span><span class="s3">ServiceSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Twig</span><span class="s1">\</span><span class="s3">Environment</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Provides common features needed in controllers.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">AbstractController </span><span class="s0">implements </span><span class="s3">ServiceSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">ContainerInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s7">$container</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">* </span><span class="s5">@required</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setContainer</span><span class="s1">(</span><span class="s3">ContainerInterface </span><span class="s7">$container</span><span class="s1">): ?</span><span class="s3">ContainerInterface</span>
+    <span class="s1">{</span>
+        <span class="s7">$previous </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s7">$container</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$previous</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a container parameter by its name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getParameter</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'parameter_bag'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ServiceNotFoundException</span><span class="s1">(</span><span class="s8">'parameter_bag.'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;%s::getParameter()&quot; method is missing a parameter bag to work properly. Did you forget to register your controller as a service subscriber? This can be fixed either by using autoconfiguration or by manually wiring a &quot;parameter_bag&quot; in the service locator passed to the controller.'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'parameter_bag'</span><span class="s1">)-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedServices</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s8">'router' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">RouterInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'request_stack' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">RequestStack</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'http_kernel' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'serializer' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">SerializerInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'session' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">SessionInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'security.authorization_checker' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">AuthorizationCheckerInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'twig' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">Environment</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'doctrine' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">ManagerRegistry</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'form.factory' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">FormFactoryInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'security.token_storage' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">TokenStorageInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'security.csrf.token_manager' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">CsrfTokenManagerInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'parameter_bag' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">ContainerBagInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'message_bus' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">MessageBusInterface</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'messenger.default_bus' </span><span class="s1">=&gt; </span><span class="s8">'?'</span><span class="s1">.</span><span class="s3">MessageBusInterface</span><span class="s1">::</span><span class="s0">class,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the service id is defined.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">has</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a container service by its id.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">object The service</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Generates a URL from the given parameters.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">UrlGeneratorInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">generateUrl</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$route</span><span class="s0">, array </span><span class="s7">$parameters </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$referenceType </span><span class="s1">= </span><span class="s3">UrlGeneratorInterface</span><span class="s1">::</span><span class="s3">ABSOLUTE_PATH</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'router'</span><span class="s1">)-&gt;</span><span class="s3">generate</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s0">, </span><span class="s7">$referenceType</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Forwards the request to another controller.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $controller The controller name (a string like Bundle\BlogBundle\Controller\PostController::indexAction)</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">forward</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$controller</span><span class="s0">, array </span><span class="s7">$path </span><span class="s1">= []</span><span class="s0">, array </span><span class="s7">$query </span><span class="s1">= []): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$request </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'request_stack'</span><span class="s1">)-&gt;</span><span class="s3">getCurrentRequest</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$path</span><span class="s1">[</span><span class="s8">'_controller'</span><span class="s1">] = </span><span class="s7">$controller</span><span class="s0">;</span>
+        <span class="s7">$subRequest </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">duplicate</span><span class="s1">(</span><span class="s7">$query</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'http_kernel'</span><span class="s1">)-&gt;</span><span class="s3">handle</span><span class="s1">(</span><span class="s7">$subRequest</span><span class="s0">, </span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s3">SUB_REQUEST</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a RedirectResponse to the given URL.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">redirect</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$url</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s9">302</span><span class="s1">): </span><span class="s3">RedirectResponse</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">RedirectResponse</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$status</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a RedirectResponse to the given route with the given parameters.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">redirectToRoute</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$route</span><span class="s0">, array </span><span class="s7">$parameters </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s9">302</span><span class="s1">): </span><span class="s3">RedirectResponse</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redirect</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateUrl</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$status</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a JsonResponse that uses the serializer component if enabled, or json_encode.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">json</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s9">200</span><span class="s0">, array </span><span class="s7">$headers </span><span class="s1">= []</span><span class="s0">, array </span><span class="s7">$context </span><span class="s1">= []): </span><span class="s3">JsonResponse</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'serializer'</span><span class="s1">)) {</span>
+            <span class="s7">$json </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'serializer'</span><span class="s1">)-&gt;</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s8">'json'</span><span class="s0">, </span><span class="s3">array_merge</span><span class="s1">([</span>
+                <span class="s8">'json_encode_options' </span><span class="s1">=&gt; </span><span class="s3">JsonResponse</span><span class="s1">::</span><span class="s3">DEFAULT_ENCODING_OPTIONS</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s0">return new </span><span class="s3">JsonResponse</span><span class="s1">(</span><span class="s7">$json</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">JsonResponse</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a BinaryFileResponse object with original or customized file name and disposition header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\SplFileInfo|string $file File object or path to file to be sent as response</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">file</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$fileName </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$disposition </span><span class="s1">= </span><span class="s3">ResponseHeaderBag</span><span class="s1">::</span><span class="s3">DISPOSITION_ATTACHMENT</span><span class="s1">): </span><span class="s3">BinaryFileResponse</span>
+    <span class="s1">{</span>
+        <span class="s7">$response </span><span class="s1">= </span><span class="s0">new </span><span class="s3">BinaryFileResponse</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setContentDisposition</span><span class="s1">(</span><span class="s7">$disposition</span><span class="s0">, </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$fileName </span><span class="s1">? </span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">()-&gt;</span><span class="s3">getFilename</span><span class="s1">() : </span><span class="s7">$fileName</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a flash message to the current session for type.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">addFlash</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$message</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'session'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'You can not use the addFlash method if sessions are disabled. Enable them in &quot;config/packages/framework.yaml&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'session'</span><span class="s1">)-&gt;</span><span class="s3">getFlashBag</span><span class="s1">()-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if the attributes are granted against the current authentication token and optionally supplied subject.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">isGranted</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s7">$subject </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'security.authorization_checker'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'The SecurityBundle is not registered in your application. Try running &quot;composer require symfony/security-bundle&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'security.authorization_checker'</span><span class="s1">)-&gt;</span><span class="s3">isGranted</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s7">$subject</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Throws an exception unless the attributes are granted against the current authentication token and optionally</span>
+     <span class="s4">* supplied subject.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">AccessDeniedException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">denyAccessUnlessGranted</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s7">$subject </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$message </span><span class="s1">= </span><span class="s8">'Access Denied.'</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isGranted</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s7">$subject</span><span class="s1">)) {</span>
+            <span class="s7">$exception </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createAccessDeniedException</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">setAttributes</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">setSubject</span><span class="s1">(</span><span class="s7">$subject</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">throw </span><span class="s7">$exception</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a rendered view.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">renderView</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$view</span><span class="s0">, array </span><span class="s7">$parameters </span><span class="s1">= []): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'twig'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'You can not use the &quot;renderView&quot; method if the Twig Bundle is not available. Try running &quot;composer require symfony/twig-bundle&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'twig'</span><span class="s1">)-&gt;</span><span class="s3">render</span><span class="s1">(</span><span class="s7">$view</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders a view.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">render</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$view</span><span class="s0">, array </span><span class="s7">$parameters </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$content </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">renderView</span><span class="s1">(</span><span class="s7">$view</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$response</span><span class="s1">) {</span>
+            <span class="s7">$response </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Response</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setContent</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Streams a view.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">stream</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$view</span><span class="s0">, array </span><span class="s7">$parameters </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">StreamedResponse </span><span class="s7">$response </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">StreamedResponse</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'twig'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'You can not use the &quot;stream&quot; method if the Twig Bundle is not available. Try running &quot;composer require symfony/twig-bundle&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$twig </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'twig'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$callback </span><span class="s1">= </span><span class="s0">function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$twig</span><span class="s0">, </span><span class="s7">$view</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">) {</span>
+            <span class="s7">$twig</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">(</span><span class="s7">$view</span><span class="s0">, </span><span class="s7">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$response</span><span class="s1">) {</span>
+            <span class="s0">return new </span><span class="s3">StreamedResponse</span><span class="s1">(</span><span class="s7">$callback</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setCallback</span><span class="s1">(</span><span class="s7">$callback</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a NotFoundHttpException.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This will result in a 404 response code. Usage example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     throw $this-&gt;createNotFoundException('Page not found!');</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">createNotFoundException</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message </span><span class="s1">= </span><span class="s8">'Not Found'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$previous </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">NotFoundHttpException</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">NotFoundHttpException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$previous</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns an AccessDeniedException.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This will result in a 403 response code. Usage example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     throw $this-&gt;createAccessDeniedException('Unable to access this page!');</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException If the Security component is not available</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">createAccessDeniedException</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message </span><span class="s1">= </span><span class="s8">'Access Denied.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s7">$previous </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">AccessDeniedException</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">AccessDeniedException</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'You can not use the &quot;createAccessDeniedException&quot; method if the Security component is not available. Try running &quot;composer require symfony/security-bundle&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">AccessDeniedException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$previous</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates and returns a Form instance from the type of the form.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">createForm</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$data </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []): </span><span class="s3">FormInterface</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'form.factory'</span><span class="s1">)-&gt;</span><span class="s3">create</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates and returns a form builder instance.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">createFormBuilder</span><span class="s1">(</span><span class="s7">$data </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []): </span><span class="s3">FormBuilderInterface</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'form.factory'</span><span class="s1">)-&gt;</span><span class="s3">createBuilder</span><span class="s1">(</span><span class="s3">FormType</span><span class="s1">::</span><span class="s0">class, </span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Shortcut to return the Doctrine Registry service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException If DoctrineBundle is not available</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getDoctrine</span><span class="s1">(): </span><span class="s3">ManagerRegistry</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'doctrine'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'The DoctrineBundle is not registered in your application. Try running &quot;composer require symfony/orm-pack&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'doctrine'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Get a user from the Security Token Storage.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">UserInterface|object|null</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException If SecurityBundle is not available</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">TokenInterface::getUser()</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getUser</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'security.token_storage'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'The SecurityBundle is not registered in your application. Try running &quot;composer require symfony/security-bundle&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$token </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'security.token_storage'</span><span class="s1">)-&gt;</span><span class="s3">getToken</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$user </span><span class="s1">= </span><span class="s7">$token</span><span class="s1">-&gt;</span><span class="s3">getUser</span><span class="s1">())) {</span>
+            <span class="s2">// e.g. anonymous authentication</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$user</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks the validity of a CSRF token.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string      $id    The id used when generating the token</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $token The actual token sent with the request that should be validated</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">isCsrfTokenValid</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'security.csrf.token_manager'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'CSRF protection is not enabled in your application. Enable it with the &quot;csrf_protection&quot; key in &quot;config/packages/framework.yaml&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'security.csrf.token_manager'</span><span class="s1">)-&gt;</span><span class="s3">isTokenValid</span><span class="s1">(</span><span class="s0">new </span><span class="s3">CsrfToken</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$token</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dispatches a message to the bus.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">object|Envelope $message The message or the message pre-wrapped in an envelope</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">dispatchMessage</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, array </span><span class="s7">$stamps </span><span class="s1">= []): </span><span class="s3">Envelope</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'messenger.default_bus'</span><span class="s1">)) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">Envelope</span><span class="s1">::</span><span class="s0">class</span><span class="s1">) ? </span><span class="s8">'You need to define the &quot;messenger.default_bus&quot; configuration option.' </span><span class="s1">: </span><span class="s8">'Try running &quot;composer require symfony/messenger&quot;.'</span><span class="s0">;</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'The message bus is not enabled in your application. '</span><span class="s1">.</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'messenger.default_bus'</span><span class="s1">)-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$stamps</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a Link HTTP header to the current response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://tools.ietf.org/html/rfc5988</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">addLink</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">LinkInterface </span><span class="s7">$link</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">AddLinkHeaderListener</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'You can not use the &quot;addLink&quot; method if the WebLink component is not available. Try running &quot;composer require symfony/web-link&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$linkProvider </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_links'</span><span class="s1">)) {</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'_links'</span><span class="s0">, new </span><span class="s3">GenericLinkProvider</span><span class="s1">([</span><span class="s7">$link</span><span class="s1">]))</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'_links'</span><span class="s0">, </span><span class="s7">$linkProvider</span><span class="s1">-&gt;</span><span class="s3">withLink</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

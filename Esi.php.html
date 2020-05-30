@@ -1,0 +1,142 @@
+<html>
+<head>
+<title>Esi.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Esi.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpCache</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Esi implements the ESI capabilities to Request and Response instances.</span>
+ <span class="s4">*</span>
+ <span class="s4">* For more information, read the following W3C notes:</span>
+ <span class="s4">*</span>
+ <span class="s4">*  * ESI Language Specification 1.0 (http://www.w3.org/TR/esi-lang)</span>
+ <span class="s4">*</span>
+ <span class="s4">*  * Edge Architecture Specification (http://www.w3.org/TR/edge-arch)</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Esi </span><span class="s0">extends </span><span class="s3">AbstractSurrogate</span>
+<span class="s1">{</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">'esi'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addSurrogateControl</span><span class="s1">(</span><span class="s3">Response </span><span class="s8">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$response</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">()</span><span class="s0">, </span><span class="s7">'&lt;esi:include'</span><span class="s1">)) {</span>
+            <span class="s8">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">'Surrogate-Control'</span><span class="s0">, </span><span class="s7">'content=&quot;ESI/1.0&quot;'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">renderIncludeTag</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$uri</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$alt </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$ignoreErrors </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$comment </span><span class="s1">= </span><span class="s7">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$html </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'&lt;esi:include src=&quot;%s&quot;%s%s /&gt;'</span><span class="s0">,</span>
+            <span class="s8">$uri</span><span class="s0">,</span>
+            <span class="s8">$ignoreErrors </span><span class="s1">? </span><span class="s7">' onerror=&quot;continue&quot;' </span><span class="s1">: </span><span class="s7">''</span><span class="s0">,</span>
+            <span class="s8">$alt </span><span class="s1">? </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">' alt=&quot;%s&quot;'</span><span class="s0">, </span><span class="s8">$alt</span><span class="s1">) : </span><span class="s7">''</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$comment</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">&quot;&lt;esi:comment text=</span><span class="s0">\&quot;</span><span class="s7">%s</span><span class="s0">\&quot; </span><span class="s7">/&gt;</span><span class="s0">\n</span><span class="s7">%s&quot;</span><span class="s0">, </span><span class="s8">$comment</span><span class="s0">, </span><span class="s8">$html</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$html</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">Request </span><span class="s8">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s8">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$type </span><span class="s1">= </span><span class="s8">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">'Content-Type'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$type</span><span class="s1">)) {</span>
+            <span class="s8">$type </span><span class="s1">= </span><span class="s7">'text/html'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$parts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">';'</span><span class="s0">, </span><span class="s8">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$parts</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">contentTypes</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s8">$response</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// we don't use a proper XML parser here as we can have ESI tags in a plain text response</span>
+        <span class="s8">$content </span><span class="s1">= </span><span class="s8">$response</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$content </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#&lt;esi\:remove&gt;.*?&lt;/esi\:remove&gt;#s'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$content</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$content </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#&lt;esi\:comment[^&gt;]+&gt;#s'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$content</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$chunks </span><span class="s1">= </span><span class="s3">preg_split</span><span class="s1">(</span><span class="s7">'#&lt;esi\:include\s+(.*?)\s*(?:/|&lt;/esi\:include)&gt;#'</span><span class="s0">, </span><span class="s8">$content</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s3">PREG_SPLIT_DELIM_CAPTURE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$chunks</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] = </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">phpEscapeMap</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">phpEscapeMap</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$chunks</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s8">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$chunks</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+            <span class="s8">$options </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s3">preg_match_all</span><span class="s1">(</span><span class="s7">'/(src|onerror|alt)=&quot;([^&quot;]*?)&quot;/'</span><span class="s0">, </span><span class="s8">$chunks</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$matches</span><span class="s0">, </span><span class="s3">PREG_SET_ORDER</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$matches </span><span class="s0">as </span><span class="s8">$set</span><span class="s1">) {</span>
+                <span class="s8">$options</span><span class="s1">[</span><span class="s8">$set</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]] = </span><span class="s8">$set</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s7">'src'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s7">'Unable to process an ESI tag without a &quot;src&quot; attribute.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$chunks</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'&lt;?php echo $this-&gt;surrogate-&gt;handle($this, %s, %s, %s) ?&gt;'</span><span class="s1">.</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">,</span>
+                <span class="s3">var_export</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s7">'src'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s3">var_export</span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s7">'alt'</span><span class="s1">]) ? </span><span class="s8">$options</span><span class="s1">[</span><span class="s7">'alt'</span><span class="s1">] : </span><span class="s7">''</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s7">'onerror'</span><span class="s1">]) &amp;&amp; </span><span class="s7">'continue' </span><span class="s1">=== </span><span class="s8">$options</span><span class="s1">[</span><span class="s7">'onerror'</span><span class="s1">] ? </span><span class="s7">'true' </span><span class="s1">: </span><span class="s7">'false'</span>
+            <span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+            <span class="s8">$chunks</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">phpEscapeMap</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">phpEscapeMap</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$chunks</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">++</span><span class="s8">$i</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$content </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">''</span><span class="s0">, </span><span class="s8">$chunks</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$response</span><span class="s1">-&gt;</span><span class="s3">setContent</span><span class="s1">(</span><span class="s8">$content</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">'X-Body-Eval'</span><span class="s0">, </span><span class="s7">'ESI'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// remove ESI/1.0 from the Surrogate-Control header</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">removeFromControl</span><span class="s1">(</span><span class="s8">$response</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$response</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

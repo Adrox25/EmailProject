@@ -1,0 +1,99 @@
+<html>
+<head>
+<title>RegisterEnvVarProcessorsPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RegisterEnvVarProcessorsPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">EnvVarProcessor</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">EnvVarProcessorInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s1">\</span><span class="s3">EnvPlaceholderParameterBag</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Creates the container.env_var_processors_locator service.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RegisterEnvVarProcessorsPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$allowedTypes </span><span class="s1">= [</span><span class="s8">'array'</span><span class="s0">, </span><span class="s8">'bool'</span><span class="s0">, </span><span class="s8">'float'</span><span class="s0">, </span><span class="s8">'int'</span><span class="s0">, </span><span class="s8">'string'</span><span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$bag </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$types </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$processors </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s8">'container.env_var_processor'</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$tags</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">getClass</span><span class="s1">())) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Class &quot;%s&quot; used for service &quot;%s&quot; cannot be found.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isSubclassOf</span><span class="s1">(</span><span class="s3">EnvVarProcessorInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Service &quot;%s&quot; must implement interface &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">EnvVarProcessorInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$class</span><span class="s1">::</span><span class="s3">getProvidedTypes</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$prefix </span><span class="s1">=&gt; </span><span class="s7">$type</span><span class="s1">) {</span>
+                <span class="s7">$processors</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$types</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">validateProvidedTypes</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$bag </span><span class="s0">instanceof </span><span class="s3">EnvPlaceholderParameterBag</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">EnvVarProcessor</span><span class="s1">::</span><span class="s3">getProvidedTypes</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$prefix </span><span class="s1">=&gt; </span><span class="s7">$type</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$types</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">])) {</span>
+                    <span class="s7">$types</span><span class="s1">[</span><span class="s7">$prefix</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">validateProvidedTypes</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s3">EnvVarProcessor</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s7">$bag</span><span class="s1">-&gt;</span><span class="s3">setProvidedTypes</span><span class="s1">(</span><span class="s7">$types</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$processors</span><span class="s1">) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">(</span><span class="s8">'container.env_var_processors_locator'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s3">ServiceLocatorTagPass</span><span class="s1">::</span><span class="s3">register</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$processors</span><span class="s1">))</span>
+                <span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span>
+            <span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">validateProvidedTypes</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$types</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$class</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$types </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'|'</span><span class="s0">, </span><span class="s7">$types</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$types </span><span class="s0">as </span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$allowedTypes</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid type &quot;%s&quot; returned by &quot;%s::getProvidedTypes()&quot;, expected one of &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$allowedTypes</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$types</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

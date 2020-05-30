@@ -1,0 +1,290 @@
+<html>
+<head>
+<title>ProxyAdapter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ProxyAdapter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItemInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItemPoolInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">PruneableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">ResettableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">ContractsTrait</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">ProxyTrait</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ProxyAdapter </span><span class="s0">implements </span><span class="s3">AdapterInterface</span><span class="s0">, </span><span class="s3">CacheInterface</span><span class="s0">, </span><span class="s3">PruneableInterface</span><span class="s0">, </span><span class="s3">ResettableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">use </span><span class="s3">ProxyTrait</span><span class="s0">;</span>
+    <span class="s0">use </span><span class="s3">ContractsTrait</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$namespace</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$namespaceLen</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$createCacheItem</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$setInnerItem</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$poolHash</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">CacheItemPoolInterface </span><span class="s7">$pool</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$namespace </span><span class="s1">= </span><span class="s8">''</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$defaultLifetime </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s1">= </span><span class="s7">$pool</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">poolHash </span><span class="s1">= </span><span class="s7">$poolHash </span><span class="s1">= </span><span class="s3">spl_object_hash</span><span class="s1">(</span><span class="s7">$pool</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespace </span><span class="s1">= </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$namespace </span><span class="s1">? </span><span class="s8">'' </span><span class="s1">: </span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">validateKey</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespaceLen </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$innerItem</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$defaultLifetime</span><span class="s0">, </span><span class="s7">$poolHash</span><span class="s1">) {</span>
+                <span class="s7">$item </span><span class="s1">= </span><span class="s0">new </span><span class="s3">CacheItem</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">key </span><span class="s1">= </span><span class="s7">$key</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$innerItem</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$item</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">value </span><span class="s1">= </span><span class="s7">$v </span><span class="s1">= </span><span class="s7">$innerItem</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">isHit </span><span class="s1">= </span><span class="s7">$innerItem</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">innerItem </span><span class="s1">= </span><span class="s7">$innerItem</span><span class="s0">;</span>
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">defaultLifetime </span><span class="s1">= </span><span class="s7">$defaultLifetime</span><span class="s0">;</span>
+                <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">poolHash </span><span class="s1">= </span><span class="s7">$poolHash</span><span class="s0">;</span>
+
+                <span class="s2">// Detect wrapped values that encode for their expiry and creation duration</span>
+                <span class="s2">// For compactness, these values are packed in the key of an array using</span>
+                <span class="s2">// magic numbers in the form 9D-..-..-..-..-00-..-..-..-5F</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) &amp;&amp; </span><span class="s9">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) &amp;&amp; </span><span class="s9">10 </span><span class="s1">=== \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$k </span><span class="s1">= </span><span class="s3">key</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)) &amp;&amp; </span><span class="s8">&quot;</span><span class="s0">\x9D</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$k</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$k</span><span class="s1">[</span><span class="s9">5</span><span class="s1">] &amp;&amp; </span><span class="s8">&quot;</span><span class="s0">\x5F</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$k</span><span class="s1">[</span><span class="s9">9</span><span class="s1">]) {</span>
+                    <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">value </span><span class="s1">= </span><span class="s7">$v</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s7">$v </span><span class="s1">= </span><span class="s3">unpack</span><span class="s1">(</span><span class="s8">'Ve/Nc'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY</span><span class="s1">] = </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'e'</span><span class="s1">] + </span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY_OFFSET</span><span class="s0">;</span>
+                    <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_CTIME</span><span class="s1">] = </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'c'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$innerItem </span><span class="s0">instanceof </span><span class="s3">CacheItem</span><span class="s1">) {</span>
+                    <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">metadata </span><span class="s1">= </span><span class="s7">$innerItem</span><span class="s1">-&gt;</span><span class="s3">metadata</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$innerItem</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$item</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setInnerItem </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s4">/**</span>
+             <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $item A CacheItem cast to (array); accessing protected properties requires adding the &quot;\0*\0&quot; PHP prefix</span>
+             <span class="s4">*/</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s7">$innerItem</span><span class="s0">, array </span><span class="s7">$item</span><span class="s1">) {</span>
+                <span class="s2">// Tags are stored separately, no need to account for them when considering this item's newly set metadata</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">((</span><span class="s7">$metadata </span><span class="s1">= </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">newMetadata&quot;</span><span class="s1">])[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_TAGS</span><span class="s1">])) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_TAGS</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$metadata</span><span class="s1">) {</span>
+                    <span class="s2">// For compactness, expiry and creation duration are packed in the key of an array, using magic numbers as separators</span>
+                    <span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">value&quot;</span><span class="s1">] = [</span><span class="s8">&quot;</span><span class="s0">\x9D</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s3">pack</span><span class="s1">(</span><span class="s8">'VN'</span><span class="s0">, </span><span class="s1">(int) (</span><span class="s9">0.1 </span><span class="s1">+ </span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">self</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY</span><span class="s1">] - </span><span class="s3">self</span><span class="s1">::</span><span class="s3">METADATA_EXPIRY_OFFSET</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">[</span><span class="s3">self</span><span class="s1">::</span><span class="s3">METADATA_CTIME</span><span class="s1">]).</span><span class="s8">&quot;</span><span class="s0">\x5F</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">value&quot;</span><span class="s1">]]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$innerItem</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">value&quot;</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$innerItem</span><span class="s1">-&gt;</span><span class="s3">expiresAt</span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">expiry&quot;</span><span class="s1">] ? \</span><span class="s3">DateTime</span><span class="s1">::</span><span class="s3">createFromFormat</span><span class="s1">(</span><span class="s8">'U.u'</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%.6f'</span><span class="s0">, </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">expiry&quot;</span><span class="s1">])) : </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, callable </span><span class="s7">$callback</span><span class="s0">, </span><span class="s3">float </span><span class="s7">$beta </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$metadata </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">CacheInterface</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doGet</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$beta</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$innerItem</span><span class="s0">, </span><span class="s3">bool </span><span class="s1">&amp;</span><span class="s7">$save</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$callback</span><span class="s1">) {</span>
+            <span class="s7">$item </span><span class="s1">= (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem</span><span class="s1">)(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$innerItem</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$value </span><span class="s1">= </span><span class="s7">$callback</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setInnerItem</span><span class="s1">)(</span><span class="s7">$innerItem</span><span class="s0">, </span><span class="s1">(array) </span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$beta</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$f </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem</span><span class="s0">;</span>
+        <span class="s7">$item </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItem</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$f</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getItems</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$keys </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespaceLen</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$keys </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$key</span><span class="s1">) {</span>
+                <span class="s7">$keys</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateItems</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItems</span><span class="s1">(</span><span class="s7">$keys</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">hasItem</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clear</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix </span><span class="s1">= </span><span class="s8">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">AdapterInterface</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">.</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">deleteItem</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteItems</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$keys</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespaceLen</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$keys </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$key</span><span class="s1">) {</span>
+                <span class="s7">$keys</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">deleteItems</span><span class="s1">(</span><span class="s7">$keys</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">save</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s7">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doSave</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s7">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doSave</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">commit</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">doSave</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s7">$item</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$item </span><span class="s0">instanceof </span><span class="s3">CacheItem</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$item </span><span class="s1">= (array) </span><span class="s7">$item</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">expiry&quot;</span><span class="s1">] &amp;&amp; </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">defaultLifetime&quot;</span><span class="s1">]) {</span>
+            <span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">expiry&quot;</span><span class="s1">] = </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">) + </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">defaultLifetime&quot;</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">poolHash&quot;</span><span class="s1">] === </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">poolHash </span><span class="s1">&amp;&amp; </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">innerItem&quot;</span><span class="s1">]) {</span>
+            <span class="s7">$innerItem </span><span class="s1">= </span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">innerItem&quot;</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">AdapterInterface</span><span class="s1">) {</span>
+            <span class="s2">// this is an optimization specific for AdapterInterface implementations</span>
+            <span class="s2">// so we can save a round-trip to the backend by just creating a new item</span>
+            <span class="s7">$f </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem</span><span class="s0">;</span>
+            <span class="s7">$innerItem </span><span class="s1">= </span><span class="s7">$f</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">.</span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">key&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$innerItem </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItem</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">.</span><span class="s7">$item</span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">key&quot;</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setInnerItem</span><span class="s1">)(</span><span class="s7">$innerItem</span><span class="s0">, </span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s7">$method</span><span class="s1">(</span><span class="s7">$innerItem</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">generateItems</span><span class="s1">(</span><span class="s3">iterable </span><span class="s7">$items</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$f </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$items </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespaceLen</span><span class="s1">) {</span>
+                <span class="s7">$key </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespaceLen</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">yield </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$f</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getId</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">validateKey</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">.</span><span class="s7">$key</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,829 @@
+<html>
+<head>
+<title>Kernel.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Kernel.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bridge</span><span class="s1">\</span><span class="s3">ProxyManager</span><span class="s1">\</span><span class="s3">LazyProxy</span><span class="s1">\</span><span class="s3">Instantiator</span><span class="s1">\</span><span class="s3">RuntimeInstantiator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bridge</span><span class="s1">\</span><span class="s3">ProxyManager</span><span class="s1">\</span><span class="s3">LazyProxy</span><span class="s1">\</span><span class="s3">PhpDumper</span><span class="s1">\</span><span class="s3">ProxyDumper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">ConfigCache</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">DelegatingLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">LoaderResolver</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">DebugClassLoader </span><span class="s0">as </span><span class="s3">LegacyDebugClassLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">CompilerPassInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">PassConfig</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s1">\</span><span class="s3">PhpDumper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">ClosureLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">DirectoryLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">GlobFileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">IniFileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">PhpFileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">XmlFileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">YamlFileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">DebugClassLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">BundleInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">FileLocator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">AddAnnotatedClassesToCachePass</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">MergeExtensionConfigurationPass</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* The Kernel is the heart of the Symfony system.</span>
+ <span class="s4">*</span>
+ <span class="s4">* It manages an environment made of bundles.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Environment names must always start with a letter and</span>
+ <span class="s4">* they must only contain letters and numbers.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">Kernel </span><span class="s0">implements </span><span class="s3">KernelInterface</span><span class="s0">, </span><span class="s3">RebootableInterface</span><span class="s0">, </span><span class="s3">TerminableInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">BundleInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s7">$bundles </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$environment</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$booted </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$startTime</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$projectDir</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$warmupDir</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$requestStackSize </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$resetServices </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$freshCache </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">const </span><span class="s3">VERSION </span><span class="s1">= </span><span class="s9">'5.0.8'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">VERSION_ID </span><span class="s1">= </span><span class="s8">50008</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">MAJOR_VERSION </span><span class="s1">= </span><span class="s8">5</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">MINOR_VERSION </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">RELEASE_VERSION </span><span class="s1">= </span><span class="s8">8</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXTRA_VERSION </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+
+    <span class="s0">const </span><span class="s3">END_OF_MAINTENANCE </span><span class="s1">= </span><span class="s9">'07/2020'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">END_OF_LIFE </span><span class="s1">= </span><span class="s9">'07/2020'</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$environment</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$debug</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment </span><span class="s1">= </span><span class="s7">$environment</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">= </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__clone</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">booted </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStackSize </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetServices </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">boot</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">booted</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStackSize </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetServices</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'services_resetter'</span><span class="s1">)) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'services_resetter'</span><span class="s1">)-&gt;</span><span class="s3">reset</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetServices </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">&amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_ENV</span><span class="s1">[</span><span class="s9">'SHELL_VERBOSITY'</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s9">'SHELL_VERBOSITY'</span><span class="s1">])) {</span>
+            <span class="s3">putenv</span><span class="s1">(</span><span class="s9">'SHELL_VERBOSITY=3'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$_ENV</span><span class="s1">[</span><span class="s9">'SHELL_VERBOSITY'</span><span class="s1">] = </span><span class="s8">3</span><span class="s0">;</span>
+            <span class="s7">$_SERVER</span><span class="s1">[</span><span class="s9">'SHELL_VERBOSITY'</span><span class="s1">] = </span><span class="s8">3</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// init bundles</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">initializeBundles</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// init container</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">initializeContainer</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getBundles</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$bundle</span><span class="s1">) {</span>
+            <span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">setContainer</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">boot</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">booted </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">reboot</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$warmupDir</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">shutdown</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">warmupDir </span><span class="s1">= </span><span class="s7">$warmupDir</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">boot</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">terminate</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">booted</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHttpKernel</span><span class="s1">() </span><span class="s0">instanceof </span><span class="s3">TerminableInterface</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHttpKernel</span><span class="s1">()-&gt;</span><span class="s3">terminate</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">shutdown</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">booted</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">booted </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getBundles</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$bundle</span><span class="s1">) {</span>
+            <span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">shutdown</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">setContainer</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStackSize </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetServices </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">handle</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s3">MASTER_REQUEST</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$catch </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">boot</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">++</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStackSize</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetServices </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHttpKernel</span><span class="s1">()-&gt;</span><span class="s3">handle</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$catch</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s1">--</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStackSize</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a HTTP kernel from the container.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">HttpKernelInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getHttpKernel</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'http_kernel'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getBundles</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getBundle</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])) {</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s0">class;</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s9">'c' </span><span class="s1">=== </span><span class="s7">$class</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] &amp;&amp; </span><span class="s8">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s9">&quot;class@anonymous</span><span class="s0">\0</span><span class="s9">&quot;</span><span class="s1">) ? </span><span class="s3">get_parent_class</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s9">'@anonymous' </span><span class="s1">: </span><span class="s7">$class</span><span class="s0">;</span>
+
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Bundle &quot;%s&quot; does not exist or it is not enabled. Maybe you forgot to add it in the &quot;registerBundles()&quot; method of your &quot;%s.php&quot; file?'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">locateResource</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'@' </span><span class="s1">!== </span><span class="s7">$name</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'A resource name must start with @ (&quot;%s&quot; given).'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">'..'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'File name &quot;%s&quot; contains invalid characters (..).'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$bundleName </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$bundleName</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">)) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$bundleName</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">) = </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'/'</span><span class="s0">, </span><span class="s7">$bundleName</span><span class="s0">, </span><span class="s8">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$bundle </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getBundle</span><span class="s1">(</span><span class="s7">$bundleName</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">().</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$path</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$file</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to find file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getEnvironment</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isDebug</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the application root dir (path of the project's composer file).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The project root dir</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getProjectDir</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionObject</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$dir </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">())) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Cannot auto-detect project dir for kernel of class &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$dir </span><span class="s1">= </span><span class="s7">$rootDir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">while </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">.</span><span class="s9">'/composer.json'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$dir </span><span class="s1">=== \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                    <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir </span><span class="s1">= </span><span class="s7">$rootDir</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$dir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir </span><span class="s1">= </span><span class="s7">$dir</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">projectDir</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getContainer</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'Cannot retrieve the container from a non-booted kernel.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAnnotatedClassCache</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$annotatedClasses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">file_put_contents</span><span class="s1">((</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">warmupDir </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheDir</span><span class="s1">()).</span><span class="s9">'/annotations.map'</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'&lt;?php return %s;'</span><span class="s0">, </span><span class="s3">var_export</span><span class="s1">(</span><span class="s7">$annotatedClasses</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStartTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">: -</span><span class="s3">INF</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCacheDir</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getProjectDir</span><span class="s1">().</span><span class="s9">'/var/cache/'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getLogDir</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getProjectDir</span><span class="s1">().</span><span class="s9">'/var/log'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCharset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">'UTF-8'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the patterns defining the classes to parse and cache for annotations.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getAnnotatedClassesToCompile</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Initializes bundles.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException if two bundles share a common name</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">initializeBundles</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s2">// init bundles</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">registerBundles</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$bundle</span><span class="s1">) {</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Trying to register two bundles with the same name &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$bundle</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* The extension point similar to the Bundle::build() method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Use this method to register compiler passes and manipulate the container during the building process.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">build</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the container class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException If the generated classname is invalid</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The container class</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getContainerClass</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s0">class;</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s9">'c' </span><span class="s1">=== </span><span class="s7">$class</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] &amp;&amp; </span><span class="s8">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s9">&quot;class@anonymous</span><span class="s0">\0</span><span class="s9">&quot;</span><span class="s1">) ? </span><span class="s3">get_parent_class</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'.'</span><span class="s0">, </span><span class="s9">'_'</span><span class="s0">, </span><span class="s3">ContainerBuilder</span><span class="s1">::</span><span class="s3">hash</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) : </span><span class="s7">$class</span><span class="s0">;</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s9">'_'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">).</span><span class="s3">ucfirst</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment</span><span class="s1">).(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">? </span><span class="s9">'Debug' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">).</span><span class="s9">'Container'</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The environment &quot;%s&quot; contains invalid characters, it can only contain characters allowed in PHP class names.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$class</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the container's base class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* All names except Container must be fully qualified.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getContainerBaseClass</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">'Container'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Initializes the service container.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The cached version of the service container is used when fresh, otherwise the</span>
+     <span class="s4">* container is built.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">initializeContainer</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerClass</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$cacheDir </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">warmupDir </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheDir</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$cache </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConfigCache</span><span class="s1">(</span><span class="s7">$cacheDir</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s9">'.php'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$cachePath </span><span class="s1">= </span><span class="s7">$cache</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// Silence E_WARNING to ignore &quot;include&quot; failures - don't use &quot;@&quot; to prevent silencing fatal errors</span>
+        <span class="s7">$errorLevel </span><span class="s1">= </span><span class="s3">error_reporting</span><span class="s1">(</span><span class="s3">E_ALL </span><span class="s1">^ </span><span class="s3">E_WARNING</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$cachePath</span><span class="s1">) &amp;&amp; \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s0">include </span><span class="s7">$cachePath</span><span class="s1">)</span>
+                <span class="s1">&amp;&amp; (!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">|| (</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$freshCache</span><span class="s1">[</span><span class="s7">$cachePath</span><span class="s1">] ?? </span><span class="s7">$cache</span><span class="s1">-&gt;</span><span class="s3">isFresh</span><span class="s1">()))</span>
+            <span class="s1">) {</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$freshCache</span><span class="s1">[</span><span class="s7">$cachePath</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'kernel'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">error_reporting</span><span class="s1">(</span><span class="s7">$errorLevel</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$oldContainer </span><span class="s1">= \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">) ? </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">) : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$cacheDir</span><span class="s1">) ?: </span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$cacheDir</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$lock </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$cachePath</span><span class="s1">.</span><span class="s9">'.lock'</span><span class="s0">, </span><span class="s9">'w'</span><span class="s1">)) {</span>
+                <span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_EX </span><span class="s1">| </span><span class="s3">LOCK_NB</span><span class="s0">, </span><span class="s7">$wouldBlock</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s7">$wouldBlock </span><span class="s1">? </span><span class="s3">LOCK_SH </span><span class="s1">: </span><span class="s3">LOCK_EX</span><span class="s1">)) {</span>
+                    <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$lock</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$lock </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s0">include </span><span class="s7">$cachePath</span><span class="s1">)) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$oldContainer </span><span class="s1">|| \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">) !== </span><span class="s7">$oldContainer</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+                    <span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$lock</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'kernel'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">return;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">error_reporting</span><span class="s1">(</span><span class="s7">$errorLevel</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$collectDeprecations </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">&amp;&amp; !\</span><span class="s3">defined</span><span class="s1">(</span><span class="s9">'PHPUNIT_COMPOSER_INSTALL'</span><span class="s1">)) {</span>
+            <span class="s7">$collectedLogs </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$previousHandler </span><span class="s1">= </span><span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$collectedLogs</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$previousHandler</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">E_USER_DEPRECATED </span><span class="s1">!== </span><span class="s7">$type </span><span class="s1">&amp;&amp; </span><span class="s3">E_DEPRECATED </span><span class="s1">!== </span><span class="s7">$type</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$previousHandler </span><span class="s1">? </span><span class="s7">$previousHandler</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">) : </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$collectedLogs</span><span class="s1">[</span><span class="s7">$message</span><span class="s1">])) {</span>
+                    <span class="s1">++</span><span class="s7">$collectedLogs</span><span class="s1">[</span><span class="s7">$message</span><span class="s1">][</span><span class="s9">'count'</span><span class="s1">]</span><span class="s0">;</span>
+
+                    <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$backtrace </span><span class="s1">= </span><span class="s3">debug_backtrace</span><span class="s1">(</span><span class="s3">DEBUG_BACKTRACE_IGNORE_ARGS</span><span class="s0">, </span><span class="s8">5</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s2">// Clean the trace by removing first frames added by the error handler itself.</span>
+                <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s8">0</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">] === </span><span class="s7">$line </span><span class="s1">&amp;&amp; </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">] === </span><span class="s7">$file</span><span class="s1">) {</span>
+                        <span class="s7">$backtrace </span><span class="s1">= \</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s0">, </span><span class="s8">1 </span><span class="s1">+ </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s2">// Remove frames added by DebugClassLoader.</span>
+                <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">) - </span><span class="s8">2</span><span class="s0">; </span><span class="s8">0 </span><span class="s1">&lt; </span><span class="s7">$i</span><span class="s0">; </span><span class="s1">--</span><span class="s7">$i</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'class'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s1">[</span><span class="s3">DebugClassLoader</span><span class="s1">::</span><span class="s0">class, </span><span class="s3">LegacyDebugClassLoader</span><span class="s1">::</span><span class="s0">class</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                        <span class="s7">$backtrace </span><span class="s1">= [</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">]]</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$collectedLogs</span><span class="s1">[</span><span class="s7">$message</span><span class="s1">] = [</span>
+                    <span class="s9">'type' </span><span class="s1">=&gt; </span><span class="s7">$type</span><span class="s0">,</span>
+                    <span class="s9">'message' </span><span class="s1">=&gt; </span><span class="s7">$message</span><span class="s0">,</span>
+                    <span class="s9">'file' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">,</span>
+                    <span class="s9">'line' </span><span class="s1">=&gt; </span><span class="s7">$line</span><span class="s0">,</span>
+                    <span class="s9">'trace' </span><span class="s1">=&gt; [</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]]</span><span class="s0">,</span>
+                    <span class="s9">'count' </span><span class="s1">=&gt; </span><span class="s8">1</span><span class="s0">,</span>
+                <span class="s1">]</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">})</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$container </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">buildContainer</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$collectDeprecations</span><span class="s1">) {</span>
+                <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$cacheDir</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s9">'Deprecations.log'</span><span class="s0">, </span><span class="s3">serialize</span><span class="s1">(</span><span class="s3">array_values</span><span class="s1">(</span><span class="s7">$collectedLogs</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$cacheDir</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s9">'Compiler.log'</span><span class="s0">, </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$container </span><span class="s1">? </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getCompiler</span><span class="s1">()-&gt;</span><span class="s3">getLog</span><span class="s1">()) : </span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpContainer</span><span class="s1">(</span><span class="s7">$cache</span><span class="s0">, </span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerBaseClass</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$lock</span><span class="s1">) {</span>
+            <span class="s3">flock</span><span class="s1">(</span><span class="s7">$lock</span><span class="s0">, </span><span class="s3">LOCK_UN</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$lock</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s0">require </span><span class="s7">$cachePath</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'kernel'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$oldContainer </span><span class="s1">&amp;&amp; \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">) !== </span><span class="s7">$oldContainer</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">) {</span>
+            <span class="s2">// Because concurrent requests might still be using them,</span>
+            <span class="s2">// old container files are not removed immediately,</span>
+            <span class="s2">// but on a next dump of the container.</span>
+            <span class="s0">static </span><span class="s7">$legacyContainers </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$oldContainerDir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$oldContainer</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$legacyContainers</span><span class="s1">[</span><span class="s7">$oldContainerDir</span><span class="s1">.</span><span class="s9">'.legacy'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">glob</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$oldContainerDir</span><span class="s1">).\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s9">'*.legacy'</span><span class="s0">, </span><span class="s3">GLOB_NOSORT</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$legacyContainer</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$legacyContainers</span><span class="s1">[</span><span class="s7">$legacyContainer</span><span class="s1">]) &amp;&amp; @</span><span class="s3">unlink</span><span class="s1">(</span><span class="s7">$legacyContainer</span><span class="s1">)) {</span>
+                    <span class="s1">(</span><span class="s0">new </span><span class="s3">Filesystem</span><span class="s1">())-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$legacyContainer</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s1">-</span><span class="s8">7</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s3">touch</span><span class="s1">(</span><span class="s7">$oldContainerDir</span><span class="s1">.</span><span class="s9">'.legacy'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'cache_warmer'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'cache_warmer'</span><span class="s1">)-&gt;</span><span class="s3">warmUp</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s9">'kernel.cache_dir'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the kernel parameters.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of kernel parameters</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getKernelParameters</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$bundles </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$bundlesMetadata </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$bundle</span><span class="s1">) {</span>
+            <span class="s7">$bundles</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$bundle</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$bundlesMetadata</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = [</span>
+                <span class="s9">'path' </span><span class="s1">=&gt; </span><span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s9">'namespace' </span><span class="s1">=&gt; </span><span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">getNamespace</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'kernel.project_dir' </span><span class="s1">=&gt; </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getProjectDir</span><span class="s1">()) ?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getProjectDir</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'kernel.environment' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment</span><span class="s0">,</span>
+            <span class="s9">'kernel.debug' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s0">,</span>
+            <span class="s9">'kernel.cache_dir' </span><span class="s1">=&gt; </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$cacheDir </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">warmupDir </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheDir</span><span class="s1">()) ?: </span><span class="s7">$cacheDir</span><span class="s0">,</span>
+            <span class="s9">'kernel.logs_dir' </span><span class="s1">=&gt; </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getLogDir</span><span class="s1">()) ?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getLogDir</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'kernel.bundles' </span><span class="s1">=&gt; </span><span class="s7">$bundles</span><span class="s0">,</span>
+            <span class="s9">'kernel.bundles_metadata' </span><span class="s1">=&gt; </span><span class="s7">$bundlesMetadata</span><span class="s0">,</span>
+            <span class="s9">'kernel.charset' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCharset</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'kernel.container_class' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerClass</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Builds the service container.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ContainerBuilder The compiled service container</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">buildContainer</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s9">'cache' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">warmupDir </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCacheDir</span><span class="s1">()</span><span class="s0">, </span><span class="s9">'logs' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getLogDir</span><span class="s1">()] </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$dir</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to create the &quot;%s&quot; directory (%s).'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s3">is_writable</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to write in the &quot;%s&quot; directory (%s).'</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$container </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerBuilder</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">addObjectResource</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prepareContainer</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$cont </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">registerContainerConfiguration</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">))) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">(</span><span class="s7">$cont</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">addCompilerPass</span><span class="s1">(</span><span class="s0">new </span><span class="s3">AddAnnotatedClassesToCachePass</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Prepares the ContainerBuilder before it is compiled.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">prepareContainer</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$extensions </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles </span><span class="s0">as </span><span class="s7">$bundle</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$extension </span><span class="s1">= </span><span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">getContainerExtension</span><span class="s1">()) {</span>
+                <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">registerExtension</span><span class="s1">(</span><span class="s7">$extension</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">) {</span>
+                <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">addObjectResource</span><span class="s1">(</span><span class="s7">$bundle</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles </span><span class="s0">as </span><span class="s7">$bundle</span><span class="s1">) {</span>
+            <span class="s7">$bundle</span><span class="s1">-&gt;</span><span class="s3">build</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">build</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getExtensions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$extension</span><span class="s1">) {</span>
+            <span class="s7">$extensions</span><span class="s1">[] = </span><span class="s7">$extension</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// ensure these extensions are implicitly loaded</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getCompilerPassConfig</span><span class="s1">()-&gt;</span><span class="s3">setMergePass</span><span class="s1">(</span><span class="s0">new </span><span class="s3">MergeExtensionConfigurationPass</span><span class="s1">(</span><span class="s7">$extensions</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a new ContainerBuilder instance used to build the service container.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ContainerBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getContainerBuilder</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$container </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ContainerBuilder</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getKernelParameters</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this </span><span class="s0">instanceof </span><span class="s3">CompilerPassInterface</span><span class="s1">) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">addCompilerPass</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s3">PassConfig</span><span class="s1">::</span><span class="s3">TYPE_BEFORE_OPTIMIZATION</span><span class="s0">, </span><span class="s1">-</span><span class="s8">10000</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s9">'ProxyManager\Configuration'</span><span class="s1">) &amp;&amp; </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s9">'Symfony\Bridge\ProxyManager\LazyProxy\Instantiator\RuntimeInstantiator'</span><span class="s1">)) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setProxyInstantiator</span><span class="s1">(</span><span class="s0">new </span><span class="s3">RuntimeInstantiator</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps the service container to PHP code in the cache.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $class     The name of the class to generate</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $baseClass The name of the container's base class</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">dumpContainer</span><span class="s1">(</span><span class="s3">ConfigCache </span><span class="s7">$cache</span><span class="s0">, </span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$baseClass</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// cache the container</span>
+        <span class="s7">$dumper </span><span class="s1">= </span><span class="s0">new </span><span class="s3">PhpDumper</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s9">'ProxyManager\Configuration'</span><span class="s1">) &amp;&amp; </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s9">'Symfony\Bridge\ProxyManager\LazyProxy\PhpDumper\ProxyDumper'</span><span class="s1">)) {</span>
+            <span class="s7">$dumper</span><span class="s1">-&gt;</span><span class="s3">setProxyDumper</span><span class="s1">(</span><span class="s0">new </span><span class="s3">ProxyDumper</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$content </span><span class="s1">= </span><span class="s7">$dumper</span><span class="s1">-&gt;</span><span class="s3">dump</span><span class="s1">([</span>
+            <span class="s9">'class' </span><span class="s1">=&gt; </span><span class="s7">$class</span><span class="s0">,</span>
+            <span class="s9">'base_class' </span><span class="s1">=&gt; </span><span class="s7">$baseClass</span><span class="s0">,</span>
+            <span class="s9">'file' </span><span class="s1">=&gt; </span><span class="s7">$cache</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'as_files' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+            <span class="s9">'debug' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s0">,</span>
+            <span class="s9">'build_time' </span><span class="s1">=&gt; </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s9">'kernel.container_build_time'</span><span class="s1">) ? </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s9">'kernel.container_build_time'</span><span class="s1">) : </span><span class="s3">time</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'preload_classes' </span><span class="s1">=&gt; </span><span class="s3">array_map</span><span class="s1">(</span><span class="s9">'get_class'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bundles</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s7">$rootCode </span><span class="s1">= </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$cache</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()).</span><span class="s9">'/'</span><span class="s0">;</span>
+        <span class="s7">$fs </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Filesystem</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$content </span><span class="s0">as </span><span class="s7">$file </span><span class="s1">=&gt; </span><span class="s7">$code</span><span class="s1">) {</span>
+            <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">dumpFile</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">@</span><span class="s3">chmod</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">, </span><span class="s8">0666 </span><span class="s1">&amp; ~</span><span class="s3">umask</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$legacyFile </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">.</span><span class="s3">key</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)).</span><span class="s9">'.legacy'</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$legacyFile</span><span class="s1">)) {</span>
+            <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s7">$legacyFile</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$cache</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$rootCode</span><span class="s0">, </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getResources</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a loader for the container.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">DelegatingLoader The loader</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getContainerLoader</span><span class="s1">(</span><span class="s3">ContainerInterface </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$locator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">FileLocator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$resolver </span><span class="s1">= </span><span class="s0">new </span><span class="s3">LoaderResolver</span><span class="s1">([</span>
+            <span class="s0">new </span><span class="s3">XmlFileLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">YamlFileLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">IniFileLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">PhpFileLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">GlobFileLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">DirectoryLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ClosureLoader</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">DelegatingLoader</span><span class="s1">(</span><span class="s7">$resolver</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes comments from a PHP source string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* We don't use the PHP php_strip_whitespace() function</span>
+     <span class="s4">* as we want the content to be readable and well-formatted.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The PHP string with the comments removed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">stripComments</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$source</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'token_get_all'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$source</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$rawChunk </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s7">$output </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s7">$tokens </span><span class="s1">= </span><span class="s3">token_get_all</span><span class="s1">(</span><span class="s7">$source</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$ignoreSpace </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s8">0</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s7">$token </span><span class="s1">= </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) || </span><span class="s9">'b&quot;' </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">) {</span>
+                <span class="s7">$rawChunk </span><span class="s1">.= </span><span class="s7">$token</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">T_START_HEREDOC </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) {</span>
+                <span class="s7">$output </span><span class="s1">.= </span><span class="s7">$rawChunk</span><span class="s1">.</span><span class="s7">$token</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">do </span><span class="s1">{</span>
+                    <span class="s7">$token </span><span class="s1">= </span><span class="s7">$tokens</span><span class="s1">[++</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s7">$output </span><span class="s1">.= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) &amp;&amp; </span><span class="s9">'b&quot;' </span><span class="s1">!== </span><span class="s7">$token </span><span class="s1">? </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] : </span><span class="s7">$token</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s3">T_END_HEREDOC </span><span class="s1">!== </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$rawChunk </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">T_WHITESPACE </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$ignoreSpace</span><span class="s1">) {</span>
+                    <span class="s7">$ignoreSpace </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// replace multiple new lines with a single newline</span>
+                <span class="s7">$rawChunk </span><span class="s1">.= </span><span class="s3">preg_replace</span><span class="s1">([</span><span class="s9">'/\n{2,}/S'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s3">T_COMMENT</span><span class="s0">, </span><span class="s3">T_DOC_COMMENT</span><span class="s1">])) {</span>
+                <span class="s7">$ignoreSpace </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$rawChunk </span><span class="s1">.= </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+
+                <span class="s2">// The PHP-open tag already has a new-line</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">T_OPEN_TAG </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) {</span>
+                    <span class="s7">$ignoreSpace </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$output </span><span class="s1">.= </span><span class="s7">$rawChunk</span><span class="s0">;</span>
+
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s0">, </span><span class="s7">$rawChunk</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">gc_mem_caches</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$output</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span><span class="s9">'environment'</span><span class="s0">, </span><span class="s9">'debug'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__wakeup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">environment</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

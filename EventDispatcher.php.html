@@ -1,0 +1,305 @@
+<html>
+<head>
+<title>EventDispatcher.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+EventDispatcher.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">StoppableEventInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">WrappedListener</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* The EventDispatcherInterface is the central point of Symfony's event listener system.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Listeners are registered on the manager and events are dispatched through the</span>
+ <span class="s4">* manager.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Guilherme Blanco </span><span class="s6">&lt;guilhermeblanco</span><span class="s4">@hotmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jonathan Wage </span><span class="s6">&lt;jonwage</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Roman Borschel </span><span class="s6">&lt;roman</span><span class="s4">@code-factory.org&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Bernhard Schussek </span><span class="s6">&lt;bschussek</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jordi Boggiano </span><span class="s6">&lt;j.boggiano</span><span class="s4">@seld.be&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jordan Alliot </span><span class="s6">&lt;jordan.alliot</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">EventDispatcher </span><span class="s0">implements </span><span class="s3">EventDispatcherInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$listeners </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$sorted </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$optimized</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">__CLASS__ </span><span class="s1">=== </span><span class="s0">static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dispatch</span><span class="s1">(</span><span class="s3">object </span><span class="s7">$event</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s7">$eventName </span><span class="s1">= </span><span class="s7">$eventName </span><span class="s1">?? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$eventName</span><span class="s1">) {</span>
+            <span class="s7">$listeners </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] ?? (</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">]) ? [] : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimizeListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$listeners </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$listeners</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">callListeners</span><span class="s1">(</span><span class="s7">$listeners</span><span class="s0">, </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$event</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getListeners</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$eventName</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sortListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners </span><span class="s0">as </span><span class="s7">$eventName </span><span class="s1">=&gt; </span><span class="s7">$eventListeners</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sortListeners</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">&amp;&amp; </span><span class="s8">2 </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)) {</span>
+            <span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]()</span><span class="s0">;</span>
+            <span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] ?? </span><span class="s9">'__invoke'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$priority </span><span class="s1">=&gt; &amp;</span><span class="s7">$listeners</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$listeners </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$v </span><span class="s1">!== </span><span class="s7">$listener </span><span class="s1">&amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">&amp;&amp; </span><span class="s8">2 </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)) {</span>
+                    <span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]()</span><span class="s0">;</span>
+                    <span class="s7">$v</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] ?? </span><span class="s9">'__invoke'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$v </span><span class="s1">=== </span><span class="s7">$listener</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$priority</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasListeners</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$eventName</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners </span><span class="s0">as </span><span class="s7">$eventListeners</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$eventListeners</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addListener</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$priority </span><span class="s1">= </span><span class="s8">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">][</span><span class="s7">$priority</span><span class="s1">][] = </span><span class="s7">$listener</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">removeListener</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">&amp;&amp; </span><span class="s8">2 </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)) {</span>
+            <span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]()</span><span class="s0">;</span>
+            <span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] ?? </span><span class="s9">'__invoke'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$priority </span><span class="s1">=&gt; &amp;</span><span class="s7">$listeners</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$listeners </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; &amp;</span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$v </span><span class="s1">!== </span><span class="s7">$listener </span><span class="s1">&amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">&amp;&amp; </span><span class="s8">2 </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)) {</span>
+                    <span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]()</span><span class="s0">;</span>
+                    <span class="s7">$v</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] ?? </span><span class="s9">'__invoke'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$v </span><span class="s1">=== </span><span class="s7">$listener</span><span class="s1">) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$listeners</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$listeners</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">][</span><span class="s7">$priority</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addSubscriber</span><span class="s1">(</span><span class="s3">EventSubscriberInterface </span><span class="s7">$subscriber</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$subscriber</span><span class="s1">-&gt;</span><span class="s3">getSubscribedEvents</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$eventName </span><span class="s1">=&gt; </span><span class="s7">$params</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$subscriber</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$subscriber</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) ? </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] : </span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$params </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$subscriber</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) ? </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] : </span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">removeSubscriber</span><span class="s1">(</span><span class="s3">EventSubscriberInterface </span><span class="s7">$subscriber</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$subscriber</span><span class="s1">-&gt;</span><span class="s3">getSubscribedEvents</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$eventName </span><span class="s1">=&gt; </span><span class="s7">$params</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">) &amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$params </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$subscriber</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeListener</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$subscriber</span><span class="s0">, </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">) ? </span><span class="s7">$params </span><span class="s1">: </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Triggers the listeners of an event.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method can be overridden to add functionality that is executed</span>
+     <span class="s4">* for each listener.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable[] $listeners The event listeners</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string     $eventName The name of the event to dispatch</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">object     $event     The event object to pass to the event handlers/listeners</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">callListeners</span><span class="s1">(</span><span class="s3">iterable </span><span class="s7">$listeners</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s3">object </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$stoppable </span><span class="s1">= </span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">StoppableEventInterface</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$listeners </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$stoppable </span><span class="s1">&amp;&amp; </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isPropagationStopped</span><span class="s1">()) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+            <span class="s7">$listener</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts the internal list of listeners for the given event by priority.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">sortListeners</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">krsort</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] = []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$listeners</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$listeners </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; &amp;</span><span class="s7">$listener</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">&amp;&amp; </span><span class="s8">2 </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)) {</span>
+                    <span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]()</span><span class="s0">;</span>
+                    <span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] ?? </span><span class="s9">'__invoke'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">][] = </span><span class="s7">$listener</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Optimizes the internal list of listeners for the given event by priority.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">optimizeListeners</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s3">krsort</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] = []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listeners</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">] </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$listeners</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$listeners </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$listener</span><span class="s1">) {</span>
+                <span class="s7">$closure </span><span class="s1">= &amp;</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">][]</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">&amp;&amp; </span><span class="s8">2 </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)) {</span>
+                    <span class="s7">$closure </span><span class="s1">= </span><span class="s0">static function </span><span class="s1">(...</span><span class="s7">$args</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$listener</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$closure</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure</span><span class="s1">) {</span>
+                            <span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]()</span><span class="s0">;</span>
+                            <span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] ?? </span><span class="s9">'__invoke'</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s1">(</span><span class="s7">$closure </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">))(...</span><span class="s7">$args</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$closure </span><span class="s1">= </span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">|| </span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s3">WrappedListener </span><span class="s1">? </span><span class="s7">$listener </span><span class="s1">: \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimized</span><span class="s1">[</span><span class="s7">$eventName</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<html>
+<head>
+<title>Input.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Input.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Input is the base class for all concrete Input classes.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Three concrete classes are provided by default:</span>
+ <span class="s4">*</span>
+ <span class="s4">*  * `ArgvInput`: The input comes from the CLI arguments (argv)</span>
+ <span class="s4">*  * `StringInput`: The input is provided as a string</span>
+ <span class="s4">*  * `ArrayInput`: The input is provided as an array</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">Input </span><span class="s0">implements </span><span class="s3">InputInterface</span><span class="s0">, </span><span class="s3">StreamableInputInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$definition</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$stream</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$options </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$arguments </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$interactive </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">InputDefinition </span><span class="s7">$definition </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$definition</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">InputDefinition</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bind</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validate</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">bind</span><span class="s1">(</span><span class="s3">InputDefinition </span><span class="s7">$definition</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition </span><span class="s1">= </span><span class="s7">$definition</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parse</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Processes command line arguments.</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">parse</span><span class="s1">()</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">validate</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$definition </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s0">;</span>
+        <span class="s7">$givenArguments </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s0">;</span>
+
+        <span class="s7">$missingArguments </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">())</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$definition</span><span class="s0">, </span><span class="s7">$givenArguments</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$givenArguments</span><span class="s1">) &amp;&amp; </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)-&gt;</span><span class="s3">isRequired</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$missingArguments</span><span class="s1">) &gt; </span><span class="s8">0</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Not enough arguments (missing: &quot;%s&quot;).'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">', '</span><span class="s0">, </span><span class="s7">$missingArguments</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isInteractive</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">interactive</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setInteractive</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$interactive</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">interactive </span><span class="s1">= </span><span class="s7">$interactive</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getArguments</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">getArgumentDefaults</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getArgument</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">hasArgument</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The &quot;%s&quot; argument does not exist.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)-&gt;</span><span class="s3">getDefault</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setArgument</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">hasArgument</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The &quot;%s&quot; argument does not exist.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasArgument</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">hasArgument</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getOptions</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">getOptionDefaults</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getOption</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">hasOption</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The &quot;%s&quot; option does not exist.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)-&gt;</span><span class="s3">getDefault</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setOption</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">hasOption</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The &quot;%s&quot; option does not exist.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasOption</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">hasOption</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Escapes a token through escapeshellarg if it contains unsafe chars.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">escapeToken</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'{^[\w-]+$}'</span><span class="s0">, </span><span class="s7">$token</span><span class="s1">) ? </span><span class="s7">$token </span><span class="s1">: </span><span class="s3">escapeshellarg</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setStream</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stream </span><span class="s1">= </span><span class="s7">$stream</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStream</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stream</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

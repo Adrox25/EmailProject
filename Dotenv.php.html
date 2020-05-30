@@ -1,0 +1,536 @@
+<html>
+<head>
+<title>Dotenv.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #6897bb;}
+.s9 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Dotenv.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Dotenv</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Dotenv</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FormatException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Dotenv</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FormatExceptionContext</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Dotenv</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">PathException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Process</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ExceptionInterface </span><span class="s0">as </span><span class="s3">ProcessException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Process</span><span class="s1">\</span><span class="s3">Process</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Manages .env files.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Kévin Dunglas </span><span class="s6">&lt;dunglas</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">Dotenv</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">VARNAME_REGEX </span><span class="s1">= </span><span class="s7">'(?i:[A-Z][A-Z0-9_]*+)'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">STATE_VARNAME </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">STATE_VALUE </span><span class="s1">= </span><span class="s8">1</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s9">$path</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$cursor</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$lineno</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$data</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$end</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$values</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$usePutenv</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">bool If `putenv()` should be used to define environment variables or not.</span>
+     <span class="s4">*           Beware that `putenv()` is not thread safe, that's why this setting defaults to false</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">bool </span><span class="s9">$usePutenv </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">usePutenv </span><span class="s1">= </span><span class="s9">$usePutenv</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads one or several .env files.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string    $path       A file to load</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">...string $extraPaths A list of additional files to load</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FormatException when a file has a syntax error</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">PathException   when a file does not exist or is not readable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s1">...</span><span class="s9">$extraPaths</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">doLoad</span><span class="s1">(</span><span class="s3">false</span><span class="s0">, </span><span class="s1">\</span><span class="s3">func_get_args</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads a .env file and the corresponding .env.local, .env.$env and .env.$env.local files if they exist.</span>
+     <span class="s4">*</span>
+     <span class="s4">* .env.local is always ignored in test env because tests should produce the same results for everyone.</span>
+     <span class="s4">* .env.dist is loaded when it exists and .env is not found.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $path       A file to load</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $varName    The name of the env vars that defines the app env</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $defaultEnv The app env to use when none is defined</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $testEnvs   A list of app envs for which .env.local should be ignored</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FormatException when a file has a syntax error</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">PathException   when a file does not exist or is not readable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">loadEnv</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$varName </span><span class="s1">= </span><span class="s7">'APP_ENV'</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$defaultEnv </span><span class="s1">= </span><span class="s7">'dev'</span><span class="s0">, array </span><span class="s9">$testEnvs </span><span class="s1">= [</span><span class="s7">'test'</span><span class="s1">]): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s9">$path</span><span class="s1">) || !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s9">$p </span><span class="s1">= </span><span class="s7">&quot;</span><span class="s9">$path</span><span class="s7">.dist&quot;</span><span class="s1">)) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s9">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s9">$p</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s9">$env </span><span class="s1">= </span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$varName</span><span class="s1">] ?? </span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$varName</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">populate</span><span class="s1">([</span><span class="s9">$varName </span><span class="s1">=&gt; </span><span class="s9">$env </span><span class="s1">= </span><span class="s9">$defaultEnv</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s9">$env</span><span class="s0">, </span><span class="s9">$testEnvs</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s9">$p </span><span class="s1">= </span><span class="s7">&quot;</span><span class="s9">$path</span><span class="s7">.local&quot;</span><span class="s1">)) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s9">$p</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s9">$env </span><span class="s1">= </span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$varName</span><span class="s1">] ?? </span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$varName</span><span class="s1">] ?? </span><span class="s9">$env</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'local' </span><span class="s1">=== </span><span class="s9">$env</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s9">$p </span><span class="s1">= </span><span class="s7">&quot;</span><span class="s9">$path</span><span class="s7">.</span><span class="s9">$env</span><span class="s7">&quot;</span><span class="s1">)) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s9">$p</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s9">$p </span><span class="s1">= </span><span class="s7">&quot;</span><span class="s9">$path</span><span class="s7">.</span><span class="s9">$env</span><span class="s7">.local&quot;</span><span class="s1">)) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s9">$p</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads one or several .env files and enables override existing vars.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string    $path       A file to load</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">...string $extraPaths A list of additional files to load</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FormatException when a file has a syntax error</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">PathException   when a file does not exist or is not readable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">overload</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s1">...</span><span class="s9">$extraPaths</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">doLoad</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s1">\</span><span class="s3">func_get_args</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets values as environment variables (via putenv, $_ENV, and $_SERVER).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $values               An array of env variables</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool  $overrideExistingVars true when existing environment variables must be overridden</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">populate</span><span class="s1">(</span><span class="s0">array </span><span class="s9">$values</span><span class="s0">, </span><span class="s3">bool </span><span class="s9">$overrideExistingVars </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s9">$updateLoadedVars </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s9">$loadedVars </span><span class="s1">= </span><span class="s3">array_flip</span><span class="s1">(</span><span class="s3">explode</span><span class="s1">(</span><span class="s7">','</span><span class="s0">, </span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">] ?? </span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">] ?? </span><span class="s7">''</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$values </span><span class="s0">as </span><span class="s9">$name </span><span class="s1">=&gt; </span><span class="s9">$value</span><span class="s1">) {</span>
+            <span class="s9">$notHttpName </span><span class="s1">= </span><span class="s8">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s9">$name</span><span class="s0">, </span><span class="s7">'HTTP_'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s2">// don't check existence with getenv() because of thread safety issues</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) &amp;&amp; (!</span><span class="s9">$overrideExistingVars </span><span class="s1">&amp;&amp; (</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) || (</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) &amp;&amp; </span><span class="s9">$notHttpName</span><span class="s1">)))) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">usePutenv</span><span class="s1">) {</span>
+                <span class="s3">putenv</span><span class="s1">(</span><span class="s7">&quot;</span><span class="s9">$name</span><span class="s7">=</span><span class="s9">$value</span><span class="s7">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$value</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$notHttpName</span><span class="s1">) {</span>
+                <span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">])) {</span>
+                <span class="s9">$loadedVars</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$updateLoadedVars </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$updateLoadedVars</span><span class="s1">) {</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">[</span><span class="s7">''</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s9">$loadedVars </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">','</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s9">$_ENV</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">] = </span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">] = </span><span class="s9">$loadedVars</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">usePutenv</span><span class="s1">) {</span>
+                <span class="s3">putenv</span><span class="s1">(</span><span class="s7">'SYMFONY_DOTENV_VARS='</span><span class="s1">.</span><span class="s9">$loadedVars</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses the contents of an .env file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $data The data to be parsed</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $path The original file name where data where stored (used for more meaningful error messages)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of env variables</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FormatException when a file has a syntax error</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">parse</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$data</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$path </span><span class="s1">= </span><span class="s7">'.env'</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">path </span><span class="s1">= </span><span class="s9">$path</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">([</span><span class="s7">&quot;</span><span class="s0">\r\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\r</span><span class="s7">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s9">$data</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lineno </span><span class="s1">= </span><span class="s8">1</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s9">$state </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">STATE_VARNAME</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s9">$name </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">skipEmptyLines</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">&lt; </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end</span><span class="s1">) {</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s9">$state</span><span class="s1">) {</span>
+                <span class="s0">case </span><span class="s3">self</span><span class="s1">::</span><span class="s3">STATE_VARNAME</span><span class="s1">:</span>
+                    <span class="s9">$name </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lexVarname</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s9">$state </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">STATE_VALUE</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+
+                <span class="s0">case </span><span class="s3">self</span><span class="s1">::</span><span class="s3">STATE_VALUE</span><span class="s1">:</span>
+                    <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lexValue</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s9">$state </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">STATE_VARNAME</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">STATE_VALUE </span><span class="s1">=== </span><span class="s9">$state</span><span class="s1">) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">path </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">lexVarname</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s2">// var name + optional export</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/(export[ \t]++)?('</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">VARNAME_REGEX</span><span class="s1">.</span><span class="s7">')/A'</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s0">, </span><span class="s9">$matches</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">)) {</span>
+            <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Invalid character in variable name'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">moveCursor</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">|| </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] || </span><span class="s7">'#' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) {</span>
+                <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Unable to unset an environment variable'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing = in the environment variable declaration'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">' ' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] || </span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+            <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Whitespace characters are not supported after the variable name'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'=' </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+            <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing = in the environment variable declaration'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">lexValue</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/[ \t]*+(?:#.*)?$/Am'</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s0">, </span><span class="s9">$matches</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">)) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">moveCursor</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">skipEmptyLines</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">' ' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] || </span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+            <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Whitespace are not supported before the value'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s9">$loadedVars </span><span class="s1">= </span><span class="s3">array_flip</span><span class="s1">(</span><span class="s3">explode</span><span class="s1">(</span><span class="s7">','</span><span class="s0">, isset</span><span class="s1">(</span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">]) ? </span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">] : (</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">]) ? </span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s7">'SYMFONY_DOTENV_VARS'</span><span class="s1">] : </span><span class="s7">''</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">[</span><span class="s7">''</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s9">$v </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+
+        <span class="s0">do </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">&quot;'&quot; </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+                <span class="s9">$len </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+
+                <span class="s0">do </span><span class="s1">{</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ ++</span><span class="s9">$len </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end</span><span class="s1">) {</span>
+                        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+= </span><span class="s9">$len</span><span class="s0">;</span>
+
+                        <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing quote to end the value'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s7">&quot;'&quot; </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ </span><span class="s9">$len</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s9">$v </span><span class="s1">.= </span><span class="s3">substr</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s0">, </span><span class="s8">1 </span><span class="s1">+ </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">, </span><span class="s9">$len </span><span class="s1">- </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+= </span><span class="s8">1 </span><span class="s1">+ </span><span class="s9">$len</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'&quot;' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end</span><span class="s1">) {</span>
+                    <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing quote to end the value'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">while </span><span class="s1">(</span><span class="s7">'&quot;' </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] || (</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">- </span><span class="s8">1</span><span class="s1">] &amp;&amp; </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">- </span><span class="s8">2</span><span class="s1">])) {</span>
+                    <span class="s9">$value </span><span class="s1">.= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end</span><span class="s1">) {</span>
+                        <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing quote to end the value'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">([</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">&quot;'</span><span class="s0">, </span><span class="s7">'\r'</span><span class="s0">, </span><span class="s7">'\n'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'&quot;'</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\r</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s9">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s9">$value</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">resolveVariables</span><span class="s1">(</span><span class="s9">$resolvedValue</span><span class="s0">, </span><span class="s9">$loadedVars</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">resolveCommands</span><span class="s1">(</span><span class="s9">$resolvedValue</span><span class="s0">, </span><span class="s9">$loadedVars</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\\\</span><span class="s7">'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s9">$resolvedValue</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$v </span><span class="s1">.= </span><span class="s9">$resolvedValue</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+                <span class="s9">$prevChr </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">- </span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">while </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">&lt; </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">&amp;&amp; !\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s7">'&quot;'</span><span class="s0">, </span><span class="s7">&quot;'&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !((</span><span class="s7">' ' </span><span class="s1">=== </span><span class="s9">$prevChr </span><span class="s1">|| </span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s9">$prevChr</span><span class="s1">) &amp;&amp; </span><span class="s7">'#' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">])) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">]) &amp;&amp; (</span><span class="s7">'&quot;' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">] || </span><span class="s7">&quot;'&quot; </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">])) {</span>
+                        <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s9">$value </span><span class="s1">.= </span><span class="s9">$prevChr </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">'$' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">]) &amp;&amp; </span><span class="s7">'(' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">]) {</span>
+                        <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+                        <span class="s9">$value </span><span class="s1">.= </span><span class="s7">'('</span><span class="s1">.</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lexNestedExpression</span><span class="s1">().</span><span class="s7">')'</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s9">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s9">$value</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">resolveVariables</span><span class="s1">(</span><span class="s9">$resolvedValue</span><span class="s0">, </span><span class="s9">$loadedVars</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">resolveCommands</span><span class="s1">(</span><span class="s9">$resolvedValue</span><span class="s0">, </span><span class="s9">$loadedVars</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$resolvedValue </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\\\</span><span class="s7">'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s9">$resolvedValue</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">$resolvedValue </span><span class="s1">=== </span><span class="s9">$value </span><span class="s1">&amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/\s+/'</span><span class="s0">, </span><span class="s9">$value</span><span class="s1">)) {</span>
+                    <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'A value containing spaces must be surrounded by quotes'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s9">$v </span><span class="s1">.= </span><span class="s9">$resolvedValue</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">&lt; </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">&amp;&amp; </span><span class="s7">'#' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">&lt; </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">&amp;&amp; </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot; </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">skipEmptyLines</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$v</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">lexNestedExpression</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+        <span class="s9">$value </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot; </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">] &amp;&amp; </span><span class="s7">')' </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+            <span class="s9">$value </span><span class="s1">.= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'(' </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+                <span class="s9">$value </span><span class="s1">.= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lexNestedExpression</span><span class="s1">().</span><span class="s7">')'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s1">++</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">end</span><span class="s1">) {</span>
+                <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing closing parenthesis.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">]) {</span>
+            <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Missing closing parenthesis.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">skipEmptyLines</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/(?:\s*+(?:#[^\n]*+)?+)++/A'</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s0">, </span><span class="s9">$match</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">)) {</span>
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">moveCursor</span><span class="s1">(</span><span class="s9">$match</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">resolveCommands</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$value</span><span class="s0">, array </span><span class="s9">$loadedVars</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s9">$value</span><span class="s0">, </span><span class="s7">'$'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s9">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s9">$regex </span><span class="s1">= </span><span class="s7">'/ 
+            (</span><span class="s0">\\\\</span><span class="s7">)?               # escaped with a backslash? 
+            \$</span>
+            <span class="s7">(?&lt;cmd&gt; 
+                \(                # require opening parenthesis 
+                ([^()]|\g&lt;cmd&gt;)+  # allow any number of non-parens, or balanced parens (by nesting the &lt;cmd&gt; expression recursively) 
+                \)                # require closing paren 
+            ) 
+        /x'</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s9">$regex</span><span class="s0">, function </span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s7">'Resolving commands is not supported on Windows.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">Process</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s7">'Resolving commands requires the Symfony Process component.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$process </span><span class="s1">= </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s3">Process</span><span class="s1">::</span><span class="s0">class, </span><span class="s7">'fromShellCommandline'</span><span class="s1">) ? </span><span class="s3">Process</span><span class="s1">::</span><span class="s3">fromShellCommandline</span><span class="s1">(</span><span class="s7">'echo '</span><span class="s1">.</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) : </span><span class="s0">new </span><span class="s3">Process</span><span class="s1">(</span><span class="s7">'echo '</span><span class="s1">.</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s3">Process</span><span class="s1">::</span><span class="s0">class, </span><span class="s7">'fromShellCommandline'</span><span class="s1">)) {</span>
+                <span class="s2">// Symfony 3.4 does not inherit env vars by default:</span>
+                <span class="s9">$process</span><span class="s1">-&gt;</span><span class="s3">inheritEnvironmentVariables</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$env </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values </span><span class="s0">as </span><span class="s9">$name </span><span class="s1">=&gt; </span><span class="s9">$value</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) || (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) &amp;&amp; !(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) &amp;&amp; </span><span class="s8">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s9">$name</span><span class="s0">, </span><span class="s7">'HTTP_'</span><span class="s1">)))) {</span>
+                    <span class="s9">$env</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s9">$process</span><span class="s1">-&gt;</span><span class="s3">setEnv</span><span class="s1">(</span><span class="s9">$env</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s9">$process</span><span class="s1">-&gt;</span><span class="s3">mustRun</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ProcessException </span><span class="s9">$e</span><span class="s1">) {</span>
+                <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Issue expanding a command (%s)'</span><span class="s0">, </span><span class="s9">$process</span><span class="s1">-&gt;</span><span class="s3">getErrorOutput</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/[\r\n]+$/'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s9">$process</span><span class="s1">-&gt;</span><span class="s3">getOutput</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s9">$value</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">resolveVariables</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$value</span><span class="s0">, array </span><span class="s9">$loadedVars</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s9">$value</span><span class="s0">, </span><span class="s7">'$'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s9">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s9">$regex </span><span class="s1">= </span><span class="s7">'/ 
+            (?&lt;!</span><span class="s0">\\\\</span><span class="s7">) 
+            (?P&lt;backslashes&gt;</span><span class="s0">\\\\</span><span class="s7">*)             # escaped with a backslash? 
+            \$</span>
+            <span class="s7">(?!\()                             # no opening parenthesis 
+            (?P&lt;opening_brace&gt;\{)?             # optional brace 
+            (?P&lt;name&gt;'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">VARNAME_REGEX</span><span class="s1">.</span><span class="s7">')? # var name 
+            (?P&lt;default_value&gt;:[-=][^\}]++)?   # optional default value 
+            (?P&lt;closing_brace&gt;\})?             # optional closing brace 
+        /x'</span><span class="s0">;</span>
+
+        <span class="s9">$value </span><span class="s1">= </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s9">$regex</span><span class="s0">, function </span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">) {</span>
+            <span class="s2">// odd number of backslashes means the $ character is escaped</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">1 </span><span class="s1">=== \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'backslashes'</span><span class="s1">]) % </span><span class="s8">2</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// unescaped $ not followed by variable name</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'name'</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s9">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'{' </span><span class="s1">=== </span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'opening_brace'</span><span class="s1">] &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'closing_brace'</span><span class="s1">])) {</span>
+                <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s7">'Unclosed braces on variable expansion'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$name </span><span class="s1">= </span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'name'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$loadedVars</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">])) {</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">])) {</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s9">$_ENV</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]) &amp;&amp; </span><span class="s8">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s9">$name</span><span class="s0">, </span><span class="s7">'HTTP_'</span><span class="s1">)) {</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s9">$_SERVER</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">])) {</span>
+                <span class="s9">$value </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s9">$value </span><span class="s1">= (string) </span><span class="s3">getenv</span><span class="s1">(</span><span class="s9">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s9">$value </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'default_value'</span><span class="s1">]) &amp;&amp; </span><span class="s7">'' </span><span class="s1">!== </span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'default_value'</span><span class="s1">]) {</span>
+                <span class="s9">$unsupportedChars </span><span class="s1">= </span><span class="s3">strpbrk</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'default_value'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\'</span><span class="s7">&quot;{$'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s9">$unsupportedChars</span><span class="s1">) {</span>
+                    <span class="s0">throw </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Unsupported character &quot;%s&quot; found in the default value of variable &quot;$%s&quot;.'</span><span class="s0">, </span><span class="s9">$unsupportedChars</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s9">$name</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s9">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'default_value'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">2</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'=' </span><span class="s1">=== </span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'default_value'</span><span class="s1">][</span><span class="s8">1</span><span class="s1">]) {</span>
+                    <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'opening_brace'</span><span class="s1">] &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'closing_brace'</span><span class="s1">])) {</span>
+                <span class="s9">$value </span><span class="s1">.= </span><span class="s7">'}'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s9">$matches</span><span class="s1">[</span><span class="s7">'backslashes'</span><span class="s1">].</span><span class="s9">$value</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s9">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">moveCursor</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$text</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s9">$text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lineno </span><span class="s1">+= </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s9">$text</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">createFormatException</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$message</span><span class="s1">): </span><span class="s3">FormatException</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">FormatException</span><span class="s1">(</span><span class="s9">$message</span><span class="s0">, new </span><span class="s3">FormatExceptionContext</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">data</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">path</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">lineno</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">cursor</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">doLoad</span><span class="s1">(</span><span class="s3">bool </span><span class="s9">$overrideExistingVars</span><span class="s0">, array </span><span class="s9">$paths</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$paths </span><span class="s0">as </span><span class="s9">$path</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_readable</span><span class="s1">(</span><span class="s9">$path</span><span class="s1">) || </span><span class="s3">is_dir</span><span class="s1">(</span><span class="s9">$path</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">PathException</span><span class="s1">(</span><span class="s9">$path</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">populate</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">parse</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s9">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s9">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s9">$overrideExistingVars</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

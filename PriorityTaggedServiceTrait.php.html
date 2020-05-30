@@ -1,0 +1,191 @@
+<html>
+<head>
+<title>PriorityTaggedServiceTrait.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PriorityTaggedServiceTrait.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">TaggedIteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">TypedReference</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Trait that allows a generic method to find and sort service by priority option in the tag.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Iltar van der Berg </span><span class="s6">&lt;kjarli</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">trait </span><span class="s3">PriorityTaggedServiceTrait</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Finds all services with the given tag name and order them by their priority.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The order of additions must be respected for services having the same priority,</span>
+     <span class="s4">* and knowing that the \SplPriorityQueue class does not respect the FIFO method,</span>
+     <span class="s4">* we should not use that class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://bugs.php.net/53710</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://bugs.php.net/60926</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|TaggedIteratorArgument $tagName</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Reference[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">findAndSortTaggedServices</span><span class="s1">(</span><span class="s7">$tagName</span><span class="s0">, </span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$indexAttribute </span><span class="s1">= </span><span class="s7">$defaultIndexMethod </span><span class="s1">= </span><span class="s7">$needsIndexes </span><span class="s1">= </span><span class="s7">$defaultPriorityMethod </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$tagName </span><span class="s0">instanceof </span><span class="s3">TaggedIteratorArgument</span><span class="s1">) {</span>
+            <span class="s7">$indexAttribute </span><span class="s1">= </span><span class="s7">$tagName</span><span class="s1">-&gt;</span><span class="s3">getIndexAttribute</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$defaultIndexMethod </span><span class="s1">= </span><span class="s7">$tagName</span><span class="s1">-&gt;</span><span class="s3">getDefaultIndexMethod</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$needsIndexes </span><span class="s1">= </span><span class="s7">$tagName</span><span class="s1">-&gt;</span><span class="s3">needsIndexes</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$defaultPriorityMethod </span><span class="s1">= </span><span class="s7">$tagName</span><span class="s1">-&gt;</span><span class="s3">getDefaultPriorityMethod</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$tagName </span><span class="s1">= </span><span class="s7">$tagName</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$i </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s7">$services </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s7">$tagName</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$serviceId </span><span class="s1">=&gt; </span><span class="s7">$attributes</span><span class="s1">) {</span>
+            <span class="s7">$defaultPriority </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$defaultIndex </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s1">)-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">) ?: </span><span class="s3">null</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$attributes </span><span class="s0">as </span><span class="s7">$attribute</span><span class="s1">) {</span>
+                <span class="s7">$index </span><span class="s1">= </span><span class="s7">$priority </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attribute</span><span class="s1">[</span><span class="s9">'priority'</span><span class="s1">])) {</span>
+                    <span class="s7">$priority </span><span class="s1">= </span><span class="s7">$attribute</span><span class="s1">[</span><span class="s9">'priority'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$defaultPriority </span><span class="s1">&amp;&amp; </span><span class="s7">$defaultPriorityMethod </span><span class="s1">&amp;&amp; </span><span class="s7">$class</span><span class="s1">) {</span>
+                    <span class="s7">$defaultPriority </span><span class="s1">= </span><span class="s3">PriorityTaggedServiceUtil</span><span class="s1">::</span><span class="s3">getDefaultPriority</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultPriorityMethod</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$priority </span><span class="s1">= </span><span class="s7">$priority </span><span class="s1">?? </span><span class="s7">$defaultPriority </span><span class="s1">?? </span><span class="s7">$defaultPriority </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$indexAttribute </span><span class="s1">&amp;&amp; !</span><span class="s7">$needsIndexes</span><span class="s1">) {</span>
+                    <span class="s7">$services</span><span class="s1">[] = [</span><span class="s7">$priority</span><span class="s0">, </span><span class="s1">++</span><span class="s7">$i</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s0">continue </span><span class="s8">2</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$indexAttribute </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attribute</span><span class="s1">[</span><span class="s7">$indexAttribute</span><span class="s1">])) {</span>
+                    <span class="s7">$index </span><span class="s1">= </span><span class="s7">$attribute</span><span class="s1">[</span><span class="s7">$indexAttribute</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$defaultIndex </span><span class="s1">&amp;&amp; </span><span class="s7">$defaultIndexMethod </span><span class="s1">&amp;&amp; </span><span class="s7">$class</span><span class="s1">) {</span>
+                    <span class="s7">$defaultIndex </span><span class="s1">= </span><span class="s3">PriorityTaggedServiceUtil</span><span class="s1">::</span><span class="s3">getDefaultIndex</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultIndexMethod</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$indexAttribute</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$index </span><span class="s1">= </span><span class="s7">$index </span><span class="s1">?? </span><span class="s7">$defaultIndex </span><span class="s1">?? </span><span class="s7">$defaultIndex </span><span class="s1">= </span><span class="s7">$serviceId</span><span class="s0">;</span>
+
+                <span class="s7">$services</span><span class="s1">[] = [</span><span class="s7">$priority</span><span class="s0">, </span><span class="s1">++</span><span class="s7">$i</span><span class="s0">, </span><span class="s7">$index</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s3">uasort</span><span class="s1">(</span><span class="s7">$services</span><span class="s0">, static function </span><span class="s1">(</span><span class="s7">$a</span><span class="s0">, </span><span class="s7">$b</span><span class="s1">) { </span><span class="s0">return </span><span class="s7">$b</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] &lt;=&gt; </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] ?: </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] &lt;=&gt; </span><span class="s7">$b</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">; </span><span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s7">$refs </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$services </span><span class="s0">as </span><span class="s1">[</span><span class="s0">, , </span><span class="s7">$index</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">]) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$class</span><span class="s1">) {</span>
+                <span class="s7">$reference </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$index </span><span class="s1">=== </span><span class="s7">$serviceId</span><span class="s1">) {</span>
+                <span class="s7">$reference </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TypedReference</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$reference </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TypedReference</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">ContainerBuilder</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">, </span><span class="s7">$index</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$index</span><span class="s1">) {</span>
+                <span class="s7">$refs</span><span class="s1">[] = </span><span class="s7">$reference</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$refs</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">] = </span><span class="s7">$reference</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$refs</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">PriorityTaggedServiceUtil</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the index defined by the default index method.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getDefaultIndex</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$defaultIndexMethod</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$indexAttribute</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) || !</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s7">$defaultIndexMethod</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$rm </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s7">$defaultIndexMethod</span><span class="s1">))-&gt;</span><span class="s3">isStatic</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Either method &quot;%s::%s()&quot; should be static or tag &quot;%s&quot; on service &quot;%s&quot; is missing attribute &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultIndexMethod</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$indexAttribute</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$rm</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Either method &quot;%s::%s()&quot; should be public or tag &quot;%s&quot; on service &quot;%s&quot; is missing attribute &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultIndexMethod</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$indexAttribute</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$defaultIndex </span><span class="s1">= </span><span class="s7">$rm</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$defaultIndex</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Either method &quot;%s::%s()&quot; should return a string (got &quot;%s&quot;) or tag &quot;%s&quot; on service &quot;%s&quot; is missing attribute &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultIndexMethod</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$defaultIndex</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$indexAttribute</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$defaultIndex</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the priority defined by the default priority method.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getDefaultPriority</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$defaultPriorityMethod</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$tagName</span><span class="s1">): ?</span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) || !</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s7">$defaultPriorityMethod</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$rm </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s7">$defaultPriorityMethod</span><span class="s1">))-&gt;</span><span class="s3">isStatic</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Either method &quot;%s::%s()&quot; should be static or tag &quot;%s&quot; on service &quot;%s&quot; is missing attribute &quot;priority&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultPriorityMethod</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$rm</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Either method &quot;%s::%s()&quot; should be public or tag &quot;%s&quot; on service &quot;%s&quot; is missing attribute &quot;priority&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultPriorityMethod</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$defaultPriority </span><span class="s1">= </span><span class="s7">$rm</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$defaultPriority</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Method &quot;%s::%s()&quot; should return an integer (got &quot;%s&quot;) or tag &quot;%s&quot; on service &quot;%s&quot; is missing attribute &quot;priority&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$defaultPriorityMethod</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$defaultPriority</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$defaultPriority</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

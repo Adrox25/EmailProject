@@ -1,0 +1,131 @@
+<html>
+<head>
+<title>FileLinkFormatter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+FileLinkFormatter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Debug</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Generator</span><span class="s1">\</span><span class="s3">UrlGeneratorInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Formats debug file links.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jérémy Romey </span><span class="s6">&lt;jeremy</span><span class="s4">@free-agent.fr&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">FileLinkFormatter</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$fileLinkFormat</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$baseDir</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$urlFormat</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|\Closure $urlFormat the URL format, or a closure that returns it on-demand</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$fileLinkFormat </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">RequestStack </span><span class="s7">$requestStack </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$baseDir </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$urlFormat </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$fileLinkFormat </span><span class="s1">= </span><span class="s7">$fileLinkFormat </span><span class="s1">?: </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'xdebug.file_link_format'</span><span class="s1">) ?: </span><span class="s3">get_cfg_var</span><span class="s1">(</span><span class="s8">'xdebug.file_link_format'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$fileLinkFormat </span><span class="s1">&amp;&amp; !\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$fileLinkFormat</span><span class="s1">)) {</span>
+            <span class="s7">$i </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$f </span><span class="s1">= </span><span class="s7">$fileLinkFormat</span><span class="s0">, </span><span class="s8">'&amp;'</span><span class="s0">, </span><span class="s3">max</span><span class="s1">(</span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$f</span><span class="s0">, </span><span class="s8">'%f'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$f</span><span class="s0">, </span><span class="s8">'%l'</span><span class="s1">))) ?: \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$f</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$fileLinkFormat </span><span class="s1">= [</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$f</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)] + </span><span class="s3">preg_split</span><span class="s1">(</span><span class="s8">'/&amp;([^&gt;]++)&gt;/'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$f</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s3">PREG_SPLIT_DELIM_CAPTURE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormat </span><span class="s1">= </span><span class="s7">$fileLinkFormat</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">= </span><span class="s7">$requestStack</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">baseDir </span><span class="s1">= </span><span class="s7">$baseDir</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlFormat </span><span class="s1">= </span><span class="s7">$urlFormat</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">format</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$line</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$fmt </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFileLinkFormat</span><span class="s1">()) {</span>
+            <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$fmt</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$k </span><span class="s1">= </span><span class="s7">$fmt</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">++])) {</span>
+                    <span class="s7">$file </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$fmt</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$fmt</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'%f' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">, </span><span class="s8">'%l' </span><span class="s1">=&gt; </span><span class="s7">$line</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormat </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFileLinkFormat</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s8">'fileLinkFormat'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">generateUrlFormat</span><span class="s1">(</span><span class="s3">UrlGeneratorInterface </span><span class="s7">$router</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$routeName</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$queryString</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$router</span><span class="s1">-&gt;</span><span class="s3">generate</span><span class="s1">(</span><span class="s7">$routeName</span><span class="s1">).</span><span class="s7">$queryString</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getFileLinkFormat</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormat</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormat</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">baseDir </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlFormat</span><span class="s1">) {</span>
+            <span class="s7">$request </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getMasterRequest</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$request </span><span class="s0">instanceof </span><span class="s3">Request </span><span class="s1">&amp;&amp; (!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlFormat </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlFormat </span><span class="s1">= (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlFormat</span><span class="s1">)())) {</span>
+                <span class="s0">return </span><span class="s1">[</span>
+                    <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getSchemeAndHttpHost</span><span class="s1">().</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlFormat</span><span class="s0">,</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">baseDir</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">, </span><span class="s8">''</span><span class="s0">,</span>
+                <span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<html>
+<head>
+<title>MultiplePcreFilterIterator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+MultiplePcreFilterIterator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* MultiplePcreFilterIterator filters files using patterns (regexps, globs or strings).</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">MultiplePcreFilterIterator </span><span class="s0">extends </span><span class="s1">\</span><span class="s3">FilterIterator</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$matchRegexps </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$noMatchRegexps </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\Iterator $iterator        The Iterator to filter</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string[]  $matchPatterns   An array of patterns that need to match</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string[]  $noMatchPatterns An array of patterns that need to not match</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(\</span><span class="s3">Iterator </span><span class="s7">$iterator</span><span class="s0">, array </span><span class="s7">$matchPatterns</span><span class="s0">, array </span><span class="s7">$noMatchPatterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$matchPatterns </span><span class="s0">as </span><span class="s7">$pattern</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matchRegexps</span><span class="s1">[] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toRegex</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$noMatchPatterns </span><span class="s0">as </span><span class="s7">$pattern</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">noMatchRegexps</span><span class="s1">[] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">toRegex</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$iterator</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks whether the string is accepted by the regex filters.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If there is no regexps defined in the class, this method will accept the string.</span>
+     <span class="s4">* Such case can be handled by child classes before calling the method if they want to</span>
+     <span class="s4">* apply a different behavior.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">isAccepted</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$string</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// should at least not match one rule to exclude</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">noMatchRegexps </span><span class="s0">as </span><span class="s7">$regex</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$string</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// should at least match one rule</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matchRegexps</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matchRegexps </span><span class="s0">as </span><span class="s7">$regex</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$string</span><span class="s1">)) {</span>
+                    <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// If there is no match rules, the file is accepted</span>
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks whether the string is a regex.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">isRegex</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$str</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^(.{3,}?)[imsxuADU]*$/'</span><span class="s0">, </span><span class="s7">$str</span><span class="s0">, </span><span class="s7">$m</span><span class="s1">)) {</span>
+            <span class="s7">$start </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$end </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$start </span><span class="s1">=== </span><span class="s7">$end</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s1">!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/[*?[:alnum:] </span><span class="s0">\\\\</span><span class="s8">]/'</span><span class="s0">, </span><span class="s7">$start</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">([[</span><span class="s8">'{'</span><span class="s0">, </span><span class="s8">'}'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'('</span><span class="s0">, </span><span class="s8">')'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'['</span><span class="s0">, </span><span class="s8">']'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'&lt;'</span><span class="s0">, </span><span class="s8">'&gt;'</span><span class="s1">]] </span><span class="s0">as </span><span class="s7">$delimiters</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$start </span><span class="s1">=== </span><span class="s7">$delimiters</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">$end </span><span class="s1">=== </span><span class="s7">$delimiters</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) {</span>
+                    <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Converts string into regexp.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">abstract protected function </span><span class="s3">toRegex</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$str</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

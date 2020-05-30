@@ -1,0 +1,123 @@
+<html>
+<head>
+<title>ServerDumpCommand.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ServerDumpCommand.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputOption</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Style</span><span class="s1">\</span><span class="s3">SymfonyStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Data</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">Descriptor</span><span class="s1">\</span><span class="s3">CliDescriptor</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">Descriptor</span><span class="s1">\</span><span class="s3">DumpDescriptorInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">Descriptor</span><span class="s1">\</span><span class="s3">HtmlDescriptor</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s1">\</span><span class="s3">CliDumper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s1">\</span><span class="s3">HtmlDumper</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Server</span><span class="s1">\</span><span class="s3">DumpServer</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Starts a dump server to collect and output dumps on a single place with multiple formats support.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Maxime Steinhausser </span><span class="s6">&lt;maxime.steinhausser</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ServerDumpCommand </span><span class="s0">extends </span><span class="s3">Command</span>
+<span class="s1">{</span>
+    <span class="s0">protected static </span><span class="s7">$defaultName </span><span class="s1">= </span><span class="s8">'server:dump'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$server</span><span class="s0">;</span>
+
+    <span class="s4">/** </span><span class="s5">@var </span><span class="s4">DumpDescriptorInterface[] */</span>
+    <span class="s0">private </span><span class="s7">$descriptors</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">DumpServer </span><span class="s7">$server</span><span class="s0">, array </span><span class="s7">$descriptors </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">server </span><span class="s1">= </span><span class="s7">$server</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">descriptors </span><span class="s1">= </span><span class="s7">$descriptors </span><span class="s1">+ [</span>
+            <span class="s8">'cli' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">CliDescriptor</span><span class="s1">(</span><span class="s0">new </span><span class="s3">CliDumper</span><span class="s1">())</span><span class="s0">,</span>
+            <span class="s8">'html' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">HtmlDescriptor</span><span class="s1">(</span><span class="s0">new </span><span class="s3">HtmlDumper</span><span class="s1">())</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$availableFormats </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">descriptors</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">addOption</span><span class="s1">(</span><span class="s8">'format'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_REQUIRED</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The output format (%s)'</span><span class="s0">, </span><span class="s7">$availableFormats</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'cli'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setDescription</span><span class="s1">(</span><span class="s8">'Starts a dump server that collects and displays dumps in a single place'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setHelp</span><span class="s1">(</span><span class="s3">&lt;&lt;&lt;'EOF' 
+</span><span class="s8">&lt;info&gt;%command.name%&lt;/info&gt; starts a dump server that collects and displays 
+dumps in a single place for debugging you application: 
+ 
+  &lt;info&gt;php %command.full_name%&lt;/info&gt; 
+ 
+You can consult dumped data in HTML format in your browser by providing the &lt;comment&gt;--format=html&lt;/comment&gt; option 
+and redirecting the output to a file: 
+ 
+  &lt;info&gt;php %command.full_name% --format=&quot;html&quot; &gt; dump.html&lt;/info&gt; 
+</span>
+<span class="s3">EOF</span>
+            <span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$io </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SymfonyStyle</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$format </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'format'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$descriptor </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">descriptors</span><span class="s1">[</span><span class="s7">$format</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported format &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$format</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$errorIo </span><span class="s1">= </span><span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">getErrorStyle</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">title</span><span class="s1">(</span><span class="s8">'Symfony Var Dumper Server'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">success</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Server listening on %s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Quit the server with CONTROL-C.'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">listen</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s3">Data </span><span class="s7">$data</span><span class="s0">, array </span><span class="s7">$context</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$clientId</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$descriptor</span><span class="s0">, </span><span class="s7">$io</span><span class="s1">) {</span>
+            <span class="s7">$descriptor</span><span class="s1">-&gt;</span><span class="s3">describe</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$clientId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">})</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

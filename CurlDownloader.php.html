@@ -1,0 +1,231 @@
+<html>
+<head>
+<title>CurlDownloader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CurlDownloader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Downloader</span><span class="s1">\</span><span class="s3">TransportException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CurlDownloader</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$multiHandle</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$shareHandle</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$jobs </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$exceptions </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$options </span><span class="s1">= [</span>
+        <span class="s8">'http' </span><span class="s1">=&gt; [</span>
+            <span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s3">CURLOPT_CUSTOMREQUEST</span><span class="s0">,</span>
+            <span class="s8">'content' </span><span class="s1">=&gt; </span><span class="s3">CURLOPT_POSTFIELDS</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s8">'ssl' </span><span class="s1">=&gt; [</span>
+            <span class="s8">'cafile' </span><span class="s1">=&gt; </span><span class="s3">CURLOPT_CAINFO</span><span class="s0">,</span>
+            <span class="s8">'capath' </span><span class="s1">=&gt; </span><span class="s3">CURLOPT_CAPATH</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$timeInfo </span><span class="s1">= [</span>
+        <span class="s8">'total_time' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s8">'namelookup_time' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s8">'connect_time' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s8">'pretransfer_time' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s8">'starttransfer_time' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s8">'redirect_time' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle </span><span class="s1">= </span><span class="s7">$mh </span><span class="s1">= </span><span class="s3">curl_multi_init</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s3">curl_multi_setopt</span><span class="s1">(</span><span class="s7">$mh</span><span class="s0">, </span><span class="s3">CURLMOPT_PIPELINING</span><span class="s0">, </span><span class="s2">/*CURLPIPE_MULTIPLEX*/ </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'CURLMOPT_MAX_HOST_CONNECTIONS'</span><span class="s1">)) {</span>
+            <span class="s3">curl_multi_setopt</span><span class="s1">(</span><span class="s7">$mh</span><span class="s0">, </span><span class="s3">CURLMOPT_MAX_HOST_CONNECTIONS</span><span class="s0">, </span><span class="s9">8</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">shareHandle </span><span class="s1">= </span><span class="s7">$sh </span><span class="s1">= </span><span class="s3">curl_share_init</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s3">curl_share_setopt</span><span class="s1">(</span><span class="s7">$sh</span><span class="s0">, </span><span class="s3">CURLSHOPT_SHARE</span><span class="s0">, </span><span class="s3">CURL_LOCK_DATA_COOKIE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_share_setopt</span><span class="s1">(</span><span class="s7">$sh</span><span class="s0">, </span><span class="s3">CURLSHOPT_SHARE</span><span class="s0">, </span><span class="s3">CURL_LOCK_DATA_DNS</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_share_setopt</span><span class="s1">(</span><span class="s7">$sh</span><span class="s0">, </span><span class="s3">CURLSHOPT_SHARE</span><span class="s0">, </span><span class="s3">CURL_LOCK_DATA_SSL_SESSION</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s7">$origin</span><span class="s0">, </span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$params </span><span class="s1">= </span><span class="s3">stream_context_get_params</span><span class="s1">(</span><span class="s7">$context</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$ch </span><span class="s1">= </span><span class="s3">curl_init</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$hd </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">'php://temp/maxmemory:32768'</span><span class="s0">, </span><span class="s8">'w+b'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$file </span><span class="s1">&amp;&amp; !</span><span class="s7">$fd </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">.</span><span class="s8">'~'</span><span class="s0">, </span><span class="s8">'w+b'</span><span class="s1">)) {</span>
+            <span class="s7">$file </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$fd </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">'php://temp/maxmemory:524288'</span><span class="s0">, </span><span class="s8">'w+b'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">][</span><span class="s8">'http'</span><span class="s1">][</span><span class="s8">'header'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'Connection: close'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">][</span><span class="s8">'http'</span><span class="s1">][</span><span class="s8">'protocol_version'</span><span class="s1">])) {</span>
+            <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_HTTP_VERSION</span><span class="s0">, </span><span class="s3">CURL_HTTP_VERSION_1_0</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$headers</span><span class="s1">[] = </span><span class="s8">'Connection: keep-alive'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s8">'https://'</span><span class="s1">) &amp;&amp; \</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'CURL_VERSION_HTTP2'</span><span class="s1">) &amp;&amp; \</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'CURL_HTTP_VERSION_2_0'</span><span class="s1">) &amp;&amp; (</span><span class="s3">CURL_VERSION_HTTP2 </span><span class="s1">&amp; </span><span class="s3">curl_version</span><span class="s1">()[</span><span class="s8">'features'</span><span class="s1">])) {</span>
+                <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_HTTP_VERSION</span><span class="s0">, </span><span class="s3">CURL_HTTP_VERSION_2_0</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_URL</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_HTTPHEADER</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_FOLLOWLOCATION</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_DNS_USE_GLOBAL_CACHE</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_WRITEHEADER</span><span class="s0">, </span><span class="s7">$hd</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_FILE</span><span class="s0">, </span><span class="s7">$fd</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLOPT_SHARE</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">shareHandle</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$options </span><span class="s0">as </span><span class="s7">$type </span><span class="s1">=&gt; </span><span class="s7">$options</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$options </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$curlopt</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">][</span><span class="s7">$type</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">])) {</span>
+                    <span class="s3">curl_setopt</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s7">$curlopt</span><span class="s0">, </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">][</span><span class="s7">$type</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$progress </span><span class="s1">= </span><span class="s3">array_diff_key</span><span class="s1">(</span><span class="s3">curl_getinfo</span><span class="s1">(</span><span class="s7">$ch</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$timeInfo</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">] = [</span>
+            <span class="s8">'progress' </span><span class="s1">=&gt; </span><span class="s7">$progress</span><span class="s0">,</span>
+            <span class="s8">'ch' </span><span class="s1">=&gt; </span><span class="s7">$ch</span><span class="s0">,</span>
+            <span class="s8">'callback' </span><span class="s1">=&gt; </span><span class="s7">$params</span><span class="s1">[</span><span class="s8">'notification'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">,</span>
+            <span class="s8">'fd' </span><span class="s1">=&gt; </span><span class="s7">$fd</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s3">curl_multi_add_handle</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s0">, </span><span class="s7">$ch</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$params</span><span class="s1">[</span><span class="s8">'notification'</span><span class="s1">](</span><span class="s3">STREAM_NOTIFY_RESOLVE</span><span class="s0">, </span><span class="s3">STREAM_NOTIFY_SEVERITY_INFO</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$active </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">while </span><span class="s1">(</span><span class="s7">$active </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">])) {</span>
+                <span class="s3">curl_multi_exec</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s0">, </span><span class="s7">$active</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">curl_multi_select</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">while </span><span class="s1">(</span><span class="s7">$progress </span><span class="s1">= </span><span class="s3">curl_multi_info_read</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">= (int) </span><span class="s7">$h </span><span class="s1">= </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'handle'</span><span class="s1">]])) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$progress </span><span class="s1">= </span><span class="s3">array_diff_key</span><span class="s1">(</span><span class="s3">curl_getinfo</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$timeInfo</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$job </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s3">curl_multi_remove_handle</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s0">, </span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">try </span><span class="s1">{</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onProgress</span><span class="s1">(</span><span class="s7">$h</span><span class="s0">, </span><span class="s7">$job</span><span class="s1">[</span><span class="s8">'callback'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$progress</span><span class="s0">, </span><span class="s7">$job</span><span class="s1">[</span><span class="s8">'progress'</span><span class="s1">])</span><span class="s0">;</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s3">curl_error</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)) {</span>
+                            <span class="s0">throw new </span><span class="s3">TransportException</span><span class="s1">(</span><span class="s3">curl_error</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$job</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">] &amp;&amp; </span><span class="s3">CURLE_OK </span><span class="s1">=== </span><span class="s3">curl_errno</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])) {</span>
+                            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$job</span><span class="s1">[</span><span class="s8">'fd'</span><span class="s1">])</span><span class="s0">;</span>
+                            <span class="s3">rename</span><span class="s1">(</span><span class="s7">$job</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">].</span><span class="s8">'~'</span><span class="s0">, </span><span class="s7">$job</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">])</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TransportException </span><span class="s7">$e</span><span class="s1">) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$e</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$h</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$h </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'ch'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s7">$progress </span><span class="s1">= </span><span class="s3">array_diff_key</span><span class="s1">(</span><span class="s3">curl_getinfo</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$timeInfo</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'progress'</span><span class="s1">] !== </span><span class="s7">$progress</span><span class="s1">) {</span>
+                        <span class="s7">$previousProgress </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'progress'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'progress'</span><span class="s1">] = </span><span class="s7">$progress</span><span class="s0">;</span>
+                        <span class="s0">try </span><span class="s1">{</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onProgress</span><span class="s1">(</span><span class="s7">$h</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'callback'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$progress</span><span class="s0">, </span><span class="s7">$previousProgress</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TransportException </span><span class="s7">$e</span><span class="s1">) {</span>
+                            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">;</span>
+                            <span class="s3">curl_multi_remove_handle</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s0">, </span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$e</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s3">curl_error</span><span class="s1">(</span><span class="s7">$ch</span><span class="s1">) || </span><span class="s3">CURLE_OK </span><span class="s1">!== </span><span class="s3">curl_errno</span><span class="s1">(</span><span class="s7">$ch</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TransportException</span><span class="s1">(</span><span class="s3">curl_error</span><span class="s1">(</span><span class="s7">$ch</span><span class="s1">)</span><span class="s0">, </span><span class="s3">curl_getinfo</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, </span><span class="s3">CURLINFO_HTTP_CODE</span><span class="s1">) ?: </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">])) {</span>
+                <span class="s0">throw </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$file </span><span class="s1">&amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">])) {</span>
+                <span class="s7">$fd </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s8">'rb'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">jobs</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptions</span><span class="s1">[(int) </span><span class="s7">$ch</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s3">curl_multi_remove_handle</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiHandle</span><span class="s0">, </span><span class="s7">$ch</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">curl_close</span><span class="s1">(</span><span class="s7">$ch</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s3">rewind</span><span class="s1">(</span><span class="s7">$hd</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$headers </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\r\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s7">$hd</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$hd</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s3">rewind</span><span class="s1">(</span><span class="s7">$fd</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$contents </span><span class="s1">= </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s7">$fd</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$fd</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s7">$headers</span><span class="s0">, </span><span class="s7">$contents</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">onProgress</span><span class="s1">(</span><span class="s7">$ch</span><span class="s0">, callable </span><span class="s7">$notify</span><span class="s0">, array </span><span class="s7">$progress</span><span class="s0">, array </span><span class="s7">$previousProgress</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">300 </span><span class="s1">&lt;= </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">] &amp;&amp; </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">] &lt; </span><span class="s9">400</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$previousProgress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">] &amp;&amp; </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">] &amp;&amp; </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">] &lt; </span><span class="s9">200 </span><span class="s1">|| </span><span class="s9">400 </span><span class="s1">&lt;= </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">]) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s9">403 </span><span class="s1">=== </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">] ? </span><span class="s3">STREAM_NOTIFY_AUTH_RESULT </span><span class="s1">: </span><span class="s3">STREAM_NOTIFY_FAILURE</span><span class="s0">;</span>
+            <span class="s7">$notify</span><span class="s1">(</span><span class="s7">$code</span><span class="s0">, </span><span class="s3">STREAM_NOTIFY_SEVERITY_ERR</span><span class="s0">, </span><span class="s3">curl_error</span><span class="s1">(</span><span class="s7">$ch</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'http_code'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$previousProgress</span><span class="s1">[</span><span class="s8">'download_content_length'</span><span class="s1">] &lt; </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'download_content_length'</span><span class="s1">]) {</span>
+            <span class="s7">$notify</span><span class="s1">(</span><span class="s3">STREAM_NOTIFY_FILE_SIZE_IS</span><span class="s0">, </span><span class="s3">STREAM_NOTIFY_SEVERITY_INFO</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">(int) </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'download_content_length'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$previousProgress</span><span class="s1">[</span><span class="s8">'size_download'</span><span class="s1">] &lt; </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'size_download'</span><span class="s1">]) {</span>
+            <span class="s7">$notify</span><span class="s1">(</span><span class="s3">STREAM_NOTIFY_PROGRESS</span><span class="s0">, </span><span class="s3">STREAM_NOTIFY_SEVERITY_INFO</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">(int) </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'size_download'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">(int) </span><span class="s7">$progress</span><span class="s1">[</span><span class="s8">'download_content_length'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

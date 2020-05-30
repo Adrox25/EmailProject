@@ -1,0 +1,273 @@
+<html>
+<head>
+<title>LintCommand.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+LintCommand.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputOption</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Style</span><span class="s1">\</span><span class="s3">SymfonyStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParseException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Parser</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Validates YAML files syntax and outputs encountered errors.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Grégoire Pineau </span><span class="s6">&lt;lyrixx</span><span class="s4">@lyrixx.info&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Robin Chalas </span><span class="s6">&lt;robin.chalas</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">LintCommand </span><span class="s0">extends </span><span class="s3">Command</span>
+<span class="s1">{</span>
+    <span class="s0">protected static </span><span class="s7">$defaultName </span><span class="s1">= </span><span class="s8">'lint:yaml'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$parser</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$format</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$displayCorrectFiles</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$directoryIteratorProvider</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$isReadableProvider</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, callable </span><span class="s7">$directoryIteratorProvider </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, callable </span><span class="s7">$isReadableProvider </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directoryIteratorProvider </span><span class="s1">= </span><span class="s7">$directoryIteratorProvider</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isReadableProvider </span><span class="s1">= </span><span class="s7">$isReadableProvider</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">setDescription</span><span class="s1">(</span><span class="s8">'Lints a file and outputs encountered errors'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">addArgument</span><span class="s1">(</span><span class="s8">'filename'</span><span class="s0">, </span><span class="s3">InputArgument</span><span class="s1">::</span><span class="s3">IS_ARRAY</span><span class="s0">, </span><span class="s8">'A file, a directory or &quot;-&quot; for reading from STDIN'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">addOption</span><span class="s1">(</span><span class="s8">'format'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_REQUIRED</span><span class="s0">, </span><span class="s8">'The output format'</span><span class="s0">, </span><span class="s8">'txt'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">addOption</span><span class="s1">(</span><span class="s8">'parse-tags'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_NONE</span><span class="s0">, </span><span class="s8">'Parse custom tags'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setHelp</span><span class="s1">(</span><span class="s3">&lt;&lt;&lt;EOF 
+</span><span class="s8">The &lt;info&gt;%command.name%&lt;/info&gt; command lints a YAML file and outputs to STDOUT 
+the first encountered syntax error. 
+ 
+You can validates YAML contents passed from STDIN: 
+ 
+  &lt;info&gt;cat filename | php %command.full_name% -&lt;/info&gt; 
+ 
+You can also validate the syntax of a file: 
+ 
+  &lt;info&gt;php %command.full_name% filename&lt;/info&gt; 
+ 
+Or of a whole directory: 
+ 
+  &lt;info&gt;php %command.full_name% dirname&lt;/info&gt; 
+  &lt;info&gt;php %command.full_name% dirname --format=json&lt;/info&gt; 
+</span>
+<span class="s3">EOF</span>
+            <span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$io </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SymfonyStyle</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$filenames </span><span class="s1">= (array) </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s8">'filename'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'format'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayCorrectFiles </span><span class="s1">= </span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$flags </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'parse-tags'</span><span class="s1">) ? </span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CUSTOM_TAGS </span><span class="s1">: </span><span class="s9">0</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">([</span><span class="s8">'-'</span><span class="s1">] === </span><span class="s7">$filenames</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validate</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s8">'php://stdin'</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$filenames</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'Please provide a filename or pipe file content to STDIN.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$filesInfo </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$filenames </span><span class="s0">as </span><span class="s7">$filename</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isReadable</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'File or directory &quot;%s&quot; is not readable.'</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFiles</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+                <span class="s7">$filesInfo</span><span class="s1">[] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validate</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$flags</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s7">$filesInfo</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">validate</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$content</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$flags</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prevErrorHandler </span><span class="s1">= </span><span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$level</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$prevErrorHandler</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">E_USER_DEPRECATED </span><span class="s1">=== </span><span class="s7">$level</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getParser</span><span class="s1">()-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$prevErrorHandler </span><span class="s1">? </span><span class="s7">$prevErrorHandler</span><span class="s1">(</span><span class="s7">$level</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">) : </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getParser</span><span class="s1">()-&gt;</span><span class="s3">parse</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CONSTANT </span><span class="s1">| </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[</span><span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">, </span><span class="s8">'line' </span><span class="s1">=&gt; </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getParsedLine</span><span class="s1">()</span><span class="s0">, </span><span class="s8">'valid' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s0">, </span><span class="s8">'message' </span><span class="s1">=&gt; </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">, </span><span class="s8">'valid' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">display</span><span class="s1">(</span><span class="s3">SymfonyStyle </span><span class="s7">$io</span><span class="s0">, array </span><span class="s7">$files</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">switch </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s8">'txt'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayTxt</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s7">$files</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">'json'</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayJson</span><span class="s1">(</span><span class="s7">$io</span><span class="s0">, </span><span class="s7">$files</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The format &quot;%s&quot; is not supported.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">displayTxt</span><span class="s1">(</span><span class="s3">SymfonyStyle </span><span class="s7">$io</span><span class="s0">, array </span><span class="s7">$filesInfo</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$countFiles </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$filesInfo</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$erroredFiles </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$suggestTagOption </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$filesInfo </span><span class="s0">as </span><span class="s7">$info</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'valid'</span><span class="s1">] &amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayCorrectFiles</span><span class="s1">) {</span>
+                <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'&lt;info&gt;OK&lt;/info&gt;'</span><span class="s1">.(</span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">] ? </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' in %s'</span><span class="s0">, </span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]) : </span><span class="s8">''</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'valid'</span><span class="s1">]) {</span>
+                <span class="s1">++</span><span class="s7">$erroredFiles</span><span class="s0">;</span>
+                <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s8">'&lt;error&gt; ERROR &lt;/error&gt;'</span><span class="s1">.(</span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">] ? </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' in %s'</span><span class="s0">, </span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]) : </span><span class="s8">''</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;error&gt; &gt;&gt; %s&lt;/error&gt;'</span><span class="s0">, </span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]))</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$info</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'PARSE_CUSTOM_TAGS'</span><span class="s1">)) {</span>
+                    <span class="s7">$suggestTagOption </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$erroredFiles</span><span class="s1">) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">success</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'All %d YAML files contain valid syntax.'</span><span class="s0">, </span><span class="s7">$countFiles</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">warning</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%d YAML files have valid syntax and %d contain errors.%s'</span><span class="s0">, </span><span class="s7">$countFiles </span><span class="s1">- </span><span class="s7">$erroredFiles</span><span class="s0">, </span><span class="s7">$erroredFiles</span><span class="s0">, </span><span class="s7">$suggestTagOption </span><span class="s1">? </span><span class="s8">' Use the --parse-tags option if you want parse custom tags.' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">min</span><span class="s1">(</span><span class="s7">$erroredFiles</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">displayJson</span><span class="s1">(</span><span class="s3">SymfonyStyle </span><span class="s7">$io</span><span class="s0">, array </span><span class="s7">$filesInfo</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$errors </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+        <span class="s3">array_walk</span><span class="s1">(</span><span class="s7">$filesInfo</span><span class="s0">, function </span><span class="s1">(&amp;</span><span class="s7">$v</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$errors</span><span class="s1">) {</span>
+            <span class="s7">$v</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">] = (string) </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'valid'</span><span class="s1">]) {</span>
+                <span class="s1">++</span><span class="s7">$errors</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'PARSE_CUSTOM_TAGS'</span><span class="s1">)) {</span>
+                <span class="s7">$v</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">] .= </span><span class="s8">' Use the --parse-tags option if you want parse custom tags.'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$filesInfo</span><span class="s0">, </span><span class="s3">JSON_PRETTY_PRINT </span><span class="s1">| </span><span class="s3">JSON_UNESCAPED_SLASHES</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">min</span><span class="s1">(</span><span class="s7">$errors</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getFiles</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$fileOrDirectory</span><span class="s1">): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$fileOrDirectory</span><span class="s1">)) {</span>
+            <span class="s0">yield new </span><span class="s1">\</span><span class="s3">SplFileInfo</span><span class="s1">(</span><span class="s7">$fileOrDirectory</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDirectoryIterator</span><span class="s1">(</span><span class="s7">$fileOrDirectory</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getExtension</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'yml'</span><span class="s0">, </span><span class="s8">'yaml'</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">yield </span><span class="s7">$file</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getParser</span><span class="s1">(): </span><span class="s3">Parser</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parser</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parser </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Parser</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parser</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getDirectoryIterator</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$directory</span><span class="s1">): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s7">$default </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">) {</span>
+            <span class="s0">return new </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">(</span>
+                <span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">(</span><span class="s7">$directory</span><span class="s0">, </span><span class="s1">\</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS </span><span class="s1">| \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">FOLLOW_SYMLINKS</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">::</span><span class="s3">LEAVES_ONLY</span>
+            <span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directoryIteratorProvider</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directoryIteratorProvider</span><span class="s1">)(</span><span class="s7">$directory</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$default</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">isReadable</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$fileOrDirectory</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$default </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s7">$fileOrDirectory</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">is_readable</span><span class="s1">(</span><span class="s7">$fileOrDirectory</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isReadableProvider</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isReadableProvider</span><span class="s1">)(</span><span class="s7">$fileOrDirectory</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$default</span><span class="s1">(</span><span class="s7">$fileOrDirectory</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

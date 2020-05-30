@@ -1,0 +1,277 @@
+<html>
+<head>
+<title>GraphvizDumper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+GraphvizDumper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ArgumentInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParameterNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Parameter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* GraphvizDumper dumps a service container as a graphviz file.</span>
+ <span class="s4">*</span>
+ <span class="s4">* You can convert the generated dot file with the dot utility (http://www.graphviz.org/):</span>
+ <span class="s4">*</span>
+ <span class="s4">*   dot -Tpng container.dot &gt; foo.png</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">GraphvizDumper </span><span class="s0">extends </span><span class="s3">Dumper</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$nodes</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$edges</span><span class="s0">;</span>
+    <span class="s2">// All values should be strings</span>
+    <span class="s0">private </span><span class="s7">$options </span><span class="s1">= [</span>
+            <span class="s8">'graph' </span><span class="s1">=&gt; [</span><span class="s8">'ratio' </span><span class="s1">=&gt; </span><span class="s8">'compress'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">'node' </span><span class="s1">=&gt; [</span><span class="s8">'fontsize' </span><span class="s1">=&gt; </span><span class="s8">'11'</span><span class="s0">, </span><span class="s8">'fontname' </span><span class="s1">=&gt; </span><span class="s8">'Arial'</span><span class="s0">, </span><span class="s8">'shape' </span><span class="s1">=&gt; </span><span class="s8">'record'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">'edge' </span><span class="s1">=&gt; [</span><span class="s8">'fontsize' </span><span class="s1">=&gt; </span><span class="s8">'9'</span><span class="s0">, </span><span class="s8">'fontname' </span><span class="s1">=&gt; </span><span class="s8">'Arial'</span><span class="s0">, </span><span class="s8">'color' </span><span class="s1">=&gt; </span><span class="s8">'grey'</span><span class="s0">, </span><span class="s8">'arrowhead' </span><span class="s1">=&gt; </span><span class="s8">'open'</span><span class="s0">, </span><span class="s8">'arrowsize' </span><span class="s1">=&gt; </span><span class="s8">'0.5'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">'node.instance' </span><span class="s1">=&gt; [</span><span class="s8">'fillcolor' </span><span class="s1">=&gt; </span><span class="s8">'#9999ff'</span><span class="s0">, </span><span class="s8">'style' </span><span class="s1">=&gt; </span><span class="s8">'filled'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">'node.definition' </span><span class="s1">=&gt; [</span><span class="s8">'fillcolor' </span><span class="s1">=&gt; </span><span class="s8">'#eeeeee'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">'node.missing' </span><span class="s1">=&gt; [</span><span class="s8">'fillcolor' </span><span class="s1">=&gt; </span><span class="s8">'#ff9999'</span><span class="s0">, </span><span class="s8">'style' </span><span class="s1">=&gt; </span><span class="s8">'filled'</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps the service container as a graphviz graph.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Available options:</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * graph: The default options for the whole graph</span>
+     <span class="s4">*  * node: The default options for nodes</span>
+     <span class="s4">*  * edge: The default options for edges</span>
+     <span class="s4">*  * node.instance: The default options for services that are defined directly by object instances</span>
+     <span class="s4">*  * node.definition: The default options for services that are defined via service definition instances</span>
+     <span class="s4">*  * node.missing: The default options for missing services</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The dot representation of the service container</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dump</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'graph'</span><span class="s0">, </span><span class="s8">'node'</span><span class="s0">, </span><span class="s8">'edge'</span><span class="s0">, </span><span class="s8">'node.instance'</span><span class="s0">, </span><span class="s8">'node.definition'</span><span class="s0">, </span><span class="s8">'node.missing'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodes </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findNodes</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">edges </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">edges</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s8">''</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">()</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">''</span><span class="s1">)</span>
+            <span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$call</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">edges</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">edges</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">]</span><span class="s0">,</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">].</span><span class="s8">'()'</span><span class="s1">)</span>
+                <span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">resolveEnvPlaceholders</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startDot</span><span class="s1">().</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addNodes</span><span class="s1">().</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addEdges</span><span class="s1">().</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endDot</span><span class="s1">()</span><span class="s0">, </span><span class="s8">'__ENV_%s__'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addNodes</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodes </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$node</span><span class="s1">) {</span>
+            <span class="s7">$aliases </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getAliases</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;  node_%s [label=</span><span class="s0">\&quot;</span><span class="s8">%s</span><span class="s0">\\</span><span class="s8">n%s</span><span class="s0">\\</span><span class="s8">n</span><span class="s0">\&quot;</span><span class="s8">, shape=%s%s];</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dotize</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">.(</span><span class="s7">$aliases </span><span class="s1">? </span><span class="s8">' ('</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$aliases</span><span class="s1">).</span><span class="s8">')' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$node</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'node'</span><span class="s1">][</span><span class="s8">'shape'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addAttributes</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">[</span><span class="s8">'attributes'</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$code</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addEdges</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">edges </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$edges</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$edges </span><span class="s0">as </span><span class="s7">$edge</span><span class="s1">) {</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;  node_%s -&gt; node_%s [label=</span><span class="s0">\&quot;</span><span class="s8">%s</span><span class="s0">\&quot; </span><span class="s8">style=</span><span class="s0">\&quot;</span><span class="s8">%s</span><span class="s0">\&quot;</span><span class="s8">%s];</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dotize</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dotize</span><span class="s1">(</span><span class="s7">$edge</span><span class="s1">[</span><span class="s8">'to'</span><span class="s1">])</span><span class="s0">, </span><span class="s7">$edge</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$edge</span><span class="s1">[</span><span class="s8">'required'</span><span class="s1">] ? </span><span class="s8">'filled' </span><span class="s1">: </span><span class="s8">'dashed'</span><span class="s0">, </span><span class="s7">$edge</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">] ? </span><span class="s8">' color=&quot;#9999ff&quot;' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$code</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finds all edges belonging to a specific service id.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">findEdges</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, array </span><span class="s7">$arguments</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$required</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$lazy </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$edges </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$arguments </span><span class="s0">as </span><span class="s7">$argument</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">Parameter</span><span class="s1">) {</span>
+                <span class="s7">$argument </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^%([^%]+)%$/'</span><span class="s0">, </span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$match</span><span class="s1">)) {</span>
+                <span class="s7">$argument </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+                <span class="s7">$lazyEdge </span><span class="s1">= </span><span class="s7">$lazy</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">((string) </span><span class="s7">$argument</span><span class="s1">)) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodes</span><span class="s1">[(string) </span><span class="s7">$argument</span><span class="s1">] = [</span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s7">$name</span><span class="s0">, </span><span class="s8">'required' </span><span class="s1">=&gt; </span><span class="s7">$required</span><span class="s0">, </span><span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">, </span><span class="s8">'attributes' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'node.missing'</span><span class="s1">]]</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'service_container' </span><span class="s1">!== (string) </span><span class="s7">$argument</span><span class="s1">) {</span>
+                    <span class="s7">$lazyEdge </span><span class="s1">= </span><span class="s7">$lazy </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">((string) </span><span class="s7">$argument</span><span class="s1">)-&gt;</span><span class="s3">isLazy</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$edges</span><span class="s1">[] = [</span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s7">$name</span><span class="s0">, </span><span class="s8">'required' </span><span class="s1">=&gt; </span><span class="s7">$required</span><span class="s0">, </span><span class="s8">'to' </span><span class="s1">=&gt; </span><span class="s7">$argument</span><span class="s0">, </span><span class="s8">'lazy' </span><span class="s1">=&gt; </span><span class="s7">$lazyEdge</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">ArgumentInterface</span><span class="s1">) {</span>
+                <span class="s7">$edges </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$edges</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">-&gt;</span><span class="s3">getValues</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$required</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+                <span class="s7">$edges </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$edges</span><span class="s0">,</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$required</span><span class="s0">, </span><span class="s8">''</span><span class="s1">)</span><span class="s0">,</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">()</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">''</span><span class="s1">)</span>
+                <span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$call</span><span class="s1">) {</span>
+                    <span class="s7">$edges </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$edges</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">].</span><span class="s8">'()'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)) {</span>
+                <span class="s7">$edges </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$edges</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findEdges</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$required</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$lazy</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$edges</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">findNodes</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$nodes </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s7">$container </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloneContainer</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">) {</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)) {</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParameterNotFoundException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$nodes</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = [</span><span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\\\</span><span class="s8">'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'attributes' </span><span class="s1">=&gt; </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'node.definition'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'style' </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">() ? </span><span class="s8">'filled' </span><span class="s1">: </span><span class="s8">'dotted'</span><span class="s1">])]</span><span class="s0">;</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, new </span><span class="s3">Definition</span><span class="s1">(</span><span class="s8">'stdClass'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getServiceIds</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getAliases</span><span class="s1">())) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)) {</span>
+                <span class="s7">$nodes</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = [</span><span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\\\</span><span class="s8">'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)))</span><span class="s0">, </span><span class="s8">'attributes' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'node.instance'</span><span class="s1">]]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$nodes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">cloneContainer</span><span class="s1">(): </span><span class="s3">ContainerBuilder</span>
+    <span class="s1">{</span>
+        <span class="s7">$parameterBag </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ParameterBag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">all</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$container </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ContainerBuilder</span><span class="s1">(</span><span class="s7">$parameterBag</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setDefinitions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setAliases</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getAliases</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setResources</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getResources</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getExtensions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$extension</span><span class="s1">) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">registerExtension</span><span class="s1">(</span><span class="s7">$extension</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">startDot</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;digraph sc {</span><span class="s0">\n  </span><span class="s8">%s</span><span class="s0">\n  </span><span class="s8">node [%s];</span><span class="s0">\n  </span><span class="s8">edge [%s];</span><span class="s0">\n\n</span><span class="s8">&quot;</span><span class="s0">,</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addOptions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'graph'</span><span class="s1">])</span><span class="s0">,</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addOptions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'node'</span><span class="s1">])</span><span class="s0">,</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addOptions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'edge'</span><span class="s1">])</span>
+        <span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">endDot</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">&quot;}</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addAttributes</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$attributes</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$attributes </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s7">$code</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s=&quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$code </span><span class="s1">? </span><span class="s8">', '</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">) : </span><span class="s8">''</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addOptions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$options</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$options </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s7">$code</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s=&quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">' '</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">dotize</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/\W/i'</span><span class="s0">, </span><span class="s8">'_'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getAliases</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$aliases </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getAliases</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$alias </span><span class="s1">=&gt; </span><span class="s7">$origin</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$id </span><span class="s1">== </span><span class="s7">$origin</span><span class="s1">) {</span>
+                <span class="s7">$aliases</span><span class="s1">[] = </span><span class="s7">$alias</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$aliases</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

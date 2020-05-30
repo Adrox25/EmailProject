@@ -1,0 +1,124 @@
+<html>
+<head>
+<title>DecoratorServicePass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DecoratorServicePass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Alias</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ServiceNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Overwrites a service but keeps the overridden one.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Christophe Coevoet </span><span class="s6">&lt;stof</span><span class="s4">@notk.org&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Diego Saint Esteben </span><span class="s6">&lt;diego</span><span class="s4">@saintesteben.me&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DecoratorServicePass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$definitions </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplPriorityQueue</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$order </span><span class="s1">= </span><span class="s3">PHP_INT_MAX</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$decorated </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getDecoratedService</span><span class="s1">()) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s7">$definitions</span><span class="s1">-&gt;</span><span class="s3">insert</span><span class="s1">([</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$decorated</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">, </span><span class="s1">--</span><span class="s7">$order</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$decoratingDefinitions </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definitions </span><span class="s0">as list</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">)) {</span>
+            <span class="s7">$decoratedService </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getDecoratedService</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$inner</span><span class="s0">, </span><span class="s7">$renamedId</span><span class="s1">) = </span><span class="s7">$decoratedService</span><span class="s0">;</span>
+            <span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s7">$decoratedService</span><span class="s1">[</span><span class="s8">3</span><span class="s1">] ?? </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setDecoratedService</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$renamedId</span><span class="s1">) {</span>
+                <span class="s7">$renamedId </span><span class="s1">= </span><span class="s7">$id</span><span class="s1">.</span><span class="s9">'.inner'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">innerServiceId </span><span class="s1">= </span><span class="s7">$renamedId</span><span class="s0">;</span>
+            <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">decorationOnInvalid </span><span class="s1">= </span><span class="s7">$invalidBehavior</span><span class="s0">;</span>
+
+            <span class="s2">// we create a new alias/service for the service we are replacing</span>
+            <span class="s2">// to be able to reference it in the new one</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasAlias</span><span class="s1">(</span><span class="s7">$inner</span><span class="s1">)) {</span>
+                <span class="s7">$alias </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">(</span><span class="s7">$inner</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$public </span><span class="s1">= </span><span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$private </span><span class="s1">= </span><span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">(</span><span class="s7">$renamedId</span><span class="s0">, new </span><span class="s3">Alias</span><span class="s1">((string) </span><span class="s7">$alias</span><span class="s0">, </span><span class="s3">false</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$inner</span><span class="s1">)) {</span>
+                <span class="s7">$decoratedDefinition </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$inner</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$public </span><span class="s1">= </span><span class="s7">$decoratedDefinition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$private </span><span class="s1">= </span><span class="s7">$decoratedDefinition</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$decoratedDefinition</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$renamedId</span><span class="s0">, </span><span class="s7">$decoratedDefinition</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$decoratingDefinitions</span><span class="s1">[</span><span class="s7">$inner</span><span class="s1">] = </span><span class="s7">$decoratedDefinition</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_INVALID_REFERENCE </span><span class="s1">=== </span><span class="s7">$invalidBehavior</span><span class="s1">) {</span>
+                <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">removeDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">NULL_ON_INVALID_REFERENCE </span><span class="s1">=== </span><span class="s7">$invalidBehavior</span><span class="s1">) {</span>
+                <span class="s7">$public </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$private </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">ServiceNotFoundException</span><span class="s1">(</span><span class="s7">$inner</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$decoratingDefinitions</span><span class="s1">[</span><span class="s7">$inner</span><span class="s1">])) {</span>
+                <span class="s7">$decoratingDefinition </span><span class="s1">= </span><span class="s7">$decoratingDefinitions</span><span class="s1">[</span><span class="s7">$inner</span><span class="s1">]</span><span class="s0">;</span>
+
+                <span class="s7">$decoratingTags </span><span class="s1">= </span><span class="s7">$decoratingDefinition</span><span class="s1">-&gt;</span><span class="s3">getTags</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$resetTags </span><span class="s1">= []</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$decoratingTags</span><span class="s1">[</span><span class="s9">'container.service_locator'</span><span class="s1">])) {</span>
+                    <span class="s2">// container.service_locator has special logic and it must not be transferred out to decorators</span>
+                    <span class="s7">$resetTags </span><span class="s1">= [</span><span class="s9">'container.service_locator' </span><span class="s1">=&gt; </span><span class="s7">$decoratingTags</span><span class="s1">[</span><span class="s9">'container.service_locator'</span><span class="s1">]]</span><span class="s0">;</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$decoratingTags</span><span class="s1">[</span><span class="s9">'container.service_locator'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setTags</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$decoratingTags</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getTags</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s7">$decoratingDefinition</span><span class="s1">-&gt;</span><span class="s3">setTags</span><span class="s1">(</span><span class="s7">$resetTags</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$decoratingDefinitions</span><span class="s1">[</span><span class="s7">$inner</span><span class="s1">] = </span><span class="s7">$definition</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">(</span><span class="s7">$inner</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$public</span><span class="s1">)-&gt;</span><span class="s3">setPrivate</span><span class="s1">(</span><span class="s7">$private</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

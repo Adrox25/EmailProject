@@ -1,0 +1,101 @@
+<html>
+<head>
+<title>CheckCircularReferencesPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CheckCircularReferencesPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ServiceCircularReferenceException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Checks your services for circular references.</span>
+ <span class="s4">*</span>
+ <span class="s4">* References from method calls are ignored since we might be able to resolve</span>
+ <span class="s4">* these references depending on the order in which services are called.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Circular reference from method calls will only be detected at run-time.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CheckCircularReferencesPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$currentPath</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$checkedNodes</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks the ContainerBuilder object for circular references.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$graph </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getCompiler</span><span class="s1">()-&gt;</span><span class="s3">getServiceReferenceGraph</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">checkedNodes </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$graph</span><span class="s1">-&gt;</span><span class="s3">getNodes</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$node</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath </span><span class="s1">= [</span><span class="s7">$id</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">checkOutEdges</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getOutEdges</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks for circular references.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">ServiceReferenceGraphEdge[] $edges An array of Edges</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ServiceCircularReferenceException when a circular reference is found</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">checkOutEdges</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$edges</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$edges </span><span class="s0">as </span><span class="s7">$edge</span><span class="s1">) {</span>
+            <span class="s7">$node </span><span class="s1">= </span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">getDestNode</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$id </span><span class="s1">= </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getId</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">checkedNodes</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">])) {</span>
+                <span class="s2">// Don't check circular references for lazy edges</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">() || (!</span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">() &amp;&amp; !</span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isWeak</span><span class="s1">())) {</span>
+                    <span class="s7">$searchKey </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s1">[] = </span><span class="s7">$id</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$searchKey</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">ServiceCircularReferenceException</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s0">, </span><span class="s7">$searchKey</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">checkOutEdges</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getOutEdges</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">checkedNodes</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

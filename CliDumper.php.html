@@ -1,0 +1,661 @@
+<html>
+<head>
+<title>CliDumper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CliDumper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Cursor</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* CliDumper dumps variables for command line output.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CliDumper </span><span class="s0">extends </span><span class="s3">AbstractDumper</span>
+<span class="s1">{</span>
+    <span class="s0">public static </span><span class="s7">$defaultColors</span><span class="s0">;</span>
+    <span class="s0">public static </span><span class="s7">$defaultOutput </span><span class="s1">= </span><span class="s8">'php://stdout'</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$colors</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$maxStringWidth </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$styles </span><span class="s1">= [</span>
+        <span class="s2">// See http://en.wikipedia.org/wiki/ANSI_escape_code#graphics</span>
+        <span class="s8">'default' </span><span class="s1">=&gt; </span><span class="s8">'0;38;5;208'</span><span class="s0">,</span>
+        <span class="s8">'num' </span><span class="s1">=&gt; </span><span class="s8">'1;38;5;38'</span><span class="s0">,</span>
+        <span class="s8">'const' </span><span class="s1">=&gt; </span><span class="s8">'1;38;5;208'</span><span class="s0">,</span>
+        <span class="s8">'str' </span><span class="s1">=&gt; </span><span class="s8">'1;38;5;113'</span><span class="s0">,</span>
+        <span class="s8">'note' </span><span class="s1">=&gt; </span><span class="s8">'38;5;38'</span><span class="s0">,</span>
+        <span class="s8">'ref' </span><span class="s1">=&gt; </span><span class="s8">'38;5;247'</span><span class="s0">,</span>
+        <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">,</span>
+        <span class="s8">'protected' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">,</span>
+        <span class="s8">'private' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">,</span>
+        <span class="s8">'meta' </span><span class="s1">=&gt; </span><span class="s8">'38;5;170'</span><span class="s0">,</span>
+        <span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s8">'38;5;113'</span><span class="s0">,</span>
+        <span class="s8">'index' </span><span class="s1">=&gt; </span><span class="s8">'38;5;38'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">protected static </span><span class="s7">$controlCharsRx </span><span class="s1">= </span><span class="s8">'/[\x00-\x1F\x7F]+/'</span><span class="s0">;</span>
+    <span class="s0">protected static </span><span class="s7">$controlCharsMap </span><span class="s1">= [</span>
+        <span class="s8">&quot;</span><span class="s0">\t</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'\t'</span><span class="s0">,</span>
+        <span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'\n'</span><span class="s0">,</span>
+        <span class="s8">&quot;</span><span class="s0">\v</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'\v'</span><span class="s0">,</span>
+        <span class="s8">&quot;</span><span class="s0">\f</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'\f'</span><span class="s0">,</span>
+        <span class="s8">&quot;</span><span class="s0">\r</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'\r'</span><span class="s0">,</span>
+        <span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'\e'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$collapseNextHash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$expandNextHash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$displayOptions </span><span class="s1">= [</span>
+        <span class="s8">'fileLinkFormat' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$handlesHrefGracefully</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$output </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$charset </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$charset</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">&amp;&amp; !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isWindowsTrueColor</span><span class="s1">()) {</span>
+            <span class="s2">// Use only the base 16 xterm colors when using ANSICON or standard Windows 10 CLI</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyles</span><span class="s1">([</span>
+                <span class="s8">'default' </span><span class="s1">=&gt; </span><span class="s8">'31'</span><span class="s0">,</span>
+                <span class="s8">'num' </span><span class="s1">=&gt; </span><span class="s8">'1;34'</span><span class="s0">,</span>
+                <span class="s8">'const' </span><span class="s1">=&gt; </span><span class="s8">'1;31'</span><span class="s0">,</span>
+                <span class="s8">'str' </span><span class="s1">=&gt; </span><span class="s8">'1;32'</span><span class="s0">,</span>
+                <span class="s8">'note' </span><span class="s1">=&gt; </span><span class="s8">'34'</span><span class="s0">,</span>
+                <span class="s8">'ref' </span><span class="s1">=&gt; </span><span class="s8">'1;30'</span><span class="s0">,</span>
+                <span class="s8">'meta' </span><span class="s1">=&gt; </span><span class="s8">'35'</span><span class="s0">,</span>
+                <span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s8">'32'</span><span class="s0">,</span>
+                <span class="s8">'index' </span><span class="s1">=&gt; </span><span class="s8">'34'</span><span class="s0">,</span>
+            <span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s1">[</span><span class="s8">'fileLinkFormat'</span><span class="s1">] = </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'xdebug.file_link_format'</span><span class="s1">) ?: </span><span class="s3">get_cfg_var</span><span class="s1">(</span><span class="s8">'xdebug.file_link_format'</span><span class="s1">) ?: </span><span class="s8">'file://%f#L%l'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Enables/disables colored output.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setColors</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$colors</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors </span><span class="s1">= </span><span class="s7">$colors</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the maximum number of characters per line for dumped strings.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMaxStringWidth</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$maxStringWidth</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxStringWidth </span><span class="s1">= </span><span class="s7">$maxStringWidth</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Configures styles.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $styles A map of style names to style definitions</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setStyles</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$styles</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles </span><span class="s1">= </span><span class="s7">$styles </span><span class="s1">+ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Configures display options.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $displayOptions A map of display options to customize the behavior</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDisplayOptions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$displayOptions</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions </span><span class="s1">= </span><span class="s7">$displayOptions </span><span class="s1">+ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dumpScalar</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpKey</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$style </span><span class="s1">= </span><span class="s8">'const'</span><span class="s0">;</span>
+        <span class="s7">$attr </span><span class="s1">= </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s0">;</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s8">'default'</span><span class="s1">:</span>
+                <span class="s7">$style </span><span class="s1">= </span><span class="s8">'default'</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+
+            <span class="s0">case </span><span class="s8">'integer'</span><span class="s1">:</span>
+                <span class="s7">$style </span><span class="s1">= </span><span class="s8">'num'</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+
+            <span class="s0">case </span><span class="s8">'double'</span><span class="s1">:</span>
+                <span class="s7">$style </span><span class="s1">= </span><span class="s8">'num'</span><span class="s0">;</span>
+
+                <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+                    <span class="s0">case </span><span class="s3">INF </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">:  </span><span class="s7">$value </span><span class="s1">= </span><span class="s8">'INF'</span><span class="s0">; break;</span>
+                    <span class="s0">case </span><span class="s1">-</span><span class="s3">INF </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">: </span><span class="s7">$value </span><span class="s1">= </span><span class="s8">'-INF'</span><span class="s0">; break;</span>
+                    <span class="s0">case </span><span class="s3">is_nan</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">):  </span><span class="s7">$value </span><span class="s1">= </span><span class="s8">'NAN'</span><span class="s0">; break;</span>
+                    <span class="s0">default</span><span class="s1">:</span>
+                        <span class="s7">$value </span><span class="s1">= (string) </span><span class="s7">$value</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decimalPoint</span><span class="s1">)) {</span>
+                            <span class="s7">$value </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decimalPoint</span><span class="s1">.</span><span class="s8">'0'</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">break;</span>
+                <span class="s1">}</span>
+                <span class="s0">break;</span>
+
+            <span class="s0">case </span><span class="s8">'NULL'</span><span class="s1">:</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s8">'null'</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+
+            <span class="s0">case </span><span class="s8">'boolean'</span><span class="s1">:</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$value </span><span class="s1">? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s7">$attr </span><span class="s1">+= [</span><span class="s8">'value' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)]</span><span class="s0">;</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endValue</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dumpString</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$str</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$bin</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$cut</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpKey</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$attr </span><span class="s1">= </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$bin</span><span class="s1">) {</span>
+            <span class="s7">$str </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$str</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&quot;&quot;'</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endValue</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$attr </span><span class="s1">+= [</span>
+                <span class="s8">'length' </span><span class="s1">=&gt; </span><span class="s9">0 </span><span class="s1">&lt;= </span><span class="s7">$cut </span><span class="s1">? </span><span class="s3">mb_strlen</span><span class="s1">(</span><span class="s7">$str</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">) + </span><span class="s7">$cut </span><span class="s1">: </span><span class="s9">0</span><span class="s0">,</span>
+                <span class="s8">'binary' </span><span class="s1">=&gt; </span><span class="s7">$bin</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$str </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$str</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">[</span><span class="s9">1</span><span class="s1">][</span><span class="s9">0</span><span class="s1">])) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$str</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] .= </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$m </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s7">$i </span><span class="s1">= </span><span class="s7">$lineCut </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">DUMP_STRING_LENGTH </span><span class="s1">&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flags</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'('</span><span class="s1">.</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'length'</span><span class="s1">].</span><span class="s8">') '</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$bin</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'b'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$m</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&quot;&quot;&quot;'</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&quot;'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$str </span><span class="s0">as </span><span class="s7">$str</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$m</span><span class="s1">) {</span>
+                    <span class="s7">$str </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxStringWidth </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxStringWidth </span><span class="s1">&lt; </span><span class="s7">$len </span><span class="s1">= </span><span class="s3">mb_strlen</span><span class="s1">(</span><span class="s7">$str</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)) {</span>
+                    <span class="s7">$str </span><span class="s1">= </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s7">$str</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxStringWidth</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$lineCut </span><span class="s1">= </span><span class="s7">$len </span><span class="s1">- </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxStringWidth</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$m </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indentPad</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$str</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'str'</span><span class="s0">, </span><span class="s7">$str</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$i</span><span class="s1">++ == </span><span class="s7">$m</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$m</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$str</span><span class="s1">) {</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">) {</span>
+                                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indentPad</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">}</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&quot;&quot;&quot;'</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&quot;'</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$cut </span><span class="s1">&lt; </span><span class="s9">0</span><span class="s1">) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'…'</span><span class="s0">;</span>
+                        <span class="s7">$lineCut </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$cut</span><span class="s1">) {</span>
+                        <span class="s7">$lineCut </span><span class="s1">+= </span><span class="s7">$cut</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$lineCut</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'…'</span><span class="s1">.</span><span class="s7">$lineCut</span><span class="s0">;</span>
+                    <span class="s7">$lineCut </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">&gt; </span><span class="s7">$m</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endValue</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">enterHash</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$hasChild</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpKey</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$attr </span><span class="s1">= </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collapseNextHash</span><span class="s1">) {</span>
+            <span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">skipChildren </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collapseNextHash </span><span class="s1">= </span><span class="s7">$hasChild </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$class </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_OBJECT </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s7">$class </span><span class="s1">&amp;&amp; </span><span class="s8">'stdClass' </span><span class="s1">!== </span><span class="s7">$class </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'note'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">).(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'cut_hash'</span><span class="s1">]) ? </span><span class="s8">' {' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">) : </span><span class="s8">'{'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_RESOURCE </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'note'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">.</span><span class="s8">' resource'</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">).(</span><span class="s7">$hasChild </span><span class="s1">? </span><span class="s8">' {' </span><span class="s1">: </span><span class="s8">' '</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s7">$class </span><span class="s1">&amp;&amp; !(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">DUMP_LIGHT_ARRAY </span><span class="s1">&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flags</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'note'</span><span class="s0">, </span><span class="s8">'array:'</span><span class="s1">.</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">).</span><span class="s8">' [' </span><span class="s1">: </span><span class="s8">'['</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">((</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefCount </span><span class="s1">|| </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefHandle</span><span class="s1">) &amp;&amp; </span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'cut_hash'</span><span class="s1">])) {</span>
+            <span class="s7">$prefix </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'ref'</span><span class="s0">, </span><span class="s1">(</span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_RESOURCE </span><span class="s1">=== </span><span class="s7">$type </span><span class="s1">? </span><span class="s8">'@' </span><span class="s1">: </span><span class="s8">'#'</span><span class="s1">).(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefHandle </span><span class="s1">? </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefHandle </span><span class="s1">: </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefTo</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'count' </span><span class="s1">=&gt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefCount</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefTo </span><span class="s1">&amp;&amp; !</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">refIndex </span><span class="s1">&amp;&amp; </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s7">$prefix </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'ref'</span><span class="s0">, </span><span class="s8">'&amp;'</span><span class="s1">.</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefTo</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'count' </span><span class="s1">=&gt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefCount</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$hasChild </span><span class="s1">&amp;&amp; </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_RESOURCE </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$prefix</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasChild</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">leaveHash</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$hasChild</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$cut</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'cut_hash'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpEllipsis</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s0">, </span><span class="s7">$hasChild</span><span class="s0">, </span><span class="s7">$cut</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_OBJECT </span><span class="s1">=== </span><span class="s7">$type </span><span class="s1">? </span><span class="s8">'}' </span><span class="s1">: (</span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_RESOURCE </span><span class="s1">!== </span><span class="s7">$type </span><span class="s1">? </span><span class="s8">']' </span><span class="s1">: (</span><span class="s7">$hasChild </span><span class="s1">? </span><span class="s8">'}' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endValue</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps an ellipsis for cut children.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $hasChild When the dump of the hash has child item</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int  $cut      The number of items the hash has been cut by</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">dumpEllipsis</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s7">$hasChild</span><span class="s0">, </span><span class="s7">$cut</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$cut</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">' …'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cut</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$cut</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasChild</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps a key in a hash structure.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">dumpKey</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$key </span><span class="s1">= </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashKey</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashKeyIsBinary</span><span class="s1">) {</span>
+                <span class="s7">$key </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$attr </span><span class="s1">= [</span><span class="s8">'binary' </span><span class="s1">=&gt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashKeyIsBinary</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$bin </span><span class="s1">= </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashKeyIsBinary </span><span class="s1">? </span><span class="s8">'b' </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s7">$style </span><span class="s1">= </span><span class="s8">'key'</span><span class="s0">;</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashType</span><span class="s1">) {</span>
+                <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_INDEXED</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">DUMP_LIGHT_ARRAY </span><span class="s1">&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flags</span><span class="s1">) {</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$style </span><span class="s1">= </span><span class="s8">'index'</span><span class="s0">;</span>
+                    <span class="s2">// no break</span>
+                <span class="s0">case </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_ASSOC</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">).</span><span class="s8">' =&gt; '</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$bin</span><span class="s1">.</span><span class="s8">'&quot;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">).</span><span class="s8">'&quot; =&gt; '</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">break;</span>
+
+                <span class="s0">case </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_RESOURCE</span><span class="s1">:</span>
+                    <span class="s7">$key </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">~</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$key</span><span class="s0">;</span>
+                    <span class="s2">// no break</span>
+                <span class="s0">case </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_OBJECT</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) || </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">!== </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'+'</span><span class="s1">.</span><span class="s7">$bin</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'public'</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">).</span><span class="s8">': '</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)) {</span>
+                        <span class="s7">$key </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s0">switch </span><span class="s1">(</span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+                            <span class="s0">case </span><span class="s8">'+'</span><span class="s1">: </span><span class="s2">// User inserted keys</span>
+                                <span class="s7">$attr</span><span class="s1">[</span><span class="s8">'dynamic'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'+'</span><span class="s1">.</span><span class="s7">$bin</span><span class="s1">.</span><span class="s8">'&quot;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'public'</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">).</span><span class="s8">'&quot;: '</span><span class="s0">;</span>
+                                <span class="s0">break </span><span class="s9">2</span><span class="s0">;</span>
+                            <span class="s0">case </span><span class="s8">'~'</span><span class="s1">:</span>
+                                <span class="s7">$style </span><span class="s1">= </span><span class="s8">'meta'</span><span class="s0">;</span>
+                                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s9">1</span><span class="s1">])) {</span>
+                                    <span class="s3">parse_str</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">)</span><span class="s0">;</span>
+                                    <span class="s7">$attr </span><span class="s1">+= [</span><span class="s8">'binary' </span><span class="s1">=&gt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashKeyIsBinary</span><span class="s1">]</span><span class="s0">;</span>
+                                <span class="s1">}</span>
+                                <span class="s0">break;</span>
+                            <span class="s0">case </span><span class="s8">'*'</span><span class="s1">:</span>
+                                <span class="s7">$style </span><span class="s1">= </span><span class="s8">'protected'</span><span class="s0">;</span>
+                                <span class="s7">$bin </span><span class="s1">= </span><span class="s8">'#'</span><span class="s1">.</span><span class="s7">$bin</span><span class="s0">;</span>
+                                <span class="s0">break;</span>
+                            <span class="s0">default</span><span class="s1">:</span>
+                                <span class="s7">$attr</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">] = </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                                <span class="s7">$style </span><span class="s1">= </span><span class="s8">'private'</span><span class="s0">;</span>
+                                <span class="s7">$bin </span><span class="s1">= </span><span class="s8">'-'</span><span class="s1">.</span><span class="s7">$bin</span><span class="s0">;</span>
+                                <span class="s0">break;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'collapse'</span><span class="s1">])) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'collapse'</span><span class="s1">]) {</span>
+                                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collapseNextHash </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expandNextHash </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">}</span>
+
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$bin</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">).(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'separator'</span><span class="s1">]) ? </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'separator'</span><span class="s1">] : </span><span class="s8">': '</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s2">// This case should not happen</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'-'</span><span class="s1">.</span><span class="s7">$bin</span><span class="s1">.</span><span class="s8">'&quot;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'private'</span><span class="s0">, </span><span class="s7">$key</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'class' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s1">]).</span><span class="s8">'&quot;: '</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefTo</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'ref'</span><span class="s0">, </span><span class="s8">'&amp;'</span><span class="s1">.(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefCount </span><span class="s1">? </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefTo </span><span class="s1">: </span><span class="s8">''</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'count' </span><span class="s1">=&gt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hardRefCount</span><span class="s1">]).</span><span class="s8">' '</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Decorates a value with some style.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $style The type of style being applied</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value The value being styled</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $attr  Optional context information</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The value with style decoration</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$attr </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">supportsColors</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handlesHrefGracefully</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handlesHrefGracefully </span><span class="s1">= </span><span class="s8">'JetBrains-JediTerm' </span><span class="s1">!== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'TERMINAL_EMULATOR'</span><span class="s1">) &amp;&amp; !</span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'KONSOLE_VERSION'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-type'</span><span class="s1">])) {</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'cli' </span><span class="s1">=== \</span><span class="s3">PHP_SAPI </span><span class="s1">&amp;&amp; </span><span class="s8">'path' </span><span class="s1">=== </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-type'</span><span class="s1">] &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s7">$pwd </span><span class="s1">= </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">? </span><span class="s8">'CD' </span><span class="s1">: </span><span class="s8">'PWD'</span><span class="s1">]) &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s7">$pwd</span><span class="s1">])) {</span>
+                <span class="s7">$prefix </span><span class="s1">= </span><span class="s8">'.'</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s7">$pwd</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-tail'</span><span class="s1">])) {</span>
+                <span class="s7">$prefix </span><span class="s1">.= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-tail'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">] + </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-tail'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'default'</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">).</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">goto </span><span class="s3">href</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$map </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s7">$controlCharsMap</span><span class="s0">;</span>
+        <span class="s7">$startCchr </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors </span><span class="s1">? </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[m</span><span class="s0">\033</span><span class="s8">[</span><span class="s1">{</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s8">'default'</span><span class="s1">]}</span><span class="s8">m&quot; </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$endCchr </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors </span><span class="s1">? </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[m</span><span class="s0">\033</span><span class="s8">[</span><span class="s1">{</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s7">$style</span><span class="s1">]}</span><span class="s8">m&quot; </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$value </span><span class="s1">= </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s7">$controlCharsRx</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$c</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$map</span><span class="s0">, </span><span class="s7">$startCchr</span><span class="s0">, </span><span class="s7">$endCchr</span><span class="s1">) {</span>
+            <span class="s7">$s </span><span class="s1">= </span><span class="s7">$startCchr</span><span class="s0">;</span>
+            <span class="s7">$c </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">do </span><span class="s1">{</span>
+                <span class="s7">$s </span><span class="s1">.= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$map</span><span class="s1">[</span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]]) ? </span><span class="s7">$map</span><span class="s1">[</span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]] : </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'\x%02X'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">[++</span><span class="s7">$i</span><span class="s1">]))</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$s</span><span class="s1">.</span><span class="s7">$endCchr</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s7">$cchrCount</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$cchrCount </span><span class="s1">&amp;&amp; </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$startCchr</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[</span><span class="s1">{</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s7">$style</span><span class="s1">]}</span><span class="s8">m&quot;</span><span class="s1">.</span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$cchrCount </span><span class="s1">&amp;&amp; </span><span class="s7">$endCchr </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$endCchr</span><span class="s1">))) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$endCchr</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$value </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[</span><span class="s1">{</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s8">'default'</span><span class="s1">]}</span><span class="s8">m&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s3">href</span><span class="s1">:</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handlesHrefGracefully</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$href </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSourceLink</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'line'</span><span class="s1">]) ? </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'line'</span><span class="s1">] : </span><span class="s9">0</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'note' </span><span class="s1">=== </span><span class="s7">$style</span><span class="s1">) {</span>
+                    <span class="s7">$value </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">]8;;</span><span class="s1">{</span><span class="s7">$href</span><span class="s1">}</span><span class="s0">\033\\</span><span class="s8">^</span><span class="s0">\033</span><span class="s8">]8;;</span><span class="s0">\033\\</span><span class="s8">&quot;</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$attr</span><span class="s1">[</span><span class="s8">'href'</span><span class="s1">] = </span><span class="s7">$href</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'href'</span><span class="s1">])) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">]8;;</span><span class="s1">{</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'href'</span><span class="s1">]}</span><span class="s0">\033\\</span><span class="s1">{</span><span class="s7">$value</span><span class="s1">}</span><span class="s0">\033</span><span class="s8">]8;;</span><span class="s0">\033\\</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'if_links'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Tells if the current output stream supports ANSI colors or not</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">supportsColors</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream </span><span class="s1">!== </span><span class="s0">static</span><span class="s1">::</span><span class="s7">$defaultOutput</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasColorSupport</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s0">static</span><span class="s1">::</span><span class="s7">$defaultColors</span><span class="s1">) {</span>
+            <span class="s0">return static</span><span class="s1">::</span><span class="s7">$defaultColors</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'argv'</span><span class="s1">][</span><span class="s9">1</span><span class="s1">])) {</span>
+            <span class="s7">$colors </span><span class="s1">= </span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'argv'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$i </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$colors</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">while </span><span class="s1">(--</span><span class="s7">$i </span><span class="s1">&gt; </span><span class="s9">0</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$colors</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">5</span><span class="s1">])) {</span>
+                    <span class="s0">switch </span><span class="s1">(</span><span class="s7">$colors</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) {</span>
+                        <span class="s0">case </span><span class="s8">'--ansi'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color=yes'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color=force'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color=always'</span><span class="s1">:</span>
+                            <span class="s0">return static</span><span class="s1">::</span><span class="s7">$defaultColors </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+                        <span class="s0">case </span><span class="s8">'--no-ansi'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color=no'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color=none'</span><span class="s1">:</span>
+                        <span class="s0">case </span><span class="s8">'--color=never'</span><span class="s1">:</span>
+                            <span class="s0">return static</span><span class="s1">::</span><span class="s7">$defaultColors </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$h </span><span class="s1">= </span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream</span><span class="s1">) + [</span><span class="s8">'wrapper_type' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$h </span><span class="s1">= </span><span class="s8">'Output' </span><span class="s1">=== </span><span class="s7">$h</span><span class="s1">[</span><span class="s8">'stream_type'</span><span class="s1">] &amp;&amp; </span><span class="s8">'PHP' </span><span class="s1">=== </span><span class="s7">$h</span><span class="s1">[</span><span class="s8">'wrapper_type'</span><span class="s1">] ? </span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">'php://stdout'</span><span class="s0">, </span><span class="s8">'wb'</span><span class="s1">) : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream</span><span class="s0">;</span>
+
+        <span class="s0">return static</span><span class="s1">::</span><span class="s7">$defaultColors </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasColorSupport</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$depth</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$endOfValue </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">colors</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\033</span><span class="s8">[%sm%s</span><span class="s0">\033</span><span class="s8">[m&quot;</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s8">'default'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$depth</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">endValue</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(-</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashType</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Stub</span><span class="s1">::</span><span class="s3">ARRAY_INDEXED </span><span class="s1">=== </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashType </span><span class="s1">|| </span><span class="s3">Stub</span><span class="s1">::</span><span class="s3">ARRAY_ASSOC </span><span class="s1">=== </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashType</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">DUMP_TRAILING_COMMA </span><span class="s1">&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flags </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">','</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">DUMP_COMMA_SEPARATOR </span><span class="s1">&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">flags </span><span class="s1">&amp;&amp; </span><span class="s9">1 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashLength </span><span class="s1">- </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">hashIndex</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">','</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the stream supports colorization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Reference: Composer\XdebugHandler\Process::supportsColor</span>
+     <span class="s4">* https://github.com/composer/xdebug-handler</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $stream A CLI output stream</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">hasColorSupport</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">) || </span><span class="s8">'stream' </span><span class="s1">!== </span><span class="s3">get_resource_type</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Follow https://no-color.org/</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'NO_COLOR'</span><span class="s1">]) || </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'NO_COLOR'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'Hyper' </span><span class="s1">=== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'TERM_PROGRAM'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">=== </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'sapi_windows_vt100_support'</span><span class="s1">)</span>
+                <span class="s1">&amp;&amp; @</span><span class="s3">sapi_windows_vt100_support</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">))</span>
+                <span class="s1">|| </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'ANSICON'</span><span class="s1">)</span>
+                <span class="s1">|| </span><span class="s8">'ON' </span><span class="s1">=== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'ConEmuANSI'</span><span class="s1">)</span>
+                <span class="s1">|| </span><span class="s8">'xterm' </span><span class="s1">=== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'TERM'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">stream_isatty</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the Windows terminal supports true color.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Note that this does not check an output stream, but relies on environment</span>
+     <span class="s4">* variables from known implementations, or a PHP and Windows version that</span>
+     <span class="s4">* supports true color.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isWindowsTrueColor</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$result </span><span class="s1">= </span><span class="s9">183 </span><span class="s1">&lt;= </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'ANSICON_VER'</span><span class="s1">)</span>
+            <span class="s1">|| </span><span class="s8">'ON' </span><span class="s1">=== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'ConEmuANSI'</span><span class="s1">)</span>
+            <span class="s1">|| </span><span class="s8">'xterm' </span><span class="s1">=== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'TERM'</span><span class="s1">)</span>
+            <span class="s1">|| </span><span class="s8">'Hyper' </span><span class="s1">=== </span><span class="s3">getenv</span><span class="s1">(</span><span class="s8">'TERM_PROGRAM'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$result</span><span class="s1">) {</span>
+            <span class="s7">$version </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span>
+                <span class="s8">'%s.%s.%s'</span><span class="s0">,</span>
+                <span class="s3">PHP_WINDOWS_VERSION_MAJOR</span><span class="s0">,</span>
+                <span class="s3">PHP_WINDOWS_VERSION_MINOR</span><span class="s0">,</span>
+                <span class="s3">PHP_WINDOWS_VERSION_BUILD</span>
+            <span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$result </span><span class="s1">= </span><span class="s7">$version </span><span class="s1">&gt;= </span><span class="s8">'10.0.15063'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getSourceLink</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$line</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$fmt </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s1">[</span><span class="s8">'fileLinkFormat'</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$fmt</span><span class="s1">) ? </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$fmt</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'%f' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">, </span><span class="s8">'%l' </span><span class="s1">=&gt; </span><span class="s7">$line</span><span class="s1">]) : (</span><span class="s7">$fmt</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">) ?: </span><span class="s8">'file://'</span><span class="s1">.</span><span class="s7">$file</span><span class="s1">.</span><span class="s8">'#L'</span><span class="s1">.</span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

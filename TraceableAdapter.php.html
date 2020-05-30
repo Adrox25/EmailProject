@@ -1,0 +1,319 @@
+<html>
+<head>
+<title>TraceableAdapter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+TraceableAdapter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItemInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">PruneableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">ResettableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Service</span><span class="s1">\</span><span class="s3">ResetInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* An adapter that collects data about all cache calls.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Aaron Scherer </span><span class="s6">&lt;aequasi</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Tobias Nyholm </span><span class="s6">&lt;tobias.nyholm</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">TraceableAdapter </span><span class="s0">implements </span><span class="s3">AdapterInterface</span><span class="s0">, </span><span class="s3">CacheInterface</span><span class="s0">, </span><span class="s3">PruneableInterface</span><span class="s0">, </span><span class="s3">ResettableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$pool</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$calls </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">AdapterInterface </span><span class="s7">$pool</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s1">= </span><span class="s7">$pool</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, callable </span><span class="s7">$callback</span><span class="s0">, </span><span class="s3">float </span><span class="s7">$beta </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$metadata </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">CacheInterface</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">BadMethodCallException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Cannot call &quot;%s::get()&quot;: this class doesn</span><span class="s0">\'</span><span class="s8">t implement &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">)</span><span class="s0">, </span><span class="s3">CacheInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$isHit </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$callback </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s3">CacheItem </span><span class="s7">$item</span><span class="s0">, </span><span class="s3">bool </span><span class="s1">&amp;</span><span class="s7">$save</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$callback</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$isHit</span><span class="s1">) {</span>
+            <span class="s7">$isHit </span><span class="s1">= </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$callback</span><span class="s1">(</span><span class="s7">$item</span><span class="s0">, </span><span class="s7">$save</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$callback</span><span class="s0">, </span><span class="s7">$beta</span><span class="s0">, </span><span class="s7">$metadata</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$isHit</span><span class="s1">) {</span>
+            <span class="s1">++</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">hits</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s1">++</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">misses</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$item </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">()) {</span>
+            <span class="s1">++</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">hits</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s1">++</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">misses</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$item</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">hasItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">deleteItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">save</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s7">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">save</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s7">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getItems</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$keys </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItems</span><span class="s1">(</span><span class="s7">$keys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$f </span><span class="s1">= </span><span class="s0">function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">) {</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$result </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">()) {</span>
+                    <span class="s1">++</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">hits</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s1">++</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">misses</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">yield </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$item</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$f</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clear</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix </span><span class="s1">= </span><span class="s8">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">AdapterInterface</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteItems</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$keys</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s8">'keys'</span><span class="s1">] = </span><span class="s7">$keys</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s8">'result'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">deleteItems</span><span class="s1">(</span><span class="s7">$keys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">commit</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">prune</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">PruneableInterface</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">prune</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">reset</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">ResetInterface</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">reset</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">clearCalls</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">delete</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s3">__FUNCTION__</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">result</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">deleteItem</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">end </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getCalls</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">clearCalls</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">start</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls</span><span class="s1">[] = </span><span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TraceableAdapterEvent</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$name</span><span class="s0">;</span>
+        <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">start </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$event</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+<hr class="ls0"><span class="s0">class </span><span class="s3">TraceableAdapterEvent</span>
+<span class="s1">{</span>
+    <span class="s0">public </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s0">public </span><span class="s7">$start</span><span class="s0">;</span>
+    <span class="s0">public </span><span class="s7">$end</span><span class="s0">;</span>
+    <span class="s0">public </span><span class="s7">$result</span><span class="s0">;</span>
+    <span class="s0">public </span><span class="s7">$hits </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">public </span><span class="s7">$misses </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

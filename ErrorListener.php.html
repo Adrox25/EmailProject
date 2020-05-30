@@ -1,0 +1,174 @@
+<html>
+<head>
+<title>ErrorListener.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ErrorListener.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FlattenException </span><span class="s0">as </span><span class="s3">LegacyFlattenException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FlattenException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ControllerArgumentsEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ExceptionEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">HttpExceptionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpKernelInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">DebugLoggerInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ErrorListener </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$controller</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$logger</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$debug</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$controller</span><span class="s0">, </span><span class="s3">LoggerInterface </span><span class="s7">$logger </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$debug </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controller </span><span class="s1">= </span><span class="s7">$controller</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">= </span><span class="s7">$logger</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">= </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">logKernelException</span><span class="s1">(</span><span class="s3">ExceptionEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$e </span><span class="s1">= </span><span class="s3">FlattenException</span><span class="s1">::</span><span class="s3">createFromThrowable</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getThrowable</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logException</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getThrowable</span><span class="s1">()</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Uncaught PHP Exception %s: &quot;%s&quot; at %s line %s'</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getLine</span><span class="s1">()))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelException</span><span class="s1">(</span><span class="s3">ExceptionEvent </span><span class="s7">$event</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$eventName </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">EventDispatcherInterface </span><span class="s7">$eventDispatcher </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controller</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$exception </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getThrowable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$request </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">duplicateRequest</span><span class="s1">(</span><span class="s7">$exception</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$response </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getKernel</span><span class="s1">()-&gt;</span><span class="s3">handle</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s3">SUB_REQUEST</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$f </span><span class="s1">= </span><span class="s3">FlattenException</span><span class="s1">::</span><span class="s3">createFromThrowable</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logException</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Exception thrown when handling an exception (%s: %s at %s line %s)'</span><span class="s0">, </span><span class="s7">$f</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$f</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getLine</span><span class="s1">()))</span><span class="s0">;</span>
+
+            <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s0">do </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$exception </span><span class="s1">=== </span><span class="s7">$wrapper </span><span class="s1">= </span><span class="s7">$prev</span><span class="s1">) {</span>
+                    <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">= </span><span class="s7">$wrapper</span><span class="s1">-&gt;</span><span class="s3">getPrevious</span><span class="s1">())</span><span class="s0">;</span>
+
+            <span class="s7">$prev </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s7">$wrapper </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Exception </span><span class="s1">? \</span><span class="s3">Exception</span><span class="s1">::</span><span class="s0">class </span><span class="s1">: \</span><span class="s3">Error</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'previous'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$prev</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$prev</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$wrapper</span><span class="s0">, </span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">setResponse</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">&amp;&amp; </span><span class="s7">$eventDispatcher </span><span class="s0">instanceof </span><span class="s3">EventDispatcherInterface</span><span class="s1">) {</span>
+            <span class="s7">$cspRemovalListener </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$cspRemovalListener</span><span class="s0">, </span><span class="s7">$eventDispatcher</span><span class="s1">) {</span>
+                <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s8">'Content-Security-Policy'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$eventDispatcher</span><span class="s1">-&gt;</span><span class="s3">removeListener</span><span class="s1">(</span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">RESPONSE</span><span class="s0">, </span><span class="s7">$cspRemovalListener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">;</span>
+            <span class="s7">$eventDispatcher</span><span class="s1">-&gt;</span><span class="s3">addListener</span><span class="s1">(</span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">RESPONSE</span><span class="s0">, </span><span class="s7">$cspRemovalListener</span><span class="s0">, </span><span class="s1">-</span><span class="s9">128</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onControllerArguments</span><span class="s1">(</span><span class="s3">ControllerArgumentsEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$e </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'exception'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$e </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s1">|| </span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$k </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionFunction</span><span class="s1">(\</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getController</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s7">$r </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">()[</span><span class="s7">$k</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$r </span><span class="s1">&amp;&amp; (!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">hasType</span><span class="s1">() || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getType</span><span class="s1">()-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[</span><span class="s3">FlattenException</span><span class="s1">::</span><span class="s0">class, </span><span class="s3">LegacyFlattenException</span><span class="s1">::</span><span class="s0">class</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))) {</span>
+            <span class="s7">$arguments </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$arguments</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s3">FlattenException</span><span class="s1">::</span><span class="s3">createFromThrowable</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">(</span><span class="s7">$arguments</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">CONTROLLER_ARGUMENTS </span><span class="s1">=&gt; </span><span class="s8">'onControllerArguments'</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">EXCEPTION </span><span class="s1">=&gt; [</span>
+                <span class="s1">[</span><span class="s8">'logKernelException'</span><span class="s0">, </span><span class="s9">0</span><span class="s1">]</span><span class="s0">,</span>
+                <span class="s1">[</span><span class="s8">'onKernelException'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">128</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Logs an exception.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">logException</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$exception</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$message</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$exception </span><span class="s0">instanceof </span><span class="s3">HttpExceptionInterface </span><span class="s1">|| </span><span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">() &gt;= </span><span class="s9">500</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">critical</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$exception</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">error</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$exception</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Clones the request for the exception.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">duplicateRequest</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$exception</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">): </span><span class="s3">Request</span>
+    <span class="s1">{</span>
+        <span class="s7">$attributes </span><span class="s1">= [</span>
+            <span class="s8">'_controller' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">controller</span><span class="s0">,</span>
+            <span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$exception</span><span class="s0">,</span>
+            <span class="s8">'logger' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s0">instanceof </span><span class="s3">DebugLoggerInterface </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">: </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$request </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">duplicate</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">setMethod</span><span class="s1">(</span><span class="s8">'GET'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$request</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

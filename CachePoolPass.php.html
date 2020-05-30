@@ -1,0 +1,252 @@
+<html>
+<head>
+<title>CachePoolPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CachePoolPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">AbstractAdapter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">ArrayAdapter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">ChainAdapter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ChildDefinition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">CompilerPassInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CachePoolPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$cachePoolTag</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$kernelResetTag</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cacheClearerId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cachePoolClearerTag</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cacheSystemClearerId</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cacheSystemClearerTag</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$cachePoolTag </span><span class="s1">= </span><span class="s8">'cache.pool'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$kernelResetTag </span><span class="s1">= </span><span class="s8">'kernel.reset'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cacheClearerId </span><span class="s1">= </span><span class="s8">'cache.global_clearer'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cachePoolClearerTag </span><span class="s1">= </span><span class="s8">'cache.pool.clearer'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cacheSystemClearerId </span><span class="s1">= </span><span class="s8">'cache.system_clearer'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$cacheSystemClearerTag </span><span class="s1">= </span><span class="s8">'kernel.cache_clearer'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolTag </span><span class="s1">= </span><span class="s7">$cachePoolTag</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernelResetTag </span><span class="s1">= </span><span class="s7">$kernelResetTag</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearerId </span><span class="s1">= </span><span class="s7">$cacheClearerId</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolClearerTag </span><span class="s1">= </span><span class="s7">$cachePoolClearerTag</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheSystemClearerId </span><span class="s1">= </span><span class="s7">$cacheSystemClearerId</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheSystemClearerTag </span><span class="s1">= </span><span class="s7">$cacheSystemClearerTag</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasParameter</span><span class="s1">(</span><span class="s8">'cache.prefix.seed'</span><span class="s1">)) {</span>
+            <span class="s7">$seed </span><span class="s1">= </span><span class="s8">'.'</span><span class="s1">.</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s8">'cache.prefix.seed'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$seed </span><span class="s1">= </span><span class="s8">'_'</span><span class="s1">.</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s8">'kernel.project_dir'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$seed </span><span class="s1">.= </span><span class="s8">'.'</span><span class="s1">.</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s8">'kernel.container_class'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$allPools </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$clearers </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$attributes </span><span class="s1">= [</span>
+            <span class="s8">'provider'</span><span class="s0">,</span>
+            <span class="s8">'name'</span><span class="s0">,</span>
+            <span class="s8">'namespace'</span><span class="s0">,</span>
+            <span class="s8">'default_lifetime'</span><span class="s0">,</span>
+            <span class="s8">'reset'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolTag</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$tags</span><span class="s1">) {</span>
+            <span class="s7">$adapter </span><span class="s1">= </span><span class="s7">$pool </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$pool</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">()) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">while </span><span class="s1">(</span><span class="s7">$adapter </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                <span class="s7">$adapter </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findDefinition</span><span class="s1">(</span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getParent</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s7">$class </span><span class="s1">?: </span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$t </span><span class="s1">= </span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolTag</span><span class="s1">)) {</span>
+                    <span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] += </span><span class="s7">$t</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'name'</span><span class="s1">] ?? </span><span class="s7">$id</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'namespace'</span><span class="s1">])) {</span>
+                <span class="s7">$namespaceSeed </span><span class="s1">= </span><span class="s7">$seed</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$class</span><span class="s1">) {</span>
+                    <span class="s7">$namespaceSeed </span><span class="s1">.= </span><span class="s8">'.'</span><span class="s1">.</span><span class="s7">$class</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'namespace'</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getNamespace</span><span class="s1">(</span><span class="s7">$namespaceSeed</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'clearer'</span><span class="s1">])) {</span>
+                <span class="s7">$clearer </span><span class="s1">= </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'clearer'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">while </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasAlias</span><span class="s1">(</span><span class="s7">$clearer</span><span class="s1">)) {</span>
+                    <span class="s7">$clearer </span><span class="s1">= (string) </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">(</span><span class="s7">$clearer</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$clearer </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'clearer'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'name'</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'provider'</span><span class="s1">])) {</span>
+                <span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'provider'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">getServiceProvider</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'provider'</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">ChainAdapter</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== </span><span class="s7">$class</span><span class="s1">) {</span>
+                <span class="s7">$adapters </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$provider </span><span class="s1">=&gt; </span><span class="s7">$adapter</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$adapter </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                        <span class="s7">$chainedPool </span><span class="s1">= </span><span class="s7">$adapter</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$chainedPool </span><span class="s1">= </span><span class="s7">$adapter </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ChildDefinition</span><span class="s1">(</span><span class="s7">$adapter</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$chainedTags </span><span class="s1">= [\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$provider</span><span class="s1">) ? [] : [</span><span class="s8">'provider' </span><span class="s1">=&gt; </span><span class="s7">$provider</span><span class="s1">]]</span><span class="s0">;</span>
+                    <span class="s7">$chainedClass </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+
+                    <span class="s0">while </span><span class="s1">(</span><span class="s7">$adapter </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                        <span class="s7">$adapter </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">findDefinition</span><span class="s1">(</span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getParent</span><span class="s1">())</span><span class="s0">;</span>
+                        <span class="s7">$chainedClass </span><span class="s1">= </span><span class="s7">$chainedClass </span><span class="s1">?: </span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$t </span><span class="s1">= </span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getTag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolTag</span><span class="s1">)) {</span>
+                            <span class="s7">$chainedTags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] += </span><span class="s7">$t</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">ChainAdapter</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== </span><span class="s7">$chainedClass</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: chain of adapters cannot reference another chain, found &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$chainedPool</span><span class="s1">-&gt;</span><span class="s3">getParent</span><span class="s1">()))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$chainedTags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'provider'</span><span class="s1">])) {</span>
+                        <span class="s7">$chainedPool</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s7">$i</span><span class="s1">++</span><span class="s0">, new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">getServiceProvider</span><span class="s1">(</span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$chainedTags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'provider'</span><span class="s1">])))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'namespace'</span><span class="s1">]) &amp;&amp; </span><span class="s3">ArrayAdapter</span><span class="s1">::</span><span class="s0">class </span><span class="s1">!== </span><span class="s7">$adapter</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()) {</span>
+                        <span class="s7">$chainedPool</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s7">$i</span><span class="s1">++</span><span class="s0">, </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'namespace'</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'default_lifetime'</span><span class="s1">])) {</span>
+                        <span class="s7">$chainedPool</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s7">$i</span><span class="s1">++</span><span class="s0">, </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'default_lifetime'</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$adapters</span><span class="s1">[] = </span><span class="s7">$chainedPool</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$pool</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s7">$adapters</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'provider'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s8">'namespace'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$attributes </span><span class="s0">as </span><span class="s7">$attr</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s7">$attr</span><span class="s1">])) {</span>
+                    <span class="s2">// no-op</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'reset' </span><span class="s1">=== </span><span class="s7">$attr</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s7">$attr</span><span class="s1">]) {</span>
+                        <span class="s7">$pool</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernelResetTag</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'method' </span><span class="s1">=&gt; </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s7">$attr</span><span class="s1">]])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'namespace' </span><span class="s1">!== </span><span class="s7">$attr </span><span class="s1">|| </span><span class="s3">ArrayAdapter</span><span class="s1">::</span><span class="s0">class </span><span class="s1">!== </span><span class="s7">$class</span><span class="s1">) {</span>
+                    <span class="s7">$pool</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s7">$i</span><span class="s1">++</span><span class="s0">, </span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s7">$attr</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s7">$attr</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid &quot;%s&quot; tag for service &quot;%s&quot;: accepted attributes are &quot;clearer&quot;, &quot;provider&quot;, &quot;name&quot;, &quot;namespace&quot;, &quot;default_lifetime&quot; and &quot;reset&quot;, found &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolTag</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$tags</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]))))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$clearer</span><span class="s1">) {</span>
+                <span class="s7">$clearers</span><span class="s1">[</span><span class="s7">$clearer</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$container</span><span class="s1">::</span><span class="s3">IGNORE_ON_UNINITIALIZED_REFERENCE</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$allPools</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$container</span><span class="s1">::</span><span class="s3">IGNORE_ON_UNINITIALIZED_REFERENCE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$notAliasedCacheClearerId </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearerId</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasAlias</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearerId</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearerId </span><span class="s1">= (string) </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearerId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearerId</span><span class="s1">)) {</span>
+            <span class="s7">$clearers</span><span class="s1">[</span><span class="s7">$notAliasedCacheClearerId</span><span class="s1">] = </span><span class="s7">$allPools</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$clearers </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$pools</span><span class="s1">) {</span>
+            <span class="s7">$clearer </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$clearer </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                <span class="s7">$clearer</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s7">$pools</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$clearer</span><span class="s1">-&gt;</span><span class="s3">setArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s7">$pools</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$clearer</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cachePoolClearerTag</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheSystemClearerId </span><span class="s1">=== </span><span class="s7">$id</span><span class="s1">) {</span>
+                <span class="s7">$clearer</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheSystemClearerTag</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s8">'console.command.cache_pool_list'</span><span class="s1">)) {</span>
+            <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s8">'console.command.cache_pool_list'</span><span class="s1">)-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$allPools</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getNamespace</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$seed</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$id</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'/'</span><span class="s0">, </span><span class="s8">'-'</span><span class="s0">, </span><span class="s3">base64_encode</span><span class="s1">(</span><span class="s3">hash</span><span class="s1">(</span><span class="s8">'sha256'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">.</span><span class="s7">$seed</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)))</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">10</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getServiceProvider</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">resolveEnvPlaceholders</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$usedEnvs</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$usedEnvs </span><span class="s1">|| </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'#^[a-z]++:#'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s7">$dsn </span><span class="s1">= </span><span class="s7">$name</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$name </span><span class="s1">= </span><span class="s8">'.cache_connection.'</span><span class="s1">.</span><span class="s3">ContainerBuilder</span><span class="s1">::</span><span class="s3">hash</span><span class="s1">(</span><span class="s7">$dsn</span><span class="s1">))) {</span>
+                <span class="s7">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Definition</span><span class="s1">(</span><span class="s3">AbstractAdapter</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">([</span><span class="s3">AbstractAdapter</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'createConnection'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">([</span><span class="s7">$dsn</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'lazy' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">]])</span><span class="s0">;</span>
+                <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

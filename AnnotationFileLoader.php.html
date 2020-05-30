@@ -1,0 +1,168 @@
+<html>
+<head>
+<title>AnnotationFileLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AnnotationFileLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Loader</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">FileLocatorInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">FileLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Resource</span><span class="s1">\</span><span class="s3">FileResource</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCollection</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* AnnotationFileLoader loads routing information from annotations set</span>
+ <span class="s4">* on a PHP class and its methods.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">AnnotationFileLoader </span><span class="s0">extends </span><span class="s3">FileLoader</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$loader</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">FileLocatorInterface </span><span class="s7">$locator</span><span class="s0">, </span><span class="s3">AnnotationClassLoader </span><span class="s7">$loader</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'token_get_all'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'The Tokenizer extension is required for the routing annotation loaders.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$locator</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader </span><span class="s1">= </span><span class="s7">$loader</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads from annotations from a file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string      $file A PHP file path</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $type The resource type</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">RouteCollection|null A RouteCollection instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When the file does not exist or its routes cannot be parsed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locator</span><span class="s1">-&gt;</span><span class="s3">locate</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$collection </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$class </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findClass</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) {</span>
+            <span class="s7">$refl </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$refl</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">()) {</span>
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">addResource</span><span class="s1">(</span><span class="s0">new </span><span class="s3">FileResource</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">addCollection</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">gc_mem_caches</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$collection</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">supports</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">) &amp;&amp; </span><span class="s8">'php' </span><span class="s1">=== </span><span class="s3">pathinfo</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">PATHINFO_EXTENSION</span><span class="s1">) &amp;&amp; (!</span><span class="s7">$type </span><span class="s1">|| </span><span class="s8">'annotation' </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the full class name for the first class in the file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|false Full class name if found, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">findClass</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$namespace </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$tokens </span><span class="s1">= </span><span class="s3">token_get_all</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">) &amp;&amp; </span><span class="s3">T_INLINE_HTML </span><span class="s1">=== </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The file &quot;%s&quot; does not contain PHP code. Did you forgot to add the &quot;&lt;?php&quot; start tag at the beginning of the file?'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s7">$token </span><span class="s1">= </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$class </span><span class="s1">&amp;&amp; </span><span class="s3">T_STRING </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s7">$namespace</span><span class="s1">.</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">.</span><span class="s7">$token</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$namespace </span><span class="s1">&amp;&amp; </span><span class="s3">T_STRING </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$namespace </span><span class="s1">= </span><span class="s7">$token</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">while </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">[++</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]) &amp;&amp; \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s3">T_NS_SEPARATOR</span><span class="s0">, </span><span class="s3">T_STRING</span><span class="s1">])) {</span>
+                    <span class="s7">$namespace </span><span class="s1">.= </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$token </span><span class="s1">= </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">T_CLASS </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s2">// Skip usage of ::class constant and anonymous classes</span>
+                <span class="s7">$skipClassToken </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s0">for </span><span class="s1">(</span><span class="s7">$j </span><span class="s1">= </span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s0">; </span><span class="s7">$j </span><span class="s1">&gt; </span><span class="s9">0</span><span class="s0">; </span><span class="s1">--</span><span class="s7">$j</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">][</span><span class="s9">1</span><span class="s1">])) {</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">T_DOUBLE_COLON </span><span class="s1">=== </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] || </span><span class="s3">T_NEW </span><span class="s1">=== </span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+                        <span class="s7">$skipClassToken </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$tokens</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s3">T_WHITESPACE</span><span class="s0">, </span><span class="s3">T_DOC_COMMENT</span><span class="s0">, </span><span class="s3">T_COMMENT</span><span class="s1">])) {</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$skipClassToken</span><span class="s1">) {</span>
+                    <span class="s7">$class </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">T_NAMESPACE </span><span class="s1">=== </span><span class="s7">$token</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$namespace </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<html>
+<head>
+<title>update_mime_types.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #9876aa;}
+.s4 { color: #a9b7c6;}
+.s5 { color: #6a8759;}
+.s6 { color: #6897bb;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+update_mime_types.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+
+<span class="s2">// load new map</span>
+<span class="s3">$data </span><span class="s1">= </span><span class="s4">file_get_contents</span><span class="s1">(</span><span class="s5">'https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types'</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">$new </span><span class="s1">= []</span><span class="s0">;</span>
+<span class="s0">foreach </span><span class="s1">(</span><span class="s4">explode</span><span class="s1">(</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">, </span><span class="s3">$data</span><span class="s1">) </span><span class="s0">as </span><span class="s3">$line</span><span class="s1">) {</span>
+    <span class="s0">if </span><span class="s1">(!</span><span class="s3">$line </span><span class="s1">|| </span><span class="s5">'#' </span><span class="s1">== </span><span class="s3">$line</span><span class="s1">[</span><span class="s6">0</span><span class="s1">]) {</span>
+        <span class="s0">continue;</span>
+    <span class="s1">}</span>
+    <span class="s3">$mimeType </span><span class="s1">= </span><span class="s4">substr</span><span class="s1">(</span><span class="s3">$line</span><span class="s0">, </span><span class="s6">0</span><span class="s0">, </span><span class="s4">strpos</span><span class="s1">(</span><span class="s3">$line</span><span class="s0">, </span><span class="s5">&quot;</span><span class="s0">\t</span><span class="s5">&quot;</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s3">$extensions </span><span class="s1">= </span><span class="s4">explode</span><span class="s1">(</span><span class="s5">' '</span><span class="s0">, </span><span class="s4">substr</span><span class="s1">(</span><span class="s3">$line</span><span class="s0">, </span><span class="s4">strrpos</span><span class="s1">(</span><span class="s3">$line</span><span class="s0">, </span><span class="s5">&quot;</span><span class="s0">\t</span><span class="s5">&quot;</span><span class="s1">) + </span><span class="s6">1</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s3">$new</span><span class="s1">[</span><span class="s3">$mimeType</span><span class="s1">] = </span><span class="s3">$extensions</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s3">$xml </span><span class="s1">= </span><span class="s4">simplexml_load_string</span><span class="s1">(</span><span class="s4">file_get_contents</span><span class="s1">(</span><span class="s5">'https://raw.github.com/minad/mimemagic/master/script/freedesktop.org.xml'</span><span class="s1">))</span><span class="s0">;</span>
+<span class="s0">foreach </span><span class="s1">(</span><span class="s3">$xml </span><span class="s0">as </span><span class="s3">$node</span><span class="s1">) {</span>
+    <span class="s3">$exts </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">foreach </span><span class="s1">(</span><span class="s3">$node</span><span class="s1">-&gt;</span><span class="s4">glob </span><span class="s0">as </span><span class="s3">$glob</span><span class="s1">) {</span>
+        <span class="s3">$pattern </span><span class="s1">= (string) </span><span class="s3">$glob</span><span class="s1">[</span><span class="s5">'pattern'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s5">'*' </span><span class="s1">!= </span><span class="s3">$pattern</span><span class="s1">[</span><span class="s6">0</span><span class="s1">] || </span><span class="s5">'.' </span><span class="s1">!= </span><span class="s3">$pattern</span><span class="s1">[</span><span class="s6">1</span><span class="s1">]) {</span>
+            <span class="s0">continue;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">$exts</span><span class="s1">[] = </span><span class="s4">substr</span><span class="s1">(</span><span class="s3">$pattern</span><span class="s0">, </span><span class="s6">2</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">if </span><span class="s1">(!</span><span class="s3">$exts</span><span class="s1">) {</span>
+        <span class="s0">continue;</span>
+    <span class="s1">}</span>
+
+    <span class="s3">$mt </span><span class="s1">= </span><span class="s4">strtolower</span><span class="s1">((string) </span><span class="s3">$node</span><span class="s1">[</span><span class="s5">'type'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s3">$new</span><span class="s1">[</span><span class="s3">$mt</span><span class="s1">] = </span><span class="s4">array_merge</span><span class="s1">(</span><span class="s3">$new</span><span class="s1">[</span><span class="s3">$mt</span><span class="s1">] ?? []</span><span class="s0">, </span><span class="s3">$exts</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s0">foreach </span><span class="s1">(</span><span class="s3">$node</span><span class="s1">-&gt;</span><span class="s4">alias </span><span class="s0">as </span><span class="s3">$alias</span><span class="s1">) {</span>
+        <span class="s3">$mt </span><span class="s1">= </span><span class="s4">strtolower</span><span class="s1">((string) </span><span class="s3">$alias</span><span class="s1">[</span><span class="s5">'type'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s3">$new</span><span class="s1">[</span><span class="s3">$mt</span><span class="s1">] = </span><span class="s4">array_merge</span><span class="s1">(</span><span class="s3">$new</span><span class="s1">[</span><span class="s3">$mt</span><span class="s1">] ?? []</span><span class="s0">, </span><span class="s3">$exts</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+
+<span class="s2">// load current map</span>
+<span class="s3">$data </span><span class="s1">= </span><span class="s4">file_get_contents</span><span class="s1">(</span><span class="s3">$output </span><span class="s1">= </span><span class="s4">__DIR__</span><span class="s1">.</span><span class="s5">'/../../MimeTypes.php'</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">$current </span><span class="s1">= []</span><span class="s0">;</span>
+<span class="s3">$pre </span><span class="s1">= </span><span class="s5">''</span><span class="s0">;</span>
+<span class="s3">$post </span><span class="s1">= </span><span class="s5">''</span><span class="s0">;</span>
+<span class="s0">foreach </span><span class="s1">(</span><span class="s4">explode</span><span class="s1">(</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">, </span><span class="s3">$data</span><span class="s1">) </span><span class="s0">as </span><span class="s3">$line</span><span class="s1">) {</span>
+    <span class="s0">if </span><span class="s1">(!</span><span class="s4">preg_match</span><span class="s1">(</span><span class="s5">&quot;{^        '([^']+/[^']+)' =&gt; \['(.+)'\],$}&quot;</span><span class="s0">, </span><span class="s3">$line</span><span class="s0">, </span><span class="s3">$matches</span><span class="s1">)) {</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">$current</span><span class="s1">) {</span>
+            <span class="s3">$pre </span><span class="s1">.= </span><span class="s3">$line</span><span class="s1">.</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s3">$post </span><span class="s1">.= </span><span class="s3">$line</span><span class="s1">.</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">continue;</span>
+    <span class="s1">}</span>
+    <span class="s3">$current</span><span class="s1">[</span><span class="s3">$matches</span><span class="s1">[</span><span class="s6">1</span><span class="s1">]] = </span><span class="s4">explode</span><span class="s1">(</span><span class="s5">&quot;', '&quot;</span><span class="s0">, </span><span class="s3">$matches</span><span class="s1">[</span><span class="s6">2</span><span class="s1">])</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s2">// we merge the 2 maps (we never remove old mime types)</span>
+<span class="s3">$map </span><span class="s1">= </span><span class="s4">array_replace_recursive</span><span class="s1">(</span><span class="s3">$current</span><span class="s0">, </span><span class="s3">$new</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s4">ksort</span><span class="s1">(</span><span class="s3">$map</span><span class="s1">)</span><span class="s0">;</span>
+
+<span class="s3">$data </span><span class="s1">= </span><span class="s3">$pre</span><span class="s0">;</span>
+<span class="s0">foreach </span><span class="s1">(</span><span class="s3">$map </span><span class="s0">as </span><span class="s3">$mimeType </span><span class="s1">=&gt; </span><span class="s3">$exts</span><span class="s1">) {</span>
+    <span class="s3">$data </span><span class="s1">.= </span><span class="s4">sprintf</span><span class="s1">(</span><span class="s5">&quot;        '%s' =&gt; ['%s'],</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">, </span><span class="s3">$mimeType</span><span class="s0">, </span><span class="s4">implode</span><span class="s1">(</span><span class="s5">&quot;', '&quot;</span><span class="s0">, </span><span class="s4">array_unique</span><span class="s1">(</span><span class="s3">$exts</span><span class="s1">)))</span><span class="s0">;</span>
+<span class="s1">}</span>
+<span class="s3">$data </span><span class="s1">.= </span><span class="s3">$post</span><span class="s0">;</span>
+
+<span class="s2">// reverse map</span>
+<span class="s2">// we prefill the extensions with some preferences for content-types</span>
+<span class="s3">$exts </span><span class="s1">= [</span>
+    <span class="s5">'aif' </span><span class="s1">=&gt; [</span><span class="s5">'audio/x-aiff'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'aiff' </span><span class="s1">=&gt; [</span><span class="s5">'audio/x-aiff'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'aps' </span><span class="s1">=&gt; [</span><span class="s5">'application/postscript'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'avi' </span><span class="s1">=&gt; [</span><span class="s5">'video/avi'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'bmp' </span><span class="s1">=&gt; [</span><span class="s5">'image/bmp'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'bz2' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-bz2'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'css' </span><span class="s1">=&gt; [</span><span class="s5">'text/css'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'csv' </span><span class="s1">=&gt; [</span><span class="s5">'text/csv'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'dmg' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-apple-diskimage'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'doc' </span><span class="s1">=&gt; [</span><span class="s5">'application/msword'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'docx' </span><span class="s1">=&gt; [</span><span class="s5">'application/vnd.openxmlformats-officedocument.wordprocessingml.document'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'eml' </span><span class="s1">=&gt; [</span><span class="s5">'message/rfc822'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'exe' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-ms-dos-executable'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'flv' </span><span class="s1">=&gt; [</span><span class="s5">'video/x-flv'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'gif' </span><span class="s1">=&gt; [</span><span class="s5">'image/gif'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'gz' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-gzip'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'hqx' </span><span class="s1">=&gt; [</span><span class="s5">'application/stuffit'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'htm' </span><span class="s1">=&gt; [</span><span class="s5">'text/html'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'html' </span><span class="s1">=&gt; [</span><span class="s5">'text/html'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'jar' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-java-archive'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'jpeg' </span><span class="s1">=&gt; [</span><span class="s5">'image/jpeg'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'jpg' </span><span class="s1">=&gt; [</span><span class="s5">'image/jpeg'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'js' </span><span class="s1">=&gt; [</span><span class="s5">'text/javascript'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'m3u' </span><span class="s1">=&gt; [</span><span class="s5">'audio/x-mpegurl'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'m4a' </span><span class="s1">=&gt; [</span><span class="s5">'audio/mp4'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mdb' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-msaccess'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mid' </span><span class="s1">=&gt; [</span><span class="s5">'audio/midi'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'midi' </span><span class="s1">=&gt; [</span><span class="s5">'audio/midi'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mov' </span><span class="s1">=&gt; [</span><span class="s5">'video/quicktime'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mp3' </span><span class="s1">=&gt; [</span><span class="s5">'audio/mpeg'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mp4' </span><span class="s1">=&gt; [</span><span class="s5">'video/mp4'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mpeg' </span><span class="s1">=&gt; [</span><span class="s5">'video/mpeg'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'mpg' </span><span class="s1">=&gt; [</span><span class="s5">'video/mpeg'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'ogg' </span><span class="s1">=&gt; [</span><span class="s5">'audio/ogg'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'pdf' </span><span class="s1">=&gt; [</span><span class="s5">'application/pdf'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'php' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-php'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'php3' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-php'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'php4' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-php'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'php5' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-php'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'png' </span><span class="s1">=&gt; [</span><span class="s5">'image/png'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'ppt' </span><span class="s1">=&gt; [</span><span class="s5">'application/vnd.ms-powerpoint'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'pptx' </span><span class="s1">=&gt; [</span><span class="s5">'application/vnd.openxmlformats-officedocument.presentationml.presentation'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'ps' </span><span class="s1">=&gt; [</span><span class="s5">'application/postscript'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'rar' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-rar-compressed'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'rtf' </span><span class="s1">=&gt; [</span><span class="s5">'application/rtf'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'sit' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-stuffit'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'svg' </span><span class="s1">=&gt; [</span><span class="s5">'image/svg+xml'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'tar' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-tar'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'tif' </span><span class="s1">=&gt; [</span><span class="s5">'image/tiff'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'tiff' </span><span class="s1">=&gt; [</span><span class="s5">'image/tiff'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'ttf' </span><span class="s1">=&gt; [</span><span class="s5">'application/x-font-truetype'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'txt' </span><span class="s1">=&gt; [</span><span class="s5">'text/plain'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'vcf' </span><span class="s1">=&gt; [</span><span class="s5">'text/x-vcard'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'wav' </span><span class="s1">=&gt; [</span><span class="s5">'audio/wav'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'wma' </span><span class="s1">=&gt; [</span><span class="s5">'audio/x-ms-wma'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'wmv' </span><span class="s1">=&gt; [</span><span class="s5">'audio/x-ms-wmv'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'xls' </span><span class="s1">=&gt; [</span><span class="s5">'application/vnd.ms-excel'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'xlsx' </span><span class="s1">=&gt; [</span><span class="s5">'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'xml' </span><span class="s1">=&gt; [</span><span class="s5">'application/xml'</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s5">'zip' </span><span class="s1">=&gt; [</span><span class="s5">'application/zip'</span><span class="s1">]</span><span class="s0">,</span>
+<span class="s1">]</span><span class="s0">;</span>
+<span class="s0">foreach </span><span class="s1">(</span><span class="s3">$map </span><span class="s0">as </span><span class="s3">$mimeType </span><span class="s1">=&gt; </span><span class="s3">$extensions</span><span class="s1">) {</span>
+    <span class="s0">foreach </span><span class="s1">(</span><span class="s3">$extensions </span><span class="s0">as </span><span class="s3">$extension</span><span class="s1">) {</span>
+        <span class="s3">$exts</span><span class="s1">[</span><span class="s3">$extension</span><span class="s1">][] = </span><span class="s3">$mimeType</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+<span class="s4">ksort</span><span class="s1">(</span><span class="s3">$exts</span><span class="s1">)</span><span class="s0">;</span>
+
+<span class="s3">$updated </span><span class="s1">= </span><span class="s5">''</span><span class="s0">;</span>
+<span class="s3">$state </span><span class="s1">= </span><span class="s6">0</span><span class="s0">;</span>
+<span class="s0">foreach </span><span class="s1">(</span><span class="s4">explode</span><span class="s1">(</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">, </span><span class="s3">$data</span><span class="s1">) </span><span class="s0">as </span><span class="s3">$line</span><span class="s1">) {</span>
+    <span class="s0">if </span><span class="s1">(!</span><span class="s4">preg_match</span><span class="s1">(</span><span class="s5">&quot;{^        '([^'/]+)' =&gt; \['(.+)'\],$}&quot;</span><span class="s0">, </span><span class="s3">$line</span><span class="s0">, </span><span class="s3">$matches</span><span class="s1">)) {</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">1 </span><span class="s1">=== </span><span class="s3">$state</span><span class="s1">) {</span>
+            <span class="s3">$state </span><span class="s1">= </span><span class="s6">2</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">$exts </span><span class="s0">as </span><span class="s3">$ext </span><span class="s1">=&gt; </span><span class="s3">$mimeTypes</span><span class="s1">) {</span>
+                <span class="s3">$updated </span><span class="s1">.= </span><span class="s4">sprintf</span><span class="s1">(</span><span class="s5">&quot;        '%s' =&gt; ['%s'],</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">, </span><span class="s3">$ext</span><span class="s0">, </span><span class="s4">implode</span><span class="s1">(</span><span class="s5">&quot;', '&quot;</span><span class="s0">, </span><span class="s4">array_unique</span><span class="s1">(</span><span class="s3">$mimeTypes</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s3">$updated </span><span class="s1">.= </span><span class="s3">$line</span><span class="s1">.</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">;</span>
+        <span class="s0">continue;</span>
+    <span class="s1">}</span>
+    <span class="s3">$state </span><span class="s1">= </span><span class="s6">1</span><span class="s0">;</span>
+<span class="s1">}</span>
+
+<span class="s3">$updated </span><span class="s1">= </span><span class="s4">preg_replace</span><span class="s1">(</span><span class="s5">'{Updated from upstream on .+?\.}'</span><span class="s0">, </span><span class="s5">'Updated from upstream on '</span><span class="s1">.</span><span class="s4">date</span><span class="s1">(</span><span class="s5">'Y-m-d'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">$updated</span><span class="s0">, </span><span class="s1">-</span><span class="s6">1</span><span class="s1">)</span><span class="s0">;</span>
+
+<span class="s4">file_put_contents</span><span class="s1">(</span><span class="s3">$output</span><span class="s0">, </span><span class="s4">rtrim</span><span class="s1">(</span><span class="s3">$updated</span><span class="s0">, </span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s1">).</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+
+<span class="s0">echo </span><span class="s5">&quot;Done.</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s0">;</span>
+</pre>
+</body>
+</html>

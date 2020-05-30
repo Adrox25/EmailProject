@@ -1,0 +1,207 @@
+<html>
+<head>
+<title>ChoiceQuestion.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ChoiceQuestion.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Question</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Represents a choice question.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ChoiceQuestion </span><span class="s0">extends </span><span class="s3">Question</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$choices</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$multiselect </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$prompt </span><span class="s1">= </span><span class="s8">' &gt; '</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$errorMessage </span><span class="s1">= </span><span class="s8">'Value &quot;%s&quot; is invalid'</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $question The question to ask to the user</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $choices  The list of available choices</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed  $default  The default answer to return</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$question</span><span class="s0">, array </span><span class="s7">$choices</span><span class="s0">, </span><span class="s7">$default </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$choices</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'Choice question must have at least 1 choice available.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$question</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">choices </span><span class="s1">= </span><span class="s7">$choices</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setValidator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefaultValidator</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setAutocompleterValues</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns available choices.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getChoices</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">choices</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets multiselect option.</span>
+     <span class="s4">*</span>
+     <span class="s4">* When multiselect is set to true, multiple choices can be answered.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMultiselect</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$multiselect</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiselect </span><span class="s1">= </span><span class="s7">$multiselect</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setValidator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefaultValidator</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns whether the choices are multiselect.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isMultiselect</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiselect</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the prompt for choices.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getPrompt</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prompt</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the prompt for choices.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPrompt</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prompt</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prompt </span><span class="s1">= </span><span class="s7">$prompt</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the error message for invalid values.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The error message has a string placeholder (%s) for the invalid value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setErrorMessage</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$errorMessage</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errorMessage </span><span class="s1">= </span><span class="s7">$errorMessage</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setValidator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefaultValidator</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getDefaultValidator</span><span class="s1">(): </span><span class="s0">callable</span>
+    <span class="s1">{</span>
+        <span class="s7">$choices </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">choices</span><span class="s0">;</span>
+        <span class="s7">$errorMessage </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errorMessage</span><span class="s0">;</span>
+        <span class="s7">$multiselect </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">multiselect</span><span class="s0">;</span>
+        <span class="s7">$isAssoc </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isAssoc</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return function </span><span class="s1">(</span><span class="s7">$selected</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$choices</span><span class="s0">, </span><span class="s7">$errorMessage</span><span class="s0">, </span><span class="s7">$multiselect</span><span class="s0">, </span><span class="s7">$isAssoc</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$multiselect</span><span class="s1">) {</span>
+                <span class="s2">// Check for a separated comma values</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^[^,]+(?:,[^,]+)*$/'</span><span class="s0">, </span><span class="s7">$selected</span><span class="s0">, </span><span class="s7">$matches</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">$errorMessage</span><span class="s0">, </span><span class="s7">$selected</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$selectedChoices </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">','</span><span class="s0">, </span><span class="s7">$selected</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$selectedChoices </span><span class="s1">= [</span><span class="s7">$selected</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isTrimmable</span><span class="s1">()) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$selectedChoices </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                    <span class="s7">$selectedChoices</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$multiselectChoices </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$selectedChoices </span><span class="s0">as </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$results </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$choices </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$choice</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$choice </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+                        <span class="s7">$results</span><span class="s1">[] = </span><span class="s7">$key</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$results</span><span class="s1">) &gt; </span><span class="s9">1</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The provided answer is ambiguous. Value should be one of &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot; or &quot;'</span><span class="s0">, </span><span class="s7">$results</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$result </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$choices</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$isAssoc</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$result</span><span class="s1">) {</span>
+                        <span class="s7">$result </span><span class="s1">= </span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$result</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">])) {</span>
+                        <span class="s7">$result </span><span class="s1">= </span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$result </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$choices</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">])) {</span>
+                    <span class="s7">$result </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$result</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">$errorMessage</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$multiselectChoices</span><span class="s1">[] = (string) </span><span class="s7">$result</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$multiselect</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$multiselectChoices</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">current</span><span class="s1">(</span><span class="s7">$multiselectChoices</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

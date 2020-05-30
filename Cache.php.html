@@ -1,0 +1,172 @@
+<html>
+<head>
+<title>Cache.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Cache.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Cache </span><span class="s0">as </span><span class="s3">BaseCache</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">IO</span><span class="s1">\</span><span class="s3">IOInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Semver</span><span class="s1">\</span><span class="s3">Constraint</span><span class="s1">\</span><span class="s3">Constraint</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Semver</span><span class="s1">\</span><span class="s3">VersionParser</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Cache </span><span class="s0">extends </span><span class="s3">BaseCache</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$versions</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$versionParser</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$symfonyRequire</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$symfonyConstraints</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$downloader</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$io</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">setSymfonyRequire</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$symfonyRequire</span><span class="s0">, </span><span class="s3">Downloader </span><span class="s7">$downloader</span><span class="s0">, </span><span class="s3">IOInterface </span><span class="s7">$io </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versionParser </span><span class="s1">= </span><span class="s0">new </span><span class="s3">VersionParser</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyRequire </span><span class="s1">= </span><span class="s7">$symfonyRequire</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyConstraints </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versionParser</span><span class="s1">-&gt;</span><span class="s3">parseConstraints</span><span class="s1">(</span><span class="s7">$symfonyRequire</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">= </span><span class="s7">$downloader</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io </span><span class="s1">= </span><span class="s7">$io</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">read</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$content </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">read</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s9">'provider-symfony$'</span><span class="s1">) &amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$data </span><span class="s1">= </span><span class="s3">json_decode</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))) {</span>
+            <span class="s7">$content </span><span class="s1">= </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeLegacyTags</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$content</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">removeLegacyTags</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$data</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyConstraints </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'packages'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$data</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'packages'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$versions</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getVersions</span><span class="s1">()[</span><span class="s9">'splits'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$versions </span><span class="s0">as </span><span class="s7">$version </span><span class="s1">=&gt; </span><span class="s7">$composerJson</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">'dev-master' </span><span class="s1">=== </span><span class="s7">$version</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$devMasterAlias </span><span class="s1">= </span><span class="s7">$versions</span><span class="s1">[</span><span class="s9">'dev-master'</span><span class="s1">][</span><span class="s9">'extra'</span><span class="s1">][</span><span class="s9">'branch-alias'</span><span class="s1">][</span><span class="s9">'dev-master'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$normalizedVersion </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versionParser</span><span class="s1">-&gt;</span><span class="s3">normalize</span><span class="s1">(</span><span class="s7">$devMasterAlias</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$composerJson</span><span class="s1">[</span><span class="s9">'version_normalized'</span><span class="s1">])) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$normalizedVersion </span><span class="s1">= </span><span class="s7">$composerJson</span><span class="s1">[</span><span class="s9">'version_normalized'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyConstraints</span><span class="s1">-&gt;</span><span class="s3">matches</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Constraint</span><span class="s1">(</span><span class="s9">'=='</span><span class="s0">, </span><span class="s7">$normalizedVersion</span><span class="s1">))) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s1">-&gt;</span><span class="s3">writeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'&lt;info&gt;Restricting packages listed in &quot;symfony/symfony&quot; to &quot;%s&quot;&lt;/&gt;'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyRequire</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$versions</span><span class="s1">[</span><span class="s7">$version</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$data</span><span class="s1">[</span><span class="s9">'packages'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$versions</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$symfonySymfony </span><span class="s1">= </span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'packages'</span><span class="s1">][</span><span class="s9">'symfony/symfony'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$data</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$symfonySymfony </span><span class="s0">as </span><span class="s7">$version </span><span class="s1">=&gt; </span><span class="s7">$composerJson</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'dev-master' </span><span class="s1">=== </span><span class="s7">$version</span><span class="s1">) {</span>
+                <span class="s7">$normalizedVersion </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versionParser</span><span class="s1">-&gt;</span><span class="s3">normalize</span><span class="s1">(</span><span class="s7">$composerJson</span><span class="s1">[</span><span class="s9">'extra'</span><span class="s1">][</span><span class="s9">'branch-alias'</span><span class="s1">][</span><span class="s9">'dev-master'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$composerJson</span><span class="s1">[</span><span class="s9">'version_normalized'</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$normalizedVersion </span><span class="s1">= </span><span class="s7">$composerJson</span><span class="s1">[</span><span class="s9">'version_normalized'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyConstraints</span><span class="s1">-&gt;</span><span class="s3">matches</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Constraint</span><span class="s1">(</span><span class="s9">'=='</span><span class="s0">, </span><span class="s7">$normalizedVersion</span><span class="s1">))) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$symfonySymfony</span><span class="s1">[</span><span class="s7">$version</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$symfonySymfony</span><span class="s1">) {</span>
+            <span class="s7">$data</span><span class="s1">[</span><span class="s9">'packages'</span><span class="s1">][</span><span class="s9">'symfony/symfony'</span><span class="s1">] = </span><span class="s7">$symfonySymfony</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$data</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getVersions</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versions</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versions</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$versions </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader</span><span class="s1">-&gt;</span><span class="s3">getVersions</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$okVersions </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$versions</span><span class="s1">[</span><span class="s9">'splits'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$vers</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$vers </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$okVersions</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">])) {</span>
+                    <span class="s7">$okVersions</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+
+                    <span class="s0">for </span><span class="s1">(</span><span class="s7">$j </span><span class="s1">= </span><span class="s8">0</span><span class="s0">; </span><span class="s7">$j </span><span class="s1">&lt; </span><span class="s8">60</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$j</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">symfonyConstraints</span><span class="s1">-&gt;</span><span class="s3">matches</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Constraint</span><span class="s1">(</span><span class="s9">'=='</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">.</span><span class="s9">'.'</span><span class="s1">.</span><span class="s7">$j</span><span class="s1">.</span><span class="s9">'.0'</span><span class="s1">))) {</span>
+                            <span class="s7">$okVersions</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                            <span class="s0">break;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$okVersions</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">]) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$vers</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$vers </span><span class="s1">|| </span><span class="s7">$vers </span><span class="s1">=== </span><span class="s7">$versions</span><span class="s1">[</span><span class="s9">'splits'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">]) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$versions</span><span class="s1">[</span><span class="s9">'splits'</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">versions </span><span class="s1">= </span><span class="s7">$versions</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

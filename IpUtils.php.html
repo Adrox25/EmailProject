@@ -1,0 +1,210 @@
+<html>
+<head>
+<title>IpUtils.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+IpUtils.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Http utility functions.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">IpUtils</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$checkedIps </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* This class should not be instantiated.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if an IPv4 or IPv6 address is contained in the list of given IPs or subnets.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array $ips List of IPs or subnets (can be a string if only a single one)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Whether the IP is valid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">checkIp</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$requestIp</span><span class="s0">, </span><span class="s7">$ips</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$ips</span><span class="s1">)) {</span>
+            <span class="s7">$ips </span><span class="s1">= [</span><span class="s7">$ips</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$method </span><span class="s1">= </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s7">$requestIp</span><span class="s0">, </span><span class="s8">':'</span><span class="s1">) &gt; </span><span class="s9">1 </span><span class="s1">? </span><span class="s8">'checkIp6' </span><span class="s1">: </span><span class="s8">'checkIp4'</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$ips </span><span class="s0">as </span><span class="s7">$ip</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$method</span><span class="s1">(</span><span class="s7">$requestIp</span><span class="s0">, </span><span class="s7">$ip</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Compares two IPv4 addresses.</span>
+     <span class="s4">* In case a subnet is given, it checks if it contains the request IP.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $ip IPv4 address or subnet in CIDR notation</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Whether the request IP matches the IP, or whether the request IP is within the CIDR subnet</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">checkIp4</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$requestIp</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$ip</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$cacheKey </span><span class="s1">= </span><span class="s7">$requestIp</span><span class="s1">.</span><span class="s8">'-'</span><span class="s1">.</span><span class="s7">$ip</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$requestIp</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_IP</span><span class="s0">, </span><span class="s3">FILTER_FLAG_IPV4</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$ip</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$address</span><span class="s0">, </span><span class="s7">$netmask</span><span class="s1">) = </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'/'</span><span class="s0">, </span><span class="s7">$ip</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'0' </span><span class="s1">=== </span><span class="s7">$netmask</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s7">$address</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_IP</span><span class="s0">, </span><span class="s3">FILTER_FLAG_IPV4</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$netmask </span><span class="s1">&lt; </span><span class="s9">0 </span><span class="s1">|| </span><span class="s7">$netmask </span><span class="s1">&gt; </span><span class="s9">32</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$address </span><span class="s1">= </span><span class="s7">$ip</span><span class="s0">;</span>
+            <span class="s7">$netmask </span><span class="s1">= </span><span class="s9">32</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">ip2long</span><span class="s1">(</span><span class="s7">$address</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">substr_compare</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%032b'</span><span class="s0">, </span><span class="s3">ip2long</span><span class="s1">(</span><span class="s7">$requestIp</span><span class="s1">))</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%032b'</span><span class="s0">, </span><span class="s3">ip2long</span><span class="s1">(</span><span class="s7">$address</span><span class="s1">))</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$netmask</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Compares two IPv6 addresses.</span>
+     <span class="s4">* In case a subnet is given, it checks if it contains the request IP.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@author </span><span class="s4">David Soria Parra </span><span class="s6">&lt;dsp at php dot net&gt;</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://github.com/dsp/v6tools</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $ip IPv6 address or subnet in CIDR notation</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Whether the IP is valid</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException When IPV6 support is not enabled</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">checkIp6</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$requestIp</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$ip</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$cacheKey </span><span class="s1">= </span><span class="s7">$requestIp</span><span class="s1">.</span><span class="s8">'-'</span><span class="s1">.</span><span class="s7">$ip</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!((\</span><span class="s3">extension_loaded</span><span class="s1">(</span><span class="s8">'sockets'</span><span class="s1">) &amp;&amp; \</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'AF_INET6'</span><span class="s1">)) || @</span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s8">'::1'</span><span class="s1">))) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'Unable to check Ipv6. Check that PHP was not compiled with option &quot;disable-ipv6&quot;.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$ip</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$address</span><span class="s0">, </span><span class="s7">$netmask</span><span class="s1">) = </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'/'</span><span class="s0">, </span><span class="s7">$ip</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'0' </span><span class="s1">=== </span><span class="s7">$netmask</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s1">(bool) </span><span class="s3">unpack</span><span class="s1">(</span><span class="s8">'n*'</span><span class="s0">, </span><span class="s1">@</span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s7">$address</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$netmask </span><span class="s1">&lt; </span><span class="s9">1 </span><span class="s1">|| </span><span class="s7">$netmask </span><span class="s1">&gt; </span><span class="s9">128</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$address </span><span class="s1">= </span><span class="s7">$ip</span><span class="s0">;</span>
+            <span class="s7">$netmask </span><span class="s1">= </span><span class="s9">128</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$bytesAddr </span><span class="s1">= </span><span class="s3">unpack</span><span class="s1">(</span><span class="s8">'n*'</span><span class="s0">, </span><span class="s1">@</span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s7">$address</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$bytesTest </span><span class="s1">= </span><span class="s3">unpack</span><span class="s1">(</span><span class="s8">'n*'</span><span class="s0">, </span><span class="s1">@</span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s7">$requestIp</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$bytesAddr </span><span class="s1">|| !</span><span class="s7">$bytesTest</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">, </span><span class="s7">$ceil </span><span class="s1">= </span><span class="s3">ceil</span><span class="s1">(</span><span class="s7">$netmask </span><span class="s1">/ </span><span class="s9">16</span><span class="s1">)</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt;= </span><span class="s7">$ceil</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s7">$left </span><span class="s1">= </span><span class="s7">$netmask </span><span class="s1">- </span><span class="s9">16 </span><span class="s1">* (</span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$left </span><span class="s1">= (</span><span class="s7">$left </span><span class="s1">&lt;= </span><span class="s9">16</span><span class="s1">) ? </span><span class="s7">$left </span><span class="s1">: </span><span class="s9">16</span><span class="s0">;</span>
+            <span class="s7">$mask </span><span class="s1">= ~(</span><span class="s9">0xffff </span><span class="s1">&gt;&gt; </span><span class="s7">$left</span><span class="s1">) &amp; </span><span class="s9">0xffff</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">((</span><span class="s7">$bytesAddr</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] &amp; </span><span class="s7">$mask</span><span class="s1">) != (</span><span class="s7">$bytesTest</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] &amp; </span><span class="s7">$mask</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$checkedIps</span><span class="s1">[</span><span class="s7">$cacheKey</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Anonymizes an IP/IPv6.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Removes the last byte for v4 and the last 8 bytes for v6 IPs</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">anonymize</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$ip</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$wrappedIPv6 </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'[' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$ip</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">1</span><span class="s1">) &amp;&amp; </span><span class="s8">']' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$ip</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)) {</span>
+            <span class="s7">$wrappedIPv6 </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s7">$ip </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$ip</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$packedAddress </span><span class="s1">= </span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s7">$ip</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">4 </span><span class="s1">=== \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$packedAddress</span><span class="s1">)) {</span>
+            <span class="s7">$mask </span><span class="s1">= </span><span class="s8">'255.255.255.0'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$ip </span><span class="s1">=== </span><span class="s3">inet_ntop</span><span class="s1">(</span><span class="s7">$packedAddress </span><span class="s1">&amp; </span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s8">'::ffff:ffff:ffff'</span><span class="s1">))) {</span>
+            <span class="s7">$mask </span><span class="s1">= </span><span class="s8">'::ffff:ffff:ff00'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$ip </span><span class="s1">=== </span><span class="s3">inet_ntop</span><span class="s1">(</span><span class="s7">$packedAddress </span><span class="s1">&amp; </span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s8">'::ffff:ffff'</span><span class="s1">))) {</span>
+            <span class="s7">$mask </span><span class="s1">= </span><span class="s8">'::ffff:ff00'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$mask </span><span class="s1">= </span><span class="s8">'ffff:ffff:ffff:ffff:0000:0000:0000:0000'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$ip </span><span class="s1">= </span><span class="s3">inet_ntop</span><span class="s1">(</span><span class="s7">$packedAddress </span><span class="s1">&amp; </span><span class="s3">inet_pton</span><span class="s1">(</span><span class="s7">$mask</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$wrappedIPv6</span><span class="s1">) {</span>
+            <span class="s7">$ip </span><span class="s1">= </span><span class="s8">'['</span><span class="s1">.</span><span class="s7">$ip</span><span class="s1">.</span><span class="s8">']'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$ip</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

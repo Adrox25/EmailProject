@@ -1,0 +1,169 @@
+<html>
+<head>
+<title>AddAnnotatedClassesToCachePass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AddAnnotatedClassesToCachePass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Autoload</span><span class="s1">\</span><span class="s3">ClassLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">DebugClassLoader </span><span class="s0">as </span><span class="s3">LegacyDebugClassLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">CompilerPassInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">DebugClassLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Kernel</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Sets the classes to compile in the cache for the container.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">AddAnnotatedClassesToCachePass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$kernel</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Kernel </span><span class="s7">$kernel</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel </span><span class="s1">= </span><span class="s7">$kernel</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$annotatedClasses </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">getAnnotatedClassesToCompile</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getExtensions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$extension</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$extension </span><span class="s0">instanceof </span><span class="s3">Extension</span><span class="s1">) {</span>
+                <span class="s7">$annotatedClasses </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$annotatedClasses</span><span class="s0">, </span><span class="s7">$extension</span><span class="s1">-&gt;</span><span class="s3">getAnnotatedClassesToCompile</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$existingClasses </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getClassesInComposerClassMaps</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$annotatedClasses </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">resolveValue</span><span class="s1">(</span><span class="s7">$annotatedClasses</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s1">-&gt;</span><span class="s3">setAnnotatedClassCache</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expandClasses</span><span class="s1">(</span><span class="s7">$annotatedClasses</span><span class="s0">, </span><span class="s7">$existingClasses</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Expands the given class patterns using a list of existing classes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $patterns The class patterns to expand</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $classes  The existing classes to match against the patterns</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">expandClasses</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$patterns</span><span class="s0">, array </span><span class="s7">$classes</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$expanded </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s2">// Explicit classes declared in the patterns are returned directly</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$patterns </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$pattern</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">!== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s0">, </span><span class="s8">'*'</span><span class="s1">)) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$patterns</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$expanded</span><span class="s1">[] = </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Match patterns with the classes list</span>
+        <span class="s7">$regexps </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">patternsToRegexps</span><span class="s1">(</span><span class="s7">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$classes </span><span class="s0">as </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matchAnyRegexps</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$regexps</span><span class="s1">)) {</span>
+                <span class="s7">$expanded</span><span class="s1">[] = </span><span class="s7">$class</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">array_unique</span><span class="s1">(</span><span class="s7">$expanded</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getClassesInComposerClassMaps</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$classes </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">spl_autoload_functions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$function</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$function</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">DebugClassLoader </span><span class="s1">|| </span><span class="s7">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">LegacyDebugClassLoader</span><span class="s1">) {</span>
+                <span class="s7">$function </span><span class="s1">= </span><span class="s7">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">getClassLoader</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$function</span><span class="s1">) &amp;&amp; </span><span class="s7">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">ClassLoader</span><span class="s1">) {</span>
+                <span class="s7">$classes </span><span class="s1">+= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">getClassMap</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$classes</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">patternsToRegexps</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$patterns</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$regexps </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$patterns </span><span class="s0">as </span><span class="s7">$pattern</span><span class="s1">) {</span>
+            <span class="s2">// Escape user input</span>
+            <span class="s7">$regex </span><span class="s1">= </span><span class="s3">preg_quote</span><span class="s1">(</span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s2">// Wildcards * and **</span>
+            <span class="s7">$regex </span><span class="s1">= </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">*</span><span class="s0">\\</span><span class="s8">*' </span><span class="s1">=&gt; </span><span class="s8">'.*?'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">*' </span><span class="s1">=&gt; </span><span class="s8">'[^</span><span class="s0">\\\\</span><span class="s8">]*?'</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s2">// If this class does not end by a slash, anchor the end</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">!== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s8">'$'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$regexps</span><span class="s1">[] = </span><span class="s8">'{^</span><span class="s0">\\\\</span><span class="s8">'</span><span class="s1">.</span><span class="s7">$regex</span><span class="s1">.</span><span class="s8">'}'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$regexps</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">matchAnyRegexps</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$class</span><span class="s0">, array </span><span class="s7">$regexps</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$blacklisted </span><span class="s1">= </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'Test'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$regexps </span><span class="s0">as </span><span class="s7">$regex</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$blacklisted </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s8">'Test'</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

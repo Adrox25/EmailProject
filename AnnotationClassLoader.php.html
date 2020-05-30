@@ -1,0 +1,359 @@
+<html>
+<head>
+<title>AnnotationClassLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AnnotationClassLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Loader</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Common</span><span class="s1">\</span><span class="s3">Annotations</span><span class="s1">\</span><span class="s3">Reader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">LoaderInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">LoaderResolverInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Resource</span><span class="s1">\</span><span class="s3">FileResource</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Annotation</span><span class="s1">\</span><span class="s3">Route </span><span class="s0">as </span><span class="s3">RouteAnnotation</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Route</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCollection</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCompiler</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* AnnotationClassLoader loads routing information from a PHP class and its methods.</span>
+ <span class="s4">*</span>
+ <span class="s4">* You need to define an implementation for the getRouteDefaults() method. Most of the</span>
+ <span class="s4">* time, this method should define some PHP callable to be called for the route</span>
+ <span class="s4">* (a controller in MVC speak).</span>
+ <span class="s4">*</span>
+ <span class="s4">* The </span><span class="s5">@Route </span><span class="s4">annotation can be set on the class (for global parameters),</span>
+ <span class="s4">* and on each method.</span>
+ <span class="s4">*</span>
+ <span class="s4">* The </span><span class="s5">@Route </span><span class="s4">annotation main value is the route path. The annotation also</span>
+ <span class="s4">* recognizes several parameters: requirements, options, defaults, schemes,</span>
+ <span class="s4">* methods, host, and name. The name parameter is mandatory.</span>
+ <span class="s4">* Here is an example of how you should be able to use it:</span>
+ <span class="s4">*     /**</span>
+ <span class="s4">*      * </span><span class="s5">@Route</span><span class="s4">(&quot;/Blog&quot;)</span>
+ <span class="s4">*      * /</span>
+ <span class="s4">*     class Blog</span>
+ <span class="s4">*     {</span>
+ <span class="s4">*         /**</span>
+ <span class="s4">*          * </span><span class="s5">@Route</span><span class="s4">(&quot;/&quot;, name=&quot;blog_index&quot;)</span>
+ <span class="s4">*          * /</span>
+ <span class="s4">*         public function index()</span>
+ <span class="s4">*         {</span>
+ <span class="s4">*         }</span>
+ <span class="s4">*         /**</span>
+ <span class="s4">*          * </span><span class="s5">@Route</span><span class="s4">(&quot;/{id}&quot;, name=&quot;blog_post&quot;, requirements = {&quot;id&quot; = &quot;\d+&quot;})</span>
+ <span class="s4">*          * /</span>
+ <span class="s4">*         public function show()</span>
+ <span class="s4">*         {</span>
+ <span class="s4">*         }</span>
+ <span class="s4">*     }</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">AnnotationClassLoader </span><span class="s0">implements </span><span class="s3">LoaderInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$reader</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s7">$routeAnnotationClass </span><span class="s1">= </span><span class="s8">'Symfony</span><span class="s0">\\</span><span class="s8">Component</span><span class="s0">\\</span><span class="s8">Routing</span><span class="s0">\\</span><span class="s8">Annotation</span><span class="s0">\\</span><span class="s8">Route'</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">int</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s7">$defaultRouteIndex </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Reader </span><span class="s7">$reader</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reader </span><span class="s1">= </span><span class="s7">$reader</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the annotation class to read route properties from.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setRouteAnnotationClass</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routeAnnotationClass </span><span class="s1">= </span><span class="s7">$class</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads from annotations from a class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $class A class name</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">RouteCollection A RouteCollection instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When route can't be parsed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Class &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$class </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Annotations from class &quot;%s&quot; cannot be read as it is abstract.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$globals </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getGlobals</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$collection </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">addResource</span><span class="s1">(</span><span class="s0">new </span><span class="s3">FileResource</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$method</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultRouteIndex </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reader</span><span class="s1">-&gt;</span><span class="s3">getMethodAnnotations</span><span class="s1">(</span><span class="s7">$method</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$annot</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$annot </span><span class="s0">instanceof </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routeAnnotationClass</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$collection</span><span class="s0">, </span><span class="s7">$annot</span><span class="s0">, </span><span class="s7">$globals</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">count</span><span class="s1">() &amp;&amp; </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s8">'__invoke'</span><span class="s1">)) {</span>
+            <span class="s7">$globals </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetGlobals</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reader</span><span class="s1">-&gt;</span><span class="s3">getClassAnnotations</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$annot</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$annot </span><span class="s0">instanceof </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routeAnnotationClass</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$collection</span><span class="s0">, </span><span class="s7">$annot</span><span class="s0">, </span><span class="s7">$globals</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'__invoke'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$collection</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">RouteAnnotation $annot or an object that exposes a similar interface</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">addRoute</span><span class="s1">(</span><span class="s3">RouteCollection </span><span class="s7">$collection</span><span class="s0">, </span><span class="s7">$annot</span><span class="s0">, array </span><span class="s7">$globals</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ReflectionClass </span><span class="s7">$class</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ReflectionMethod </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$name </span><span class="s1">= </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefaultRouteName</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$name </span><span class="s1">= </span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">].</span><span class="s7">$name</span><span class="s0">;</span>
+
+        <span class="s7">$requirements </span><span class="s1">= </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getRequirements</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$requirements </span><span class="s0">as </span><span class="s7">$placeholder </span><span class="s1">=&gt; </span><span class="s7">$requirement</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$placeholder</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A placeholder name must be a string (%d given). Did you forget to specify the placeholder key for the requirement &quot;%s&quot; of route &quot;%s&quot; in &quot;%s::%s()&quot;?'</span><span class="s0">, </span><span class="s7">$placeholder</span><span class="s0">, </span><span class="s7">$requirement</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$defaults </span><span class="s1">= </span><span class="s3">array_replace</span><span class="s1">(</span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'defaults'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$requirements </span><span class="s1">= </span><span class="s3">array_replace</span><span class="s1">(</span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'requirements'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$requirements</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$options </span><span class="s1">= </span><span class="s3">array_replace</span><span class="s1">(</span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$schemes </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'schemes'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$methods </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'methods'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$host </span><span class="s1">= </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$host</span><span class="s1">) {</span>
+            <span class="s7">$host </span><span class="s1">= </span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'host'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$condition </span><span class="s1">= </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$condition</span><span class="s1">) {</span>
+            <span class="s7">$condition </span><span class="s1">= </span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'condition'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getLocalizedPaths</span><span class="s1">() ?: </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'localized_paths'</span><span class="s1">] ?: </span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$paths </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$path </span><span class="s0">as </span><span class="s7">$locale </span><span class="s1">=&gt; </span><span class="s7">$localePath</span><span class="s1">) {</span>
+                    <span class="s7">$paths</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">] = </span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$localePath</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$missing </span><span class="s1">= </span><span class="s3">array_diff_key</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Route to &quot;%s&quot; is missing paths for locale(s) &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">.</span><span class="s8">'::'</span><span class="s1">.</span><span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$missing</span><span class="s1">))))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$path </span><span class="s0">as </span><span class="s7">$locale </span><span class="s1">=&gt; </span><span class="s7">$localePath</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">])) {</span>
+                        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Route to &quot;%s&quot; with locale &quot;%s&quot; is missing a corresponding prefix in class &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$locale</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s7">$paths</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">] = </span><span class="s7">$prefix</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">].</span><span class="s7">$localePath</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$prefix </span><span class="s0">as </span><span class="s7">$locale </span><span class="s1">=&gt; </span><span class="s7">$localePrefix</span><span class="s1">) {</span>
+                <span class="s7">$paths</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">] = </span><span class="s7">$localePrefix</span><span class="s1">.</span><span class="s7">$path</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$paths</span><span class="s1">[] = </span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$param</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s7">$param</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]) || !</span><span class="s7">$param</span><span class="s1">-&gt;</span><span class="s3">isDefaultValueAvailable</span><span class="s1">()) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$paths </span><span class="s0">as </span><span class="s7">$locale </span><span class="s1">=&gt; </span><span class="s7">$path</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'/\{%s(?:&lt;.*?&gt;)?\}/'</span><span class="s0">, </span><span class="s3">preg_quote</span><span class="s1">(</span><span class="s7">$param</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">))</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)) {</span>
+                    <span class="s7">$defaults</span><span class="s1">[</span><span class="s7">$param</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s7">$param</span><span class="s1">-&gt;</span><span class="s3">getDefaultValue</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$paths </span><span class="s0">as </span><span class="s7">$locale </span><span class="s1">=&gt; </span><span class="s7">$path</span><span class="s1">) {</span>
+            <span class="s7">$route </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createRoute</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s7">$defaults</span><span class="s0">, </span><span class="s7">$requirements</span><span class="s0">, </span><span class="s7">$options</span><span class="s0">, </span><span class="s7">$host</span><span class="s0">, </span><span class="s7">$schemes</span><span class="s0">, </span><span class="s7">$methods</span><span class="s0">, </span><span class="s7">$condition</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configureRoute</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$method</span><span class="s0">, </span><span class="s7">$annot</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== </span><span class="s7">$locale</span><span class="s1">) {</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setDefault</span><span class="s1">(</span><span class="s8">'_locale'</span><span class="s0">, </span><span class="s7">$locale</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setRequirement</span><span class="s1">(</span><span class="s8">'_locale'</span><span class="s0">, </span><span class="s3">preg_quote</span><span class="s1">(</span><span class="s7">$locale</span><span class="s0">, </span><span class="s3">RouteCompiler</span><span class="s1">::</span><span class="s3">REGEX_DELIMITER</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setDefault</span><span class="s1">(</span><span class="s8">'_canonical_route'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">.</span><span class="s8">'.'</span><span class="s1">.</span><span class="s7">$locale</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">supports</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^(?:</span><span class="s0">\\\\</span><span class="s8">?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)+$/'</span><span class="s0">, </span><span class="s7">$resource</span><span class="s1">) &amp;&amp; (!</span><span class="s7">$type </span><span class="s1">|| </span><span class="s8">'annotation' </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setResolver</span><span class="s1">(</span><span class="s3">LoaderResolverInterface </span><span class="s7">$resolver</span><span class="s1">)</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getResolver</span><span class="s1">()</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the default route name for a class method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getDefaultRouteName</span><span class="s1">(\</span><span class="s3">ReflectionClass </span><span class="s7">$class</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ReflectionMethod </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$name </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'_'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">).</span><span class="s8">'_'</span><span class="s1">.</span><span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+        <span class="s7">$name </span><span class="s1">= \</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'mb_strtolower'</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'//u'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">) ? </span><span class="s3">mb_strtolower</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">) : </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultRouteIndex </span><span class="s1">&gt; </span><span class="s9">0</span><span class="s1">) {</span>
+            <span class="s7">$name </span><span class="s1">.= </span><span class="s8">'_'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultRouteIndex</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s1">++</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultRouteIndex</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">getGlobals</span><span class="s1">(\</span><span class="s3">ReflectionClass </span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$globals </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resetGlobals</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$annot </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reader</span><span class="s1">-&gt;</span><span class="s3">getClassAnnotation</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routeAnnotationClass</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'localized_paths'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getLocalizedPaths</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getRequirements</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'requirements'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getRequirements</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'defaults'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'schemes'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'methods'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'host'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()) {</span>
+                <span class="s7">$globals</span><span class="s1">[</span><span class="s8">'condition'</span><span class="s1">] = </span><span class="s7">$annot</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$globals</span><span class="s1">[</span><span class="s8">'requirements'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$placeholder </span><span class="s1">=&gt; </span><span class="s7">$requirement</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$placeholder</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A placeholder name must be a string (%d given). Did you forget to specify the placeholder key for the requirement &quot;%s&quot; in &quot;%s&quot;?'</span><span class="s0">, </span><span class="s7">$placeholder</span><span class="s0">, </span><span class="s7">$requirement</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$globals</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">resetGlobals</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s8">'path' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+            <span class="s8">'localized_paths' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'requirements' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'options' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'defaults' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'schemes' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'methods' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'host' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">,</span>
+            <span class="s8">'condition' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">,</span>
+            <span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s8">''</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">createRoute</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, array </span><span class="s7">$defaults</span><span class="s0">, array </span><span class="s7">$requirements</span><span class="s0">, array </span><span class="s7">$options</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$host</span><span class="s0">, array </span><span class="s7">$schemes</span><span class="s0">, array </span><span class="s7">$methods</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$condition</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">Route</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s7">$defaults</span><span class="s0">, </span><span class="s7">$requirements</span><span class="s0">, </span><span class="s7">$options</span><span class="s0">, </span><span class="s7">$host</span><span class="s0">, </span><span class="s7">$schemes</span><span class="s0">, </span><span class="s7">$methods</span><span class="s0">, </span><span class="s7">$condition</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">abstract protected function </span><span class="s3">configureRoute</span><span class="s1">(</span><span class="s3">Route </span><span class="s7">$route</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ReflectionClass </span><span class="s7">$class</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ReflectionMethod </span><span class="s7">$method</span><span class="s0">, </span><span class="s7">$annot</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<html>
+<head>
+<title>ClassExistenceResource.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ClassExistenceResource.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Resource</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* ClassExistenceResource represents a class existence.</span>
+ <span class="s4">* Freshness is only evaluated against resource existence.</span>
+ <span class="s4">*</span>
+ <span class="s4">* The resource must be a fully-qualified class name.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ClassExistenceResource </span><span class="s0">implements </span><span class="s3">SelfCheckingResourceInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$resource</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$exists</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$autoloadLevel </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$autoloadedClass</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$existsCache </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string    $resource The fully-qualified class name</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool|null $exists   Boolean when the existency check has already been done</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$exists </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource </span><span class="s1">= </span><span class="s7">$resource</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$exists</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists </span><span class="s1">= [(bool) </span><span class="s7">$exists</span><span class="s0">, </span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__toString</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The file path to the resource</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getResource</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\ReflectionException when a parent class/interface/trait is not found</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isFresh</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$timestamp</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$loaded </span><span class="s1">= </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$exists </span><span class="s1">= &amp;</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$existsCache</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s1">]) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$loaded</span><span class="s1">) {</span>
+                <span class="s7">$exists </span><span class="s1">= [</span><span class="s3">true</span><span class="s0">, </span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">&gt;= </span><span class="s7">$timestamp </span><span class="s1">&amp;&amp; !</span><span class="s7">$exists</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$exists</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">ReflectionException</span><span class="s1">(</span><span class="s7">$exists</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">([</span><span class="s3">false</span><span class="s0">, </span><span class="s3">null</span><span class="s1">] === </span><span class="s7">$exists </span><span class="s1">= [</span><span class="s7">$loaded</span><span class="s0">, </span><span class="s3">null</span><span class="s1">]) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadLevel</span><span class="s1">++) {</span>
+                <span class="s3">spl_autoload_register</span><span class="s1">(</span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s9">'::throwOnRequiredClass'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$autoloadedClass </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadedClass</span><span class="s0">;</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadedClass </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$exists</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] = </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s7">$exists</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s3">throwOnRequiredClass</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resource</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">ReflectionException </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">&gt;= </span><span class="s7">$timestamp</span><span class="s1">) {</span>
+                        <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s7">$exists</span><span class="s1">[</span><span class="s8">1</span><span class="s1">] = </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadedClass </span><span class="s1">= </span><span class="s7">$autoloadedClass</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!--</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadLevel</span><span class="s1">) {</span>
+                    <span class="s3">spl_autoload_unregister</span><span class="s1">(</span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s9">'::throwOnRequiredClass'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists </span><span class="s1">= </span><span class="s7">$exists</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">[</span><span class="s8">0</span><span class="s1">] </span><span class="s0">xor </span><span class="s1">!</span><span class="s7">$exists</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isFresh</span><span class="s1">(</span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s9">'resource'</span><span class="s0">, </span><span class="s9">'exists'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__wakeup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_bool</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists </span><span class="s1">= [</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s0">, </span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Throws a reflection exception when the passed class does not exist but is required.</span>
+     <span class="s4">*</span>
+     <span class="s4">* A class is considered &quot;not required&quot; when it's loaded as part of a &quot;class_exists&quot; or similar check.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This function can be used as an autoload function to throw a reflection</span>
+     <span class="s4">* exception if the class was not found by previous autoload functions.</span>
+     <span class="s4">*</span>
+     <span class="s4">* A previous exception can be passed. In this case, the class is considered as being</span>
+     <span class="s4">* required totally, so if it doesn't exist, a reflection exception is always thrown.</span>
+     <span class="s4">* If it exists, the previous exception is rethrown.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\ReflectionException</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">throwOnRequiredClass</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$class</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Exception </span><span class="s7">$previous </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// If the passed class is the resource being checked, we shouldn't throw.</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$previous </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadedClass </span><span class="s1">=== </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$previous</span><span class="s1">) {</span>
+                <span class="s0">throw </span><span class="s7">$previous</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$previous </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ReflectionException</span><span class="s1">) {</span>
+            <span class="s0">throw </span><span class="s7">$previous</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Class &quot;%s&quot; not found.'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadedClass </span><span class="s1">!== </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">' while loading &quot;%s&quot;'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$autoloadedClass</span><span class="s1">)</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1</span><span class="s0">, </span><span class="s8">0</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$previous</span><span class="s1">) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s7">$previous</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$e </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$previous</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$previous</span><span class="s1">) {</span>
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$trace </span><span class="s1">= </span><span class="s3">debug_backtrace</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$autoloadFrame </span><span class="s1">= [</span>
+            <span class="s9">'function' </span><span class="s1">=&gt; </span><span class="s9">'spl_autoload_call'</span><span class="s0">,</span>
+            <span class="s9">'args' </span><span class="s1">=&gt; [</span><span class="s7">$class</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$i </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s7">$autoloadFrame</span><span class="s0">, </span><span class="s7">$trace</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[++</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'function'</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'class'</span><span class="s1">])) {</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'function'</span><span class="s1">]) {</span>
+                <span class="s0">case </span><span class="s9">'get_class_methods'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'get_class_vars'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'get_parent_class'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'is_a'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'is_subclass_of'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'class_exists'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'class_implements'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'class_parents'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'trait_exists'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'defined'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'interface_exists'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'method_exists'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'property_exists'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s9">'is_callable'</span><span class="s1">:</span>
+                    <span class="s0">return;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$props </span><span class="s1">= [</span>
+                <span class="s9">'file' </span><span class="s1">=&gt; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">]) ? </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'file'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s9">'line' </span><span class="s1">=&gt; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">]) ? </span><span class="s7">$trace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">'line'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">,</span>
+                <span class="s9">'trace' </span><span class="s1">=&gt; \</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$trace</span><span class="s0">, </span><span class="s8">1 </span><span class="s1">+ </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$props </span><span class="s0">as </span><span class="s7">$p </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$v</span><span class="s1">) {</span>
+                    <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s9">'Exception'</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<html>
+<head>
+<title>DelegatingLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DelegatingLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Routing</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LoaderLoadException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">DelegatingLoader </span><span class="s0">as </span><span class="s3">BaseDelegatingLoader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">LoaderResolverInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* DelegatingLoader delegates route loading to other loaders using a loader resolver.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This implementation resolves the _controller attribute from the short notation</span>
+ <span class="s4">* to the fully-qualified form (from a:b:c to class::method).</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DelegatingLoader </span><span class="s0">extends </span><span class="s3">BaseDelegatingLoader</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$loading </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$defaultOptions</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">LoaderResolverInterface </span><span class="s7">$resolver</span><span class="s0">, array </span><span class="s7">$defaultOptions </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultOptions </span><span class="s1">= </span><span class="s7">$defaultOptions</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$resolver</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loading</span><span class="s1">) {</span>
+            <span class="s2">// This can happen if a fatal error occurs in parent::load().</span>
+            <span class="s2">// Here is the scenario:</span>
+            <span class="s2">// - while routes are being loaded by parent::load() below, a fatal error</span>
+            <span class="s2">//   occurs (e.g. parse error in a controller while loading annotations);</span>
+            <span class="s2">// - PHP abruptly empties the stack trace, bypassing all catch/finally blocks;</span>
+            <span class="s2">//   it then calls the registered shutdown functions;</span>
+            <span class="s2">// - the ErrorHandler catches the fatal error and re-injects it for rendering</span>
+            <span class="s2">//   thanks to HttpKernel-&gt;terminateWithException() (that calls handleException());</span>
+            <span class="s2">// - at this stage, if we try to load the routes again, we must prevent</span>
+            <span class="s2">//   the fatal error from occurring a second time,</span>
+            <span class="s2">//   otherwise the PHP process would be killed immediately;</span>
+            <span class="s2">// - while rendering the exception page, the router can be required</span>
+            <span class="s2">//   (by e.g. the web profiler that needs to generate an URL);</span>
+            <span class="s2">// - this handles the case and prevents the second fatal error</span>
+            <span class="s2">//   by triggering an exception beforehand.</span>
+
+            <span class="s0">throw new </span><span class="s3">LoaderLoadException</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loading </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$collection </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loading </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultOptions</span><span class="s1">) {</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setOptions</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">() + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultOptions</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$controller </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getDefault</span><span class="s1">(</span><span class="s8">'_controller'</span><span class="s1">))) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$controller</span><span class="s0">, </span><span class="s8">'::'</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setDefault</span><span class="s1">(</span><span class="s8">'_controller'</span><span class="s0">, </span><span class="s7">$controller</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$collection</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

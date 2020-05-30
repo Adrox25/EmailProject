@@ -1,0 +1,264 @@
+<html>
+<head>
+<title>FilesystemTagAwareAdapter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+FilesystemTagAwareAdapter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Marshaller</span><span class="s1">\</span><span class="s3">MarshallerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Marshaller</span><span class="s1">\</span><span class="s3">TagAwareMarshaller</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">PruneableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">FilesystemTrait</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Stores tag id &lt;&gt; cache id relationship as a symlink, and lookup on invalidation calls.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">André Rømcke </span><span class="s6">&lt;andre.romcke</span><span class="s4">+symfony@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">FilesystemTagAwareAdapter </span><span class="s0">extends </span><span class="s3">AbstractTagAwareAdapter </span><span class="s0">implements </span><span class="s3">PruneableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">use </span><span class="s3">FilesystemTrait </span><span class="s1">{</span>
+        <span class="s3">doClear </span><span class="s0">as private </span><span class="s3">doClearCache</span><span class="s0">;</span>
+        <span class="s3">doSave </span><span class="s0">as private </span><span class="s3">doSaveCache</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Folder used for tag symlinks.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private const </span><span class="s3">TAG_FOLDER </span><span class="s1">= </span><span class="s7">'tags'</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$namespace </span><span class="s1">= </span><span class="s7">''</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$defaultLifetime </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$directory </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">MarshallerInterface </span><span class="s8">$marshaller </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">marshaller </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TagAwareMarshaller</span><span class="s1">(</span><span class="s8">$marshaller</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">''</span><span class="s0">, </span><span class="s8">$defaultLifetime</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">init</span><span class="s1">(</span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$directory</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doClear</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$namespace</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$ok </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">doClearCache</span><span class="s1">(</span><span class="s8">$namespace</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$namespace</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$ok</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">static function </span><span class="s1">() {})</span><span class="s0">;</span>
+        <span class="s8">$chars </span><span class="s1">= </span><span class="s7">'+-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">scanHashDir</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">directory</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">TAG_FOLDER</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$dir</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">rename</span><span class="s1">(</span><span class="s8">$dir</span><span class="s0">, </span><span class="s8">$renamed </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s8">$dir</span><span class="s0">, </span><span class="s3">bin2hex</span><span class="s1">(</span><span class="s3">random_bytes</span><span class="s1">(</span><span class="s9">4</span><span class="s1">))</span><span class="s0">, </span><span class="s1">-</span><span class="s9">8</span><span class="s1">))) {</span>
+                    <span class="s8">$dir </span><span class="s1">= </span><span class="s8">$renamed</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$dir </span><span class="s1">.= \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+                    <span class="s8">$renamed </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s9">38</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">for </span><span class="s1">(</span><span class="s8">$j </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$j </span><span class="s1">&lt; </span><span class="s9">38</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$j</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$d </span><span class="s1">= </span><span class="s8">$dir</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">].\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$j</span><span class="s1">])) {</span>
+                            <span class="s0">continue;</span>
+                        <span class="s1">}</span>
+                        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">scandir</span><span class="s1">(</span><span class="s8">$d</span><span class="s0">, </span><span class="s3">SCANDIR_SORT_NONE</span><span class="s1">) ?: [] </span><span class="s0">as </span><span class="s8">$link</span><span class="s1">) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s7">'.' </span><span class="s1">!== </span><span class="s8">$link </span><span class="s1">&amp;&amp; </span><span class="s7">'..' </span><span class="s1">!== </span><span class="s8">$link </span><span class="s1">&amp;&amp; (</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$renamed </span><span class="s1">|| !</span><span class="s3">realpath</span><span class="s1">(</span><span class="s8">$d</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">$link</span><span class="s1">))) {</span>
+                                <span class="s3">unlink</span><span class="s1">(</span><span class="s8">$d</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">$link</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">}</span>
+                        <span class="s3">null </span><span class="s1">=== </span><span class="s8">$renamed </span><span class="s1">?: </span><span class="s3">rmdir</span><span class="s1">(</span><span class="s8">$d</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s3">null </span><span class="s1">=== </span><span class="s8">$renamed </span><span class="s1">?: </span><span class="s3">rmdir</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s3">null </span><span class="s1">=== </span><span class="s8">$renamed </span><span class="s1">?: </span><span class="s3">rmdir</span><span class="s1">(</span><span class="s8">$renamed</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ok</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doSave</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$values</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$lifetime</span><span class="s0">, array </span><span class="s8">$addTagData </span><span class="s1">= []</span><span class="s0">, array </span><span class="s8">$removeTagData </span><span class="s1">= []): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$failed </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">doSaveCache</span><span class="s1">(</span><span class="s8">$values</span><span class="s0">, </span><span class="s8">$lifetime</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Add Tags as symlinks</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$addTagData </span><span class="s0">as </span><span class="s8">$tagId </span><span class="s1">=&gt; </span><span class="s8">$ids</span><span class="s1">) {</span>
+            <span class="s8">$tagFolder </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagFolder</span><span class="s1">(</span><span class="s8">$tagId</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$ids </span><span class="s0">as </span><span class="s8">$id</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$failed </span><span class="s1">&amp;&amp; \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$id</span><span class="s0">, </span><span class="s8">$failed</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$file </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s8">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!@</span><span class="s3">symlink</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$tagLink </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s8">$id</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s8">$tagFolder</span><span class="s1">)) &amp;&amp; !</span><span class="s3">is_link</span><span class="s1">(</span><span class="s8">$tagLink</span><span class="s1">)) {</span>
+                    <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$failed</span><span class="s1">[] = </span><span class="s8">$id</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Unlink removed Tags</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$removeTagData </span><span class="s0">as </span><span class="s8">$tagId </span><span class="s1">=&gt; </span><span class="s8">$ids</span><span class="s1">) {</span>
+            <span class="s8">$tagFolder </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagFolder</span><span class="s1">(</span><span class="s8">$tagId</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$ids </span><span class="s0">as </span><span class="s8">$id</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$failed </span><span class="s1">&amp;&amp; \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$id</span><span class="s0">, </span><span class="s8">$failed</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s8">$id</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$tagFolder</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$failed</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDeleteYieldTags</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$ids</span><span class="s1">): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$ids </span><span class="s0">as </span><span class="s8">$id</span><span class="s1">) {</span>
+            <span class="s8">$file </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s8">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">) || !</span><span class="s8">$h </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s7">'rb'</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">((\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&gt;= </span><span class="s9">70300 </span><span class="s1">|| </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">!== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) &amp;&amp; !@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)) {</span>
+                <span class="s3">fclose</span><span class="s1">(</span><span class="s8">$h</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$meta </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s3">fread</span><span class="s1">(</span><span class="s8">$h</span><span class="s0">, </span><span class="s9">4096</span><span class="s1">)</span><span class="s0">, </span><span class="s9">3</span><span class="s1">)[</span><span class="s9">2</span><span class="s1">] ?? </span><span class="s7">''</span><span class="s0">;</span>
+
+            <span class="s2">// detect the compact format used in marshall() using magic numbers in the form 9D-..-..-..-..-00-..-..-..-5F</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">13 </span><span class="s1">&lt; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$meta</span><span class="s1">) &amp;&amp; </span><span class="s7">&quot;</span><span class="s0">\x9D</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s8">$meta</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">&quot;</span><span class="s0">\0</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s8">$meta</span><span class="s1">[</span><span class="s9">5</span><span class="s1">] &amp;&amp; </span><span class="s7">&quot;</span><span class="s0">\x5F</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s8">$meta</span><span class="s1">[</span><span class="s9">9</span><span class="s1">]) {</span>
+                <span class="s8">$meta</span><span class="s1">[</span><span class="s9">9</span><span class="s1">] = </span><span class="s7">&quot;</span><span class="s0">\0</span><span class="s7">&quot;</span><span class="s0">;</span>
+                <span class="s8">$tagLen </span><span class="s1">= </span><span class="s3">unpack</span><span class="s1">(</span><span class="s7">'Nlen'</span><span class="s0">, </span><span class="s8">$meta</span><span class="s0">, </span><span class="s9">9</span><span class="s1">)[</span><span class="s7">'len'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s8">$meta </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$meta</span><span class="s0">, </span><span class="s9">13</span><span class="s0">, </span><span class="s8">$tagLen</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s8">$tagLen </span><span class="s1">-= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$meta</span><span class="s1">)) {</span>
+                    <span class="s8">$meta </span><span class="s1">.= </span><span class="s3">fread</span><span class="s1">(</span><span class="s8">$h</span><span class="s0">, </span><span class="s8">$tagLen</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s0">yield </span><span class="s8">$id </span><span class="s1">=&gt; </span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$meta </span><span class="s1">? [] : </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">marshaller</span><span class="s1">-&gt;</span><span class="s3">unmarshall</span><span class="s1">(</span><span class="s8">$meta</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s8">$e</span><span class="s1">) {</span>
+                    <span class="s0">yield </span><span class="s8">$id </span><span class="s1">=&gt; []</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s8">$h</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70300 </span><span class="s1">&amp;&amp; </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+                <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDeleteTagRelations</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$tagData</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tagData </span><span class="s0">as </span><span class="s8">$tagId </span><span class="s1">=&gt; </span><span class="s8">$idList</span><span class="s1">) {</span>
+            <span class="s8">$tagFolder </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagFolder</span><span class="s1">(</span><span class="s8">$tagId</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$idList </span><span class="s0">as </span><span class="s8">$id</span><span class="s1">) {</span>
+                <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s8">$id</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$tagFolder</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doInvalidate</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$tagIds</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tagIds </span><span class="s0">as </span><span class="s8">$tagId</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$tagFolder </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagFolder</span><span class="s1">(</span><span class="s8">$tagId</span><span class="s1">))) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">static function </span><span class="s1">() {})</span><span class="s0">;</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">rename</span><span class="s1">(</span><span class="s8">$tagFolder</span><span class="s0">, </span><span class="s8">$renamed </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s8">$tagFolder</span><span class="s0">, </span><span class="s3">bin2hex</span><span class="s1">(</span><span class="s3">random_bytes</span><span class="s1">(</span><span class="s9">4</span><span class="s1">))</span><span class="s0">, </span><span class="s1">-</span><span class="s9">9</span><span class="s1">))) {</span>
+                    <span class="s8">$tagFolder </span><span class="s1">= </span><span class="s8">$renamed</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$renamed </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">scanHashDir</span><span class="s1">(</span><span class="s8">$tagFolder</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$itemLink</span><span class="s1">) {</span>
+                    <span class="s3">unlink</span><span class="s1">(</span><span class="s3">realpath</span><span class="s1">(</span><span class="s8">$itemLink</span><span class="s1">) ?: </span><span class="s8">$itemLink</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s3">unlink</span><span class="s1">(</span><span class="s8">$itemLink</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$renamed</span><span class="s1">) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$chars </span><span class="s1">= </span><span class="s7">'+-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'</span><span class="s0">;</span>
+
+                <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s9">38</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                    <span class="s0">for </span><span class="s1">(</span><span class="s8">$j </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$j </span><span class="s1">&lt; </span><span class="s9">38</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$j</span><span class="s1">) {</span>
+                        <span class="s3">rmdir</span><span class="s1">(</span><span class="s8">$tagFolder</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">].\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$j</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s3">rmdir</span><span class="s1">(</span><span class="s8">$tagFolder</span><span class="s1">.</span><span class="s8">$chars</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s3">rmdir</span><span class="s1">(</span><span class="s8">$renamed</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getTagFolder</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$tagId</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s8">$tagId</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">directory</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">TAG_FOLDER</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">).\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

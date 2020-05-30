@@ -1,0 +1,127 @@
+<html>
+<head>
+<title>UrlHelper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+UrlHelper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RequestContext</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* A helper service for manipulating URLs within and outside the request scope.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Valentin Udaltsov </span><span class="s6">&lt;udaltsov.valentin</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">UrlHelper</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$requestContext</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">RequestStack </span><span class="s7">$requestStack</span><span class="s0">, </span><span class="s3">RequestContext </span><span class="s7">$requestContext </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">= </span><span class="s7">$requestStack</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext </span><span class="s1">= </span><span class="s7">$requestContext</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getAbsoluteUrl</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'://'</span><span class="s1">) || </span><span class="s8">'//' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$request </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getAbsoluteUrlFromContext</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'#' </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getRequestUri</span><span class="s1">().</span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'?' </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">().</span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$path </span><span class="s1">|| </span><span class="s8">'/' </span><span class="s1">!== </span><span class="s7">$path</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$last </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$last </span><span class="s1">!== </span><span class="s7">$pos </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)) {</span>
+                <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$pos</span><span class="s1">).</span><span class="s8">'/'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getUriForPath</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">.</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getSchemeAndHttpHost</span><span class="s1">().</span><span class="s7">$path</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getRelativePath</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'://'</span><span class="s1">) || </span><span class="s8">'//' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$request </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getRelativeUriForPath</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getAbsoluteUrlFromContext</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext </span><span class="s1">|| </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$host </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$scheme </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$port </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'http' </span><span class="s1">=== </span><span class="s7">$scheme </span><span class="s1">&amp;&amp; </span><span class="s9">80 </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getHttpPort</span><span class="s1">()) {</span>
+            <span class="s7">$port </span><span class="s1">= </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getHttpPort</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'https' </span><span class="s1">=== </span><span class="s7">$scheme </span><span class="s1">&amp;&amp; </span><span class="s9">443 </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getHttpsPort</span><span class="s1">()) {</span>
+            <span class="s7">$port </span><span class="s1">= </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getHttpsPort</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'#' </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s7">$queryString </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getQueryString</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">().(</span><span class="s7">$queryString </span><span class="s1">? </span><span class="s8">'?'</span><span class="s1">.</span><span class="s7">$queryString </span><span class="s1">: </span><span class="s8">''</span><span class="s1">).</span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'?' </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">().</span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'/' </span><span class="s1">!== </span><span class="s7">$path</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestContext</span><span class="s1">-&gt;</span><span class="s3">getBaseUrl</span><span class="s1">()</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">).</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$scheme</span><span class="s1">.</span><span class="s8">'://'</span><span class="s1">.</span><span class="s7">$host</span><span class="s1">.</span><span class="s7">$port</span><span class="s1">.</span><span class="s7">$path</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

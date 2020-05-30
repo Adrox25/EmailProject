@@ -1,0 +1,384 @@
+<html>
+<head>
+<title>RouteCollectionBuilder.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RouteCollectionBuilder.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LoaderLoadException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">LoaderInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Resource</span><span class="s1">\</span><span class="s3">ResourceInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Helps add and import routes into a RouteCollection.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Ryan Weaver </span><span class="s6">&lt;ryan</span><span class="s4">@knpuniversity.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RouteCollectionBuilder</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">Route[]|RouteCollectionBuilder[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$routes </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$loader</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$defaults </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$prefix</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$host</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$condition</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$requirements </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$options </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$schemes</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$methods</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$resources </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">LoaderInterface </span><span class="s7">$loader </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader </span><span class="s1">= </span><span class="s7">$loader</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Import an external routing resource and returns the RouteCollectionBuilder.</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $routes-&gt;import('blog.yml', '/blog');</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $resource</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">self</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">LoaderLoadException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">import</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$prefix </span><span class="s1">= </span><span class="s8">'/'</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s4">/** </span><span class="s5">@var </span><span class="s4">RouteCollection[] $collections */</span>
+        <span class="s7">$collections </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// create a builder from the RouteCollection</span>
+        <span class="s7">$builder </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createBuilder</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collections </span><span class="s0">as </span><span class="s7">$collection</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$collection</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+                <span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">getResources</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$resource</span><span class="s1">) {</span>
+                <span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">addResource</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// mount into this builder</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mount</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$builder</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$builder</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a route and returns it for future modification.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Route</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">add</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$controller</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$route </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Route</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setDefault</span><span class="s1">(</span><span class="s8">'_controller'</span><span class="s0">, </span><span class="s7">$controller</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$route</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a RouteCollectionBuilder that can be configured and then added with mount().</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">self</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">createBuilder</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">self</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Add a RouteCollectionBuilder.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">mount</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$prefix</span><span class="s0">, </span><span class="s3">self </span><span class="s7">$builder</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routes</span><span class="s1">[] = </span><span class="s7">$builder</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a Route object to the builder.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addRoute</span><span class="s1">(</span><span class="s3">Route </span><span class="s7">$route</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s2">// used as a flag to know which routes will need a name later</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s8">'_unnamed_route_'</span><span class="s1">.</span><span class="s3">spl_object_hash</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routes</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$route</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the host on all embedded routes (unless already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setHost</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$pattern</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">host </span><span class="s1">= </span><span class="s7">$pattern</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a condition on all embedded routes (unless already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCondition</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$condition</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">condition </span><span class="s1">= </span><span class="s7">$condition</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a default value that will be added to all embedded routes (unless that</span>
+     <span class="s4">* default value is already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDefault</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaults</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a requirement that will be added to all embedded routes (unless that</span>
+     <span class="s4">* requirement is already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $regex</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setRequirement</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$regex</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requirements</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$regex</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an option that will be added to all embedded routes (unless that</span>
+     <span class="s4">* option is already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setOption</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the schemes on all embedded routes (unless already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $schemes</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setSchemes</span><span class="s1">(</span><span class="s7">$schemes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">schemes </span><span class="s1">= </span><span class="s7">$schemes</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the methods on all embedded routes (unless already set).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|string $methods</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMethods</span><span class="s1">(</span><span class="s7">$methods</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">methods </span><span class="s1">= </span><span class="s7">$methods</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a resource for this collection.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">addResource</span><span class="s1">(</span><span class="s3">ResourceInterface </span><span class="s7">$resource</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resources</span><span class="s1">[] = </span><span class="s7">$resource</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates the final RouteCollection and returns it.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">RouteCollection</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">build</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$routeCollection </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">routes </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$route </span><span class="s0">instanceof </span><span class="s3">Route</span><span class="s1">) {</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setDefaults</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaults</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setOptions</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">()))</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requirements </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$val</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">hasRequirement</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)) {</span>
+                        <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setRequirement</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$val</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">) {</span>
+                    <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setPath</span><span class="s1">(</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">.</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()) {</span>
+                    <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setHost</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">host</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()) {</span>
+                    <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setCondition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">condition</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">()) {</span>
+                    <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setSchemes</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">schemes</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">()) {</span>
+                    <span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">setMethods</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">methods</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// auto-generate the route name if it's been marked</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'_unnamed_route_' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">15</span><span class="s1">)) {</span>
+                    <span class="s7">$name </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateRouteName</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$routeCollection</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s4">/* </span><span class="s5">@var </span><span class="s4">self $route */</span>
+                <span class="s7">$subCollection </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">build</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">) {</span>
+                    <span class="s7">$subCollection</span><span class="s1">-&gt;</span><span class="s3">addPrefix</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$routeCollection</span><span class="s1">-&gt;</span><span class="s3">addCollection</span><span class="s1">(</span><span class="s7">$subCollection</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resources </span><span class="s0">as </span><span class="s7">$resource</span><span class="s1">) {</span>
+            <span class="s7">$routeCollection</span><span class="s1">-&gt;</span><span class="s3">addResource</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$routeCollection</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Generates a route name based on details of this route.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">generateRouteName</span><span class="s1">(</span><span class="s3">Route </span><span class="s7">$route</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$methods </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'_'</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">()).</span><span class="s8">'_'</span><span class="s0">;</span>
+
+        <span class="s7">$routeName </span><span class="s1">= </span><span class="s7">$methods</span><span class="s1">.</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$routeName </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">([</span><span class="s8">'/'</span><span class="s0">, </span><span class="s8">':'</span><span class="s0">, </span><span class="s8">'|'</span><span class="s0">, </span><span class="s8">'-'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'_'</span><span class="s0">, </span><span class="s7">$routeName</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$routeName </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/[^a-z0-9A-Z_.]+/'</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$routeName</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Collapse consecutive underscores down into a single underscore.</span>
+        <span class="s7">$routeName </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/_+/'</span><span class="s0">, </span><span class="s8">'_'</span><span class="s0">, </span><span class="s7">$routeName</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$routeName</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finds a loader able to load an imported resource and loads it.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed       $resource A resource</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $type     The resource type or null if unknown</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">RouteCollection[]</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">LoaderLoadException If no loader is found</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">BadMethodCallException</span><span class="s1">(</span><span class="s8">'Cannot import other routing resources: you must pass a LoaderInterface when constructing RouteCollectionBuilder.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">-&gt;</span><span class="s3">supports</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)) {</span>
+            <span class="s7">$collections </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$collections</span><span class="s1">) ? </span><span class="s7">$collections </span><span class="s1">: [</span><span class="s7">$collections</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$resolver </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loader</span><span class="s1">-&gt;</span><span class="s3">getResolver</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">LoaderLoadException</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$loader </span><span class="s1">= </span><span class="s7">$resolver</span><span class="s1">-&gt;</span><span class="s3">resolve</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">LoaderLoadException</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$collections </span><span class="s1">= </span><span class="s7">$loader</span><span class="s1">-&gt;</span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$collections</span><span class="s1">) ? </span><span class="s7">$collections </span><span class="s1">: [</span><span class="s7">$collections</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

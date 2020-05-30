@@ -1,0 +1,168 @@
+<html>
+<head>
+<title>RecursiveDirectoryIterator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RecursiveDirectoryIterator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">AccessDeniedException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">SplFileInfo</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Extends the \RecursiveDirectoryIterator to support relative paths.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Victor Berchet </span><span class="s6">&lt;victor</span><span class="s4">@suumit.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RecursiveDirectoryIterator </span><span class="s0">extends </span><span class="s1">\</span><span class="s3">RecursiveDirectoryIterator</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$ignoreUnreadableDirs</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$rewindable</span><span class="s0">;</span>
+
+    <span class="s2">// these 3 properties take part of the performance optimization to avoid redoing the same work in all iterations</span>
+    <span class="s0">private </span><span class="s7">$rootPath</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$subPath</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$directorySeparator </span><span class="s1">= </span><span class="s8">'/'</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$flags</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$ignoreUnreadableDirs </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$flags </span><span class="s1">&amp; (</span><span class="s3">self</span><span class="s1">::</span><span class="s3">CURRENT_AS_PATHNAME </span><span class="s1">| </span><span class="s3">self</span><span class="s1">::</span><span class="s3">CURRENT_AS_SELF</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'This iterator only support returning current as fileinfo.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreUnreadableDirs </span><span class="s1">= </span><span class="s7">$ignoreUnreadableDirs</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rootPath </span><span class="s1">= </span><span class="s7">$path</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'/' </span><span class="s1">!== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">&amp;&amp; !(</span><span class="s7">$flags </span><span class="s1">&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">UNIX_PATHS</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directorySeparator </span><span class="s1">= \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Return an instance of SplFileInfo with support for relative paths.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">SplFileInfo File information</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">current</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s2">// the logic here avoids redoing the same work in all iterations</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$subPathname </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">subPath</span><span class="s1">) {</span>
+            <span class="s7">$subPathname </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">subPath </span><span class="s1">= (string) </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSubPath</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$subPathname</span><span class="s1">) {</span>
+            <span class="s7">$subPathname </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directorySeparator</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$subPathname </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFilename</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'/' </span><span class="s1">!== </span><span class="s7">$basePath </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rootPath</span><span class="s1">) {</span>
+            <span class="s7">$basePath </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directorySeparator</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">SplFileInfo</span><span class="s1">(</span><span class="s7">$basePath</span><span class="s1">.</span><span class="s7">$subPathname</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">subPath</span><span class="s0">, </span><span class="s7">$subPathname</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\RecursiveIterator</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">AccessDeniedException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getChildren</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$children </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getChildren</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$children </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+                <span class="s2">// parent method will call the constructor with default arguments, so unreadable dirs won't be ignored anymore</span>
+                <span class="s7">$children</span><span class="s1">-&gt;</span><span class="s3">ignoreUnreadableDirs </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreUnreadableDirs</span><span class="s0">;</span>
+
+                <span class="s2">// performance optimization to avoid redoing the same work in all children</span>
+                <span class="s7">$children</span><span class="s1">-&gt;</span><span class="s3">rewindable </span><span class="s1">= &amp;</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rewindable</span><span class="s0">;</span>
+                <span class="s7">$children</span><span class="s1">-&gt;</span><span class="s3">rootPath </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rootPath</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$children</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">UnexpectedValueException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreUnreadableDirs</span><span class="s1">) {</span>
+                <span class="s2">// If directory is unreadable and finder is set to ignore it, a fake empty content is returned.</span>
+                <span class="s0">return new </span><span class="s1">\</span><span class="s3">RecursiveArrayIterator</span><span class="s1">([])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">AccessDeniedException</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getCode</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Do nothing for non rewindable stream.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">rewind</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRewindable</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">rewind</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if the stream is rewindable.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true when the stream is rewindable, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isRewindable</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rewindable</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rewindable</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$stream </span><span class="s1">= @</span><span class="s3">opendir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())) {</span>
+            <span class="s7">$infos </span><span class="s1">= </span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">closedir</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$infos</span><span class="s1">[</span><span class="s8">'seekable'</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rewindable </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">rewindable </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

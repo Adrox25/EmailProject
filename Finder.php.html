@@ -1,0 +1,822 @@
+<html>
+<head>
+<title>Finder.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #9876aa;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Finder.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Comparator</span><span class="s1">\</span><span class="s3">DateComparator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Comparator</span><span class="s1">\</span><span class="s3">NumberComparator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">DirectoryNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">CustomFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">DateRangeFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">DepthRangeFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">ExcludeDirectoryFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FilecontentFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FilenameFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SizeRangeFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Finder allows to build rules to find files and directories.</span>
+ <span class="s4">*</span>
+ <span class="s4">* It is a thin wrapper around several specialized iterator classes.</span>
+ <span class="s4">*</span>
+ <span class="s4">* All rules may be invoked several times.</span>
+ <span class="s4">*</span>
+ <span class="s4">* All methods return the current Finder object to allow chaining:</span>
+ <span class="s4">*</span>
+ <span class="s4">*     $finder = Finder::create()-&gt;files()-&gt;name('*.php')-&gt;in(__DIR__);</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Finder </span><span class="s0">implements </span><span class="s1">\</span><span class="s3">IteratorAggregate</span><span class="s0">, </span><span class="s1">\</span><span class="s3">Countable</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">IGNORE_VCS_FILES </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">IGNORE_DOT_FILES </span><span class="s1">= </span><span class="s7">2</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">IGNORE_VCS_IGNORED_FILES </span><span class="s1">= </span><span class="s7">4</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$mode </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$names </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$notNames </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$exclude </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$filters </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$depths </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$sizes </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$followLinks </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$reverseSorting </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$sort </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$ignore </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$dirs </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$dates </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$iterators </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$contains </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$notContains </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$paths </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$notPaths </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$ignoreUnreadableDirs </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$vcsPatterns </span><span class="s1">= [</span><span class="s9">'.svn'</span><span class="s0">, </span><span class="s9">'_svn'</span><span class="s0">, </span><span class="s9">'CVS'</span><span class="s0">, </span><span class="s9">'_darcs'</span><span class="s0">, </span><span class="s9">'.arch-params'</span><span class="s0">, </span><span class="s9">'.monotone'</span><span class="s0">, </span><span class="s9">'.bzr'</span><span class="s0">, </span><span class="s9">'.git'</span><span class="s0">, </span><span class="s9">'.hg'</span><span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_FILES </span><span class="s1">| </span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_DOT_FILES</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates a new Finder.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">static</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">create</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return new static</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Restricts the matching to directories only.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">directories</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mode </span><span class="s1">= </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FileTypeFilterIterator</span><span class="s1">::</span><span class="s3">ONLY_DIRECTORIES</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Restricts the matching to files only.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">files</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mode </span><span class="s1">= </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FileTypeFilterIterator</span><span class="s1">::</span><span class="s3">ONLY_FILES</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds tests for the directory depth.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Usage:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;depth('&gt; 1') // the Finder will start matching at level 1.</span>
+     <span class="s4">*     $finder-&gt;depth('&lt; 3') // the Finder will descend at most 3 levels of directories below the starting point.</span>
+     <span class="s4">*     $finder-&gt;depth(['&gt;= 1', '&lt; 3'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|int|string[]|int[] $levels The depth level expression or an array of depth levels</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">DepthRangeFilterIterator</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">NumberComparator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">depth</span><span class="s1">(</span><span class="s8">$levels</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">((array) </span><span class="s8">$levels </span><span class="s0">as </span><span class="s8">$level</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">depths</span><span class="s1">[] = </span><span class="s0">new </span><span class="s3">Comparator</span><span class="s1">\</span><span class="s3">NumberComparator</span><span class="s1">(</span><span class="s8">$level</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds tests for file dates (last modified).</span>
+     <span class="s4">*</span>
+     <span class="s4">* The date must be something that strtotime() is able to parse:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;date('since yesterday');</span>
+     <span class="s4">*     $finder-&gt;date('until 2 days ago');</span>
+     <span class="s4">*     $finder-&gt;date('&gt; now - 2 hours');</span>
+     <span class="s4">*     $finder-&gt;date('&gt;= 2005-10-15');</span>
+     <span class="s4">*     $finder-&gt;date(['&gt;= 2005-10-15', '&lt;= 2006-05-27']);</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $dates A date range string or an array of date ranges</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">strtotime</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">DateRangeFilterIterator</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">DateComparator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">date</span><span class="s1">(</span><span class="s8">$dates</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">((array) </span><span class="s8">$dates </span><span class="s0">as </span><span class="s8">$date</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dates</span><span class="s1">[] = </span><span class="s0">new </span><span class="s3">Comparator</span><span class="s1">\</span><span class="s3">DateComparator</span><span class="s1">(</span><span class="s8">$date</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds rules that files must match.</span>
+     <span class="s4">*</span>
+     <span class="s4">* You can use patterns (delimited with / sign), globs or simple strings.</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;name('*.php')</span>
+     <span class="s4">*     $finder-&gt;name('/\.php$/') // same as above</span>
+     <span class="s4">*     $finder-&gt;name('test.php')</span>
+     <span class="s4">*     $finder-&gt;name(['test.py', 'test.php'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $patterns A pattern (a regexp, a glob, or a string) or an array of patterns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">FilenameFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">name</span><span class="s1">(</span><span class="s8">$patterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">names </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">names</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds rules that files must not match.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $patterns A pattern (a regexp, a glob, or a string) or an array of patterns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">FilenameFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">notName</span><span class="s1">(</span><span class="s8">$patterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notNames </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notNames</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds tests that file contents must match.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Strings or PCRE patterns can be used:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;contains('Lorem ipsum')</span>
+     <span class="s4">*     $finder-&gt;contains('/Lorem ipsum/i')</span>
+     <span class="s4">*     $finder-&gt;contains(['dolor', '/ipsum/i'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $patterns A pattern (string or regexp) or an array of patterns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">FilecontentFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">contains</span><span class="s1">(</span><span class="s8">$patterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">contains </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">contains</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds tests that file contents must not match.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Strings or PCRE patterns can be used:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;notContains('Lorem ipsum')</span>
+     <span class="s4">*     $finder-&gt;notContains('/Lorem ipsum/i')</span>
+     <span class="s4">*     $finder-&gt;notContains(['lorem', '/dolor/i'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $patterns A pattern (string or regexp) or an array of patterns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">FilecontentFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">notContains</span><span class="s1">(</span><span class="s8">$patterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notContains </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notContains</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds rules that filenames must match.</span>
+     <span class="s4">*</span>
+     <span class="s4">* You can use patterns (delimited with / sign) or simple strings.</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;path('some/special/dir')</span>
+     <span class="s4">*     $finder-&gt;path('/some\/special\/dir/') // same as above</span>
+     <span class="s4">*     $finder-&gt;path(['some dir', 'another/dir'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* Use only / as dirname separator.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $patterns A pattern (a regexp or a string) or an array of patterns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">FilenameFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">path</span><span class="s1">(</span><span class="s8">$patterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">paths </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">paths</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds rules that filenames must not match.</span>
+     <span class="s4">*</span>
+     <span class="s4">* You can use patterns (delimited with / sign) or simple strings.</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;notPath('some/special/dir')</span>
+     <span class="s4">*     $finder-&gt;notPath('/some\/special\/dir/') // same as above</span>
+     <span class="s4">*     $finder-&gt;notPath(['some/file.txt', 'another/file.log'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* Use only / as dirname separator.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $patterns A pattern (a regexp or a string) or an array of patterns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">FilenameFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">notPath</span><span class="s1">(</span><span class="s8">$patterns</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notPaths </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notPaths</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$patterns</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds tests for file sizes.</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;size('&gt; 10K');</span>
+     <span class="s4">*     $finder-&gt;size('&lt;= 1Ki');</span>
+     <span class="s4">*     $finder-&gt;size(4);</span>
+     <span class="s4">*     $finder-&gt;size(['&gt; 10K', '&lt; 20K'])</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|int|string[]|int[] $sizes A size range string or an integer or an array of size ranges</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SizeRangeFilterIterator</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">NumberComparator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">size</span><span class="s1">(</span><span class="s8">$sizes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">((array) </span><span class="s8">$sizes </span><span class="s0">as </span><span class="s8">$size</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sizes</span><span class="s1">[] = </span><span class="s0">new </span><span class="s3">Comparator</span><span class="s1">\</span><span class="s3">NumberComparator</span><span class="s1">(</span><span class="s8">$size</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Excludes directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Directories passed as argument must be relative to the ones defined with the `in()` method. For example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $finder-&gt;in(__DIR__)-&gt;exclude('ruby');</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array $dirs A directory path or an array of directories</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">ExcludeDirectoryFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">exclude</span><span class="s1">(</span><span class="s8">$dirs</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">exclude </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">exclude</span><span class="s0">, </span><span class="s1">(array) </span><span class="s8">$dirs</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Excludes &quot;hidden&quot; directories and files (starting with a dot).</span>
+     <span class="s4">*</span>
+     <span class="s4">* This option is enabled by default.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">ExcludeDirectoryFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ignoreDotFiles</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$ignoreDotFiles</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$ignoreDotFiles</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">|= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_DOT_FILES</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">&amp;= ~</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_DOT_FILES</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Forces the finder to ignore version control directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This option is enabled by default.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">ExcludeDirectoryFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ignoreVCS</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$ignoreVCS</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$ignoreVCS</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">|= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_FILES</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">&amp;= ~</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_FILES</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Forces Finder to obey .gitignore and ignore files based on rules listed there.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This option is disabled by default.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ignoreVCSIgnored</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$ignoreVCSIgnored</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$ignoreVCSIgnored</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">|= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_IGNORED_FILES</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore </span><span class="s1">&amp;= ~</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_IGNORED_FILES</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds VCS patterns.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">ignoreVCS()</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $pattern VCS patterns to ignore</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">addVCSPattern</span><span class="s1">(</span><span class="s8">$pattern</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">((array) </span><span class="s8">$pattern </span><span class="s0">as </span><span class="s8">$p</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$vcsPatterns</span><span class="s1">[] = </span><span class="s8">$p</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$vcsPatterns </span><span class="s1">= </span><span class="s3">array_unique</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$vcsPatterns</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts files and directories by an anonymous function.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The anonymous function receives two \SplFileInfo instances to compare.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This can be slow as all the matching files and directories must be retrieved for comparison.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SortableIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sort</span><span class="s1">(\</span><span class="s3">Closure </span><span class="s8">$closure</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">= </span><span class="s8">$closure</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts files and directories by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This can be slow as all the matching files and directories must be retrieved for comparison.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SortableIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sortByName</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$useNaturalSort </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">= </span><span class="s8">$useNaturalSort </span><span class="s1">? </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">::</span><span class="s3">SORT_BY_NAME_NATURAL </span><span class="s1">: </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">::</span><span class="s3">SORT_BY_NAME</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts files and directories by type (directories before files), then by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This can be slow as all the matching files and directories must be retrieved for comparison.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SortableIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sortByType</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">= </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">::</span><span class="s3">SORT_BY_TYPE</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts files and directories by the last accessed time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is the time that the file was last accessed, read or written to.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This can be slow as all the matching files and directories must be retrieved for comparison.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SortableIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sortByAccessedTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">= </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">::</span><span class="s3">SORT_BY_ACCESSED_TIME</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Reverses the sorting.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">reverseSorting</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">reverseSorting </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts files and directories by the last inode changed time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is the time that the inode information was last modified (permissions, owner, group or other metadata).</span>
+     <span class="s4">*</span>
+     <span class="s4">* On Windows, since inode is not available, changed time is actually the file creation time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This can be slow as all the matching files and directories must be retrieved for comparison.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SortableIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sortByChangedTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">= </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">::</span><span class="s3">SORT_BY_CHANGED_TIME</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts files and directories by the last modified time.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is the last time the actual contents of the file were last modified.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This can be slow as all the matching files and directories must be retrieved for comparison.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">SortableIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sortByModifiedTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">= </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">::</span><span class="s3">SORT_BY_MODIFIED_TIME</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Filters the iterator with an anonymous function.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The anonymous function receives a \SplFileInfo and must return false</span>
+     <span class="s4">* to remove files.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">CustomFilterIterator</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">filter</span><span class="s1">(\</span><span class="s3">Closure </span><span class="s8">$closure</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filters</span><span class="s1">[] = </span><span class="s8">$closure</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Forces the following of symlinks.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">followLinks</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">followLinks </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Tells finder to ignore unreadable directories.</span>
+     <span class="s4">*</span>
+     <span class="s4">* By default, scanning unreadable directories content throws an AccessDeniedException.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ignoreUnreadableDirs</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$ignore </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreUnreadableDirs </span><span class="s1">= </span><span class="s8">$ignore</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Searches files and directories which match defined rules.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $dirs A directory path or an array of directories</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">DirectoryNotFoundException if one of the directories does not exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">in</span><span class="s1">(</span><span class="s8">$dirs</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$resolvedDirs </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">((array) </span><span class="s8">$dirs </span><span class="s0">as </span><span class="s8">$dir</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">)) {</span>
+                <span class="s8">$resolvedDirs</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">normalizeDir</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$glob </span><span class="s1">= </span><span class="s3">glob</span><span class="s1">(</span><span class="s8">$dir</span><span class="s0">, </span><span class="s1">(\</span><span class="s3">defined</span><span class="s1">(</span><span class="s9">'GLOB_BRACE'</span><span class="s1">) ? </span><span class="s3">GLOB_BRACE </span><span class="s1">: </span><span class="s7">0</span><span class="s1">) | </span><span class="s3">GLOB_ONLYDIR </span><span class="s1">| </span><span class="s3">GLOB_NOSORT</span><span class="s1">)) {</span>
+                <span class="s3">sort</span><span class="s1">(</span><span class="s8">$glob</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$resolvedDirs </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$resolvedDirs</span><span class="s0">, </span><span class="s3">array_map</span><span class="s1">([</span><span class="s8">$this</span><span class="s0">, </span><span class="s9">'normalizeDir'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$glob</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">DirectoryNotFoundException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The &quot;%s&quot; directory does not exist.'</span><span class="s0">, </span><span class="s8">$dir</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dirs </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dirs</span><span class="s0">, </span><span class="s8">$resolvedDirs</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns an Iterator for the current Finder configuration.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method implements the IteratorAggregate interface.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\Iterator|SplFileInfo[] An iterator</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException if the in() method has not been called</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getIterator</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dirs</span><span class="s1">) &amp;&amp; </span><span class="s7">0 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">iterators</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'You must call one of in() or append() methods before iterating over a Finder.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dirs</span><span class="s1">) &amp;&amp; </span><span class="s7">0 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">iterators</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">searchInDirectory</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dirs</span><span class="s1">[</span><span class="s7">0</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">AppendIterator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dirs </span><span class="s0">as </span><span class="s8">$dir</span><span class="s1">) {</span>
+            <span class="s8">$iterator</span><span class="s1">-&gt;</span><span class="s3">append</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">searchInDirectory</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">iterators </span><span class="s0">as </span><span class="s8">$it</span><span class="s1">) {</span>
+            <span class="s8">$iterator</span><span class="s1">-&gt;</span><span class="s3">append</span><span class="s1">(</span><span class="s8">$it</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$iterator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Appends an existing set of files/directories to the finder.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The set can be another Finder, an Iterator, an IteratorAggregate, or even a plain array.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException when the given argument is not iterable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">append</span><span class="s1">(</span><span class="s3">iterable </span><span class="s8">$iterator</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$iterator </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">IteratorAggregate</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">iterators</span><span class="s1">[] = </span><span class="s8">$iterator</span><span class="s1">-&gt;</span><span class="s3">getIterator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$iterator </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Iterator</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">iterators</span><span class="s1">[] = </span><span class="s8">$iterator</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$iterator </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Traversable </span><span class="s1">|| \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s1">)) {</span>
+            <span class="s8">$it </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ArrayIterator</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$iterator </span><span class="s0">as </span><span class="s8">$file</span><span class="s1">) {</span>
+                <span class="s8">$it</span><span class="s1">-&gt;</span><span class="s3">append</span><span class="s1">(</span><span class="s8">$file </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">SplFileInfo </span><span class="s1">? </span><span class="s8">$file </span><span class="s1">: </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplFileInfo</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">iterators</span><span class="s1">[] = </span><span class="s8">$it</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s9">'Finder::append() method wrong argument type.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Check if the any results were found.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasResults</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getIterator</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$_</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Counts all the results collected by the iterators.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">count</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">iterator_count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getIterator</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">searchInDirectory</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$dir</span><span class="s1">): \</span><span class="s3">Iterator</span>
+    <span class="s1">{</span>
+        <span class="s8">$exclude </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">exclude</span><span class="s0">;</span>
+        <span class="s8">$notPaths </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notPaths</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_FILES </span><span class="s1">=== (</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_FILES </span><span class="s1">&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore</span><span class="s1">)) {</span>
+            <span class="s8">$exclude </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$exclude</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$vcsPatterns</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_DOT_FILES </span><span class="s1">=== (</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_DOT_FILES </span><span class="s1">&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore</span><span class="s1">)) {</span>
+            <span class="s8">$notPaths</span><span class="s1">[] = </span><span class="s9">'#(^|/)\..+(/|$)#'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_IGNORED_FILES </span><span class="s1">=== (</span><span class="s0">static</span><span class="s1">::</span><span class="s3">IGNORE_VCS_IGNORED_FILES </span><span class="s1">&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignore</span><span class="s1">)) {</span>
+            <span class="s8">$gitignoreFilePath </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'%s/.gitignore'</span><span class="s0">, </span><span class="s8">$dir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_readable</span><span class="s1">(</span><span class="s8">$gitignoreFilePath</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The &quot;ignoreVCSIgnored&quot; option cannot be used by the Finder as the &quot;%s&quot; file is not readable.'</span><span class="s0">, </span><span class="s8">$gitignoreFilePath</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s8">$notPaths </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$notPaths</span><span class="s0">, </span><span class="s1">[</span><span class="s3">Gitignore</span><span class="s1">::</span><span class="s3">toRegex</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s8">$gitignoreFilePath</span><span class="s1">))])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$minDepth </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s8">$maxDepth </span><span class="s1">= </span><span class="s3">PHP_INT_MAX</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">depths </span><span class="s0">as </span><span class="s8">$comparator</span><span class="s1">) {</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s8">$comparator</span><span class="s1">-&gt;</span><span class="s3">getOperator</span><span class="s1">()) {</span>
+                <span class="s0">case </span><span class="s9">'&gt;'</span><span class="s1">:</span>
+                    <span class="s8">$minDepth </span><span class="s1">= </span><span class="s8">$comparator</span><span class="s1">-&gt;</span><span class="s3">getTarget</span><span class="s1">() + </span><span class="s7">1</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s9">'&gt;='</span><span class="s1">:</span>
+                    <span class="s8">$minDepth </span><span class="s1">= </span><span class="s8">$comparator</span><span class="s1">-&gt;</span><span class="s3">getTarget</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s9">'&lt;'</span><span class="s1">:</span>
+                    <span class="s8">$maxDepth </span><span class="s1">= </span><span class="s8">$comparator</span><span class="s1">-&gt;</span><span class="s3">getTarget</span><span class="s1">() - </span><span class="s7">1</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s9">'&lt;='</span><span class="s1">:</span>
+                    <span class="s8">$maxDepth </span><span class="s1">= </span><span class="s8">$comparator</span><span class="s1">-&gt;</span><span class="s3">getTarget</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">default</span><span class="s1">:</span>
+                    <span class="s8">$minDepth </span><span class="s1">= </span><span class="s8">$maxDepth </span><span class="s1">= </span><span class="s8">$comparator</span><span class="s1">-&gt;</span><span class="s3">getTarget</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$flags </span><span class="s1">= \</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">followLinks</span><span class="s1">) {</span>
+            <span class="s8">$flags </span><span class="s1">|= \</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">::</span><span class="s3">FOLLOW_SYMLINKS</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">(</span><span class="s8">$dir</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreUnreadableDirs</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$exclude</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">ExcludeDirectoryFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$exclude</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">::</span><span class="s3">SELF_FIRST</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$minDepth </span><span class="s1">&gt; </span><span class="s7">0 </span><span class="s1">|| </span><span class="s8">$maxDepth </span><span class="s1">&lt; </span><span class="s3">PHP_INT_MAX</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">DepthRangeFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$minDepth</span><span class="s0">, </span><span class="s8">$maxDepth</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mode</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FileTypeFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">names </span><span class="s1">|| </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notNames</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FilenameFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">names</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notNames</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">contains </span><span class="s1">|| </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notContains</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">FilecontentFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">contains</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">notContains</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sizes</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SizeRangeFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sizes</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dates</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">DateRangeFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">dates</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filters</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">CustomFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filters</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">paths </span><span class="s1">|| </span><span class="s8">$notPaths</span><span class="s1">) {</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">PathFilterIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">paths</span><span class="s0">, </span><span class="s8">$notPaths</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort </span><span class="s1">|| </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">reverseSorting</span><span class="s1">) {</span>
+            <span class="s8">$iteratorAggregate </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Iterator</span><span class="s1">\</span><span class="s3">SortableIterator</span><span class="s1">(</span><span class="s8">$iterator</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sort</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">reverseSorting</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$iterator </span><span class="s1">= </span><span class="s8">$iteratorAggregate</span><span class="s1">-&gt;</span><span class="s3">getIterator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$iterator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Normalizes given directory names by removing trailing slashes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Excluding: (s)ftp:// or ssh2.(s)ftp:// wrapper</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">normalizeDir</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$dir</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'/' </span><span class="s1">=== </span><span class="s8">$dir</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$dir</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$dir </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$dir</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'#^(ssh2\.)?s?ftp://#'</span><span class="s0">, </span><span class="s8">$dir</span><span class="s1">)) {</span>
+            <span class="s8">$dir </span><span class="s1">.= </span><span class="s9">'/'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$dir</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

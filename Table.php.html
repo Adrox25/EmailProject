@@ -1,0 +1,861 @@
+<html>
+<head>
+<title>Table.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #9876aa;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Table.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Helper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">OutputFormatter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">WrappableOutputFormatterInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleSectionOutput</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Provides helpers to display a table.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Саша Стаменковић </span><span class="s6">&lt;umpirsky</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Abdellatif Ait boudad </span><span class="s6">&lt;a.aitboudad</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Max Grigorian </span><span class="s6">&lt;maxakawizard</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Dany Maillard </span><span class="s6">&lt;danymaillard93b</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Table</span>
+<span class="s1">{</span>
+    <span class="s0">private const </span><span class="s3">SEPARATOR_TOP </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s0">private const </span><span class="s3">SEPARATOR_TOP_BOTTOM </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+    <span class="s0">private const </span><span class="s3">SEPARATOR_MID </span><span class="s1">= </span><span class="s7">2</span><span class="s0">;</span>
+    <span class="s0">private const </span><span class="s3">SEPARATOR_BOTTOM </span><span class="s1">= </span><span class="s7">3</span><span class="s0">;</span>
+    <span class="s0">private const </span><span class="s3">BORDER_OUTSIDE </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s0">private const </span><span class="s3">BORDER_INSIDE </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$headerTitle</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$footerTitle</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Table headers.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$headers </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Table rows.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$rows </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$horizontal </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Column widths cache.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$effectiveColumnWidths </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Number of columns cache.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">int</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$numberOfColumns</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">OutputInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$output</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">TableStyle</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$style</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$columnStyles </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* User set column widths.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s8">$columnWidths </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$columnMaxWidths </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$styles</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$rendered </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s8">$output</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s1">= </span><span class="s8">$output</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$styles </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initStyles</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s9">'default'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a style definition.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">setStyleDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$name</span><span class="s0">, </span><span class="s3">TableStyle </span><span class="s8">$style</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$styles </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initStyles</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">[</span><span class="s8">$name</span><span class="s1">] = </span><span class="s8">$style</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a style definition by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">TableStyle</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getStyleDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$styles </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initStyles</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">[</span><span class="s8">$name</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">[</span><span class="s8">$name</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Style &quot;%s&quot; is not defined.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets table style.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">TableStyle|string $name The style name or a TableStyle instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setStyle</span><span class="s1">(</span><span class="s8">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">resolveStyle</span><span class="s1">(</span><span class="s8">$name</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the current table style.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">TableStyle</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStyle</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets table column style.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">TableStyle|string $name The style name or a TableStyle instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setColumnStyle</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$columnIndex</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnStyles</span><span class="s1">[</span><span class="s8">$columnIndex</span><span class="s1">] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">resolveStyle</span><span class="s1">(</span><span class="s8">$name</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the current style for a column.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If style was not set, it returns the global table style.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">TableStyle</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getColumnStyle</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$columnIndex</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnStyles</span><span class="s1">[</span><span class="s8">$columnIndex</span><span class="s1">] ?? </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getStyle</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the minimum width of a column.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setColumnWidth</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$columnIndex</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$width</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnWidths</span><span class="s1">[</span><span class="s8">$columnIndex</span><span class="s1">] = </span><span class="s8">$width</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the minimum width of all columns.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setColumnWidths</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$widths</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnWidths </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$widths </span><span class="s0">as </span><span class="s8">$index </span><span class="s1">=&gt; </span><span class="s8">$width</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setColumnWidth</span><span class="s1">(</span><span class="s8">$index</span><span class="s0">, </span><span class="s8">$width</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the maximum width of a column.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Any cell within this column which contents exceeds the specified width will be wrapped into multiple lines, while</span>
+     <span class="s4">* formatted strings are preserved.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setColumnMaxWidth</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$columnIndex</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$width</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">() </span><span class="s0">instanceof </span><span class="s3">WrappableOutputFormatterInterface</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Setting a maximum column width is only supported when using a &quot;%s&quot; formatter, got &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">WrappableOutputFormatterInterface</span><span class="s1">::</span><span class="s0">class, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">())))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnMaxWidths</span><span class="s1">[</span><span class="s8">$columnIndex</span><span class="s1">] = </span><span class="s8">$width</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setHeaders</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$headers</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$headers </span><span class="s1">= </span><span class="s3">array_values</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">) &amp;&amp; !\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">[</span><span class="s7">0</span><span class="s1">])) {</span>
+            <span class="s8">$headers </span><span class="s1">= [</span><span class="s8">$headers</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers </span><span class="s1">= </span><span class="s8">$headers</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setRows</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$rows</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addRows</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">addRows</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$rows</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows </span><span class="s0">as </span><span class="s8">$row</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addRow</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">addRow</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">instanceof </span><span class="s3">TableSeparator</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows</span><span class="s1">[] = </span><span class="s8">$row</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s9">'A row must be an array or a TableSeparator instance.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows</span><span class="s1">[] = </span><span class="s3">array_values</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a row to the table, and re-renders the table.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">appendRow</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s0">instanceof </span><span class="s3">ConsoleSectionOutput</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Output should be an instance of &quot;%s&quot; when calling &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">ConsoleSectionOutput</span><span class="s1">::</span><span class="s0">class, </span><span class="s3">__METHOD__</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rendered</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">calculateRowCount</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addRow</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">render</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setRow</span><span class="s1">(</span><span class="s8">$column</span><span class="s0">, array </span><span class="s8">$row</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">] = </span><span class="s8">$row</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setHeaderTitle</span><span class="s1">(?</span><span class="s3">string </span><span class="s8">$title</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headerTitle </span><span class="s1">= </span><span class="s8">$title</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setFooterTitle</span><span class="s1">(?</span><span class="s3">string </span><span class="s8">$title</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">footerTitle </span><span class="s1">= </span><span class="s8">$title</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setHorizontal</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$horizontal </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">horizontal </span><span class="s1">= </span><span class="s8">$horizontal</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders table to output.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     +---------------+-----------------------+------------------+</span>
+     <span class="s4">*     | ISBN          | Title                 | Author           |</span>
+     <span class="s4">*     +---------------+-----------------------+------------------+</span>
+     <span class="s4">*     | 99921-58-10-7 | Divine Comedy         | Dante Alighieri  |</span>
+     <span class="s4">*     | 9971-5-0210-0 | A Tale of Two Cities  | Charles Dickens  |</span>
+     <span class="s4">*     | 960-425-059-0 | The Lord of the Rings | J. R. R. Tolkien |</span>
+     <span class="s4">*     +---------------+-----------------------+------------------+</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">render</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$divider </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TableSeparator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">horizontal</span><span class="s1">) {</span>
+            <span class="s8">$rows </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">[</span><span class="s7">0</span><span class="s1">] ?? [] </span><span class="s0">as </span><span class="s8">$i </span><span class="s1">=&gt; </span><span class="s8">$header</span><span class="s1">) {</span>
+                <span class="s8">$rows</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = [</span><span class="s8">$header</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows </span><span class="s0">as </span><span class="s8">$row</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">instanceof </span><span class="s3">TableSeparator</span><span class="s1">) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                        <span class="s8">$rows</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">][] = </span><span class="s8">$row</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">][</span><span class="s7">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">&amp;&amp; </span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">][</span><span class="s7">0</span><span class="s1">]-&gt;</span><span class="s3">getColspan</span><span class="s1">() &gt;= </span><span class="s7">2</span><span class="s1">) {</span>
+                        <span class="s2">// Noop, there is a &quot;title&quot;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s8">$rows</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">][] = </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$rows </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s0">, </span><span class="s1">[</span><span class="s8">$divider</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">calculateNumberOfColumns</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$rows </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">buildTableRows</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">calculateColumnsWidth</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$isHeader </span><span class="s1">= !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">horizontal</span><span class="s0">;</span>
+        <span class="s8">$isFirstRow </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">horizontal</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows </span><span class="s0">as </span><span class="s8">$row</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$divider </span><span class="s1">=== </span><span class="s8">$row</span><span class="s1">) {</span>
+                <span class="s8">$isHeader </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s8">$isFirstRow </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">instanceof </span><span class="s3">TableSeparator</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderRowSeparator</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$row</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$isHeader </span><span class="s1">|| </span><span class="s8">$isFirstRow</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$isFirstRow</span><span class="s1">) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderRowSeparator</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_TOP_BOTTOM</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$isFirstRow </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderRowSeparator</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_TOP</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headerTitle</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getHeaderTitleFormat</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">horizontal</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderRow</span><span class="s1">(</span><span class="s8">$row</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCellRowFormat</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCellHeaderFormat</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderRow</span><span class="s1">(</span><span class="s8">$row</span><span class="s0">, </span><span class="s8">$isHeader </span><span class="s1">? </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCellHeaderFormat</span><span class="s1">() : </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCellRowFormat</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderRowSeparator</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_BOTTOM</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">footerTitle</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getFooterTitleFormat</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cleanup</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rendered </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders horizontal header separator.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     +-----+-----------+-------+</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">renderRowSeparator</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$type </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_MID</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$title </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$titleFormat </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">=== </span><span class="s8">$count </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">numberOfColumns</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$borders </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getBorderChars</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">0</span><span class="s1">] &amp;&amp; !</span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">2</span><span class="s1">] &amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCrossingChar</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$crossings </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCrossingChars</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_MID </span><span class="s1">=== </span><span class="s8">$type</span><span class="s1">) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s8">$horizontal</span><span class="s0">, </span><span class="s8">$leftChar</span><span class="s0">, </span><span class="s8">$midChar</span><span class="s0">, </span><span class="s8">$rightChar</span><span class="s1">) = [</span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">2</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">8</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">4</span><span class="s1">]]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_TOP </span><span class="s1">=== </span><span class="s8">$type</span><span class="s1">) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s8">$horizontal</span><span class="s0">, </span><span class="s8">$leftChar</span><span class="s0">, </span><span class="s8">$midChar</span><span class="s0">, </span><span class="s8">$rightChar</span><span class="s1">) = [</span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">2</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">3</span><span class="s1">]]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SEPARATOR_TOP_BOTTOM </span><span class="s1">=== </span><span class="s8">$type</span><span class="s1">) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s8">$horizontal</span><span class="s0">, </span><span class="s8">$leftChar</span><span class="s0">, </span><span class="s8">$midChar</span><span class="s0">, </span><span class="s8">$rightChar</span><span class="s1">) = [</span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">9</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">10</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">11</span><span class="s1">]]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s8">$horizontal</span><span class="s0">, </span><span class="s8">$leftChar</span><span class="s0">, </span><span class="s8">$midChar</span><span class="s0">, </span><span class="s8">$rightChar</span><span class="s1">) = [</span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">7</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">6</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$crossings</span><span class="s1">[</span><span class="s7">5</span><span class="s1">]]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$markup </span><span class="s1">= </span><span class="s8">$leftChar</span><span class="s0">;</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$column </span><span class="s1">= </span><span class="s7">0</span><span class="s0">; </span><span class="s8">$column </span><span class="s1">&lt; </span><span class="s8">$count</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$column</span><span class="s1">) {</span>
+            <span class="s8">$markup </span><span class="s1">.= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s8">$horizontal</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">effectiveColumnWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s8">$markup </span><span class="s1">.= </span><span class="s8">$column </span><span class="s1">=== </span><span class="s8">$count </span><span class="s1">- </span><span class="s7">1 </span><span class="s1">? </span><span class="s8">$rightChar </span><span class="s1">: </span><span class="s8">$midChar</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$title</span><span class="s1">) {</span>
+            <span class="s8">$titleLength </span><span class="s1">= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s8">$formatter </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$formattedTitle </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$titleFormat</span><span class="s0">, </span><span class="s8">$title</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s8">$markupLength </span><span class="s1">= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$markup</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$titleLength </span><span class="s1">&gt; </span><span class="s8">$limit </span><span class="s1">= </span><span class="s8">$markupLength </span><span class="s1">- </span><span class="s7">4</span><span class="s1">) {</span>
+                <span class="s8">$titleLength </span><span class="s1">= </span><span class="s8">$limit</span><span class="s0">;</span>
+                <span class="s8">$formatLength </span><span class="s1">= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s8">$formatter</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$titleFormat</span><span class="s0">, </span><span class="s9">''</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s8">$formattedTitle </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$titleFormat</span><span class="s0">, </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$title</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s8">$limit </span><span class="s1">- </span><span class="s8">$formatLength </span><span class="s1">- </span><span class="s7">3</span><span class="s1">).</span><span class="s9">'...'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$titleStart </span><span class="s1">= (</span><span class="s8">$markupLength </span><span class="s1">- </span><span class="s8">$titleLength</span><span class="s1">) / </span><span class="s7">2</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">mb_detect_encoding</span><span class="s1">(</span><span class="s8">$markup</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s8">$markup </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s8">$markup</span><span class="s0">, </span><span class="s8">$formattedTitle</span><span class="s0">, </span><span class="s8">$titleStart</span><span class="s0">, </span><span class="s8">$titleLength</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$markup </span><span class="s1">= </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s8">$markup</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s8">$titleStart</span><span class="s1">).</span><span class="s8">$formattedTitle</span><span class="s1">.</span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s8">$markup</span><span class="s0">, </span><span class="s8">$titleStart </span><span class="s1">+ </span><span class="s8">$titleLength</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getBorderFormat</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$markup</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders vertical column separator.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">renderColumnSeparator</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$type </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">BORDER_OUTSIDE</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$borders </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getBorderChars</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getBorderFormat</span><span class="s1">()</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">BORDER_OUTSIDE </span><span class="s1">=== </span><span class="s8">$type </span><span class="s1">? </span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">1</span><span class="s1">] : </span><span class="s8">$borders</span><span class="s1">[</span><span class="s7">3</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders table row.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     | 9971-5-0210-0 | A Tale of Two Cities  | Charles Dickens  |</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">renderRow</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$row</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$cellFormat</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$firstCellFormat </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$rowContent </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderColumnSeparator</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">BORDER_OUTSIDE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$columns </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRowColumns</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$last </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$columns</span><span class="s1">) - </span><span class="s7">1</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$columns </span><span class="s0">as </span><span class="s8">$i </span><span class="s1">=&gt; </span><span class="s8">$column</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$firstCellFormat </span><span class="s1">&amp;&amp; </span><span class="s7">0 </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s8">$rowContent </span><span class="s1">.= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderCell</span><span class="s1">(</span><span class="s8">$row</span><span class="s0">, </span><span class="s8">$column</span><span class="s0">, </span><span class="s8">$firstCellFormat</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$rowContent </span><span class="s1">.= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderCell</span><span class="s1">(</span><span class="s8">$row</span><span class="s0">, </span><span class="s8">$column</span><span class="s0">, </span><span class="s8">$cellFormat</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s8">$rowContent </span><span class="s1">.= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">renderColumnSeparator</span><span class="s1">(</span><span class="s8">$last </span><span class="s1">=== </span><span class="s8">$i </span><span class="s1">? </span><span class="s3">self</span><span class="s1">::</span><span class="s3">BORDER_OUTSIDE </span><span class="s1">: </span><span class="s3">self</span><span class="s1">::</span><span class="s3">BORDER_INSIDE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s8">$rowContent</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders table cell with padding.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">renderCell</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$row</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$column</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$cellFormat</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$cell </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]) ? </span><span class="s8">$row</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">] : </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s8">$width </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">effectiveColumnWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">&amp;&amp; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() &gt; </span><span class="s7">1</span><span class="s1">) {</span>
+            <span class="s2">// add the width of the following columns(numbers of colspan).</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">range</span><span class="s1">(</span><span class="s8">$column </span><span class="s1">+ </span><span class="s7">1</span><span class="s0">, </span><span class="s8">$column </span><span class="s1">+ </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() - </span><span class="s7">1</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$nextColumn</span><span class="s1">) {</span>
+                <span class="s8">$width </span><span class="s1">+= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getColumnSeparatorWidth</span><span class="s1">() + </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">effectiveColumnWidths</span><span class="s1">[</span><span class="s8">$nextColumn</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// str_pad won't work properly with multi-byte strings, we need to fix the padding</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$encoding </span><span class="s1">= </span><span class="s3">mb_detect_encoding</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s8">$width </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$cell</span><span class="s1">) - </span><span class="s3">mb_strwidth</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s8">$encoding</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$style </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getColumnStyle</span><span class="s1">(</span><span class="s8">$column</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableSeparator</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$style</span><span class="s1">-&gt;</span><span class="s3">getBorderFormat</span><span class="s1">()</span><span class="s0">, </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s8">$style</span><span class="s1">-&gt;</span><span class="s3">getBorderChars</span><span class="s1">()[</span><span class="s7">2</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$width</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$width </span><span class="s1">+= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$cell</span><span class="s1">) - </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$content </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$style</span><span class="s1">-&gt;</span><span class="s3">getCellRowContentFormat</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$cellFormat</span><span class="s0">, </span><span class="s3">str_pad</span><span class="s1">(</span><span class="s8">$content</span><span class="s0">, </span><span class="s8">$width</span><span class="s0">, </span><span class="s8">$style</span><span class="s1">-&gt;</span><span class="s3">getPaddingChar</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$style</span><span class="s1">-&gt;</span><span class="s3">getPadType</span><span class="s1">()))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Calculate number of columns for this table.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">calculateNumberOfColumns</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$rows</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$columns </span><span class="s1">= [</span><span class="s7">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows </span><span class="s0">as </span><span class="s8">$row</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">instanceof </span><span class="s3">TableSeparator</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$columns</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNumberOfColumns</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">numberOfColumns </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s8">$columns</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">buildTableRows</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$rows</span><span class="s1">): </span><span class="s3">TableRows</span>
+    <span class="s1">{</span>
+        <span class="s4">/** </span><span class="s5">@var </span><span class="s4">WrappableOutputFormatterInterface $formatter */</span>
+        <span class="s8">$formatter </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$unmergedRows </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$rowKey </span><span class="s1">= </span><span class="s7">0</span><span class="s0">; </span><span class="s8">$rowKey </span><span class="s1">&lt; \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">)</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$rowKey</span><span class="s1">) {</span>
+            <span class="s8">$rows </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">fillNextRows</span><span class="s1">(</span><span class="s8">$rows</span><span class="s0">, </span><span class="s8">$rowKey</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// Remove any new line breaks and replace it with a new line</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$rowKey</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$column </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+                <span class="s8">$colspan </span><span class="s1">= </span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">? </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() : </span><span class="s7">1</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnMaxWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]) &amp;&amp; </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s8">$formatter</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">) &gt; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnMaxWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]) {</span>
+                    <span class="s8">$cell </span><span class="s1">= </span><span class="s8">$formatter</span><span class="s1">-&gt;</span><span class="s3">formatAndWrap</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnMaxWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">] * </span><span class="s8">$colspan</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">strstr</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s1">)) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s8">$escaped </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s3">array_map</span><span class="s1">([</span><span class="s3">OutputFormatter</span><span class="s1">::</span><span class="s0">class, </span><span class="s9">'escapeTrailingBackslash'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s8">$cell </span><span class="s1">= </span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">? </span><span class="s0">new </span><span class="s3">TableCell</span><span class="s1">(</span><span class="s8">$escaped</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'colspan' </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">()]) : </span><span class="s8">$escaped</span><span class="s0">;</span>
+                <span class="s8">$lines </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s9">&quot;&lt;fg=default;bg=default&gt;</span><span class="s0">\n</span><span class="s9">&lt;/&gt;&quot;</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$lines </span><span class="s0">as </span><span class="s8">$lineKey </span><span class="s1">=&gt; </span><span class="s8">$line</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$colspan </span><span class="s1">&gt; </span><span class="s7">1</span><span class="s1">) {</span>
+                        <span class="s8">$line </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TableCell</span><span class="s1">(</span><span class="s8">$line</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'colspan' </span><span class="s1">=&gt; </span><span class="s8">$colspan</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">=== </span><span class="s8">$lineKey</span><span class="s1">) {</span>
+                        <span class="s8">$rows</span><span class="s1">[</span><span class="s8">$rowKey</span><span class="s1">][</span><span class="s8">$column</span><span class="s1">] = </span><span class="s8">$line</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s8">$unmergedRows</span><span class="s1">[</span><span class="s8">$rowKey</span><span class="s1">][</span><span class="s8">$lineKey</span><span class="s1">][</span><span class="s8">$column</span><span class="s1">] = </span><span class="s8">$line</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">TableRows</span><span class="s1">(</span><span class="s0">function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s8">$rows</span><span class="s0">, </span><span class="s8">$unmergedRows</span><span class="s1">): \</span><span class="s3">Traversable </span><span class="s1">{</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows </span><span class="s0">as </span><span class="s8">$rowKey </span><span class="s1">=&gt; </span><span class="s8">$row</span><span class="s1">) {</span>
+                <span class="s0">yield </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">fillCells</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$unmergedRows</span><span class="s1">[</span><span class="s8">$rowKey</span><span class="s1">])) {</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$unmergedRows</span><span class="s1">[</span><span class="s8">$rowKey</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$row</span><span class="s1">) {</span>
+                        <span class="s0">yield </span><span class="s8">$row</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">})</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">calculateRowCount</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s8">$numberOfRows </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s3">iterator_to_array</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">buildTableRows</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s0">, </span><span class="s1">[</span><span class="s0">new </span><span class="s3">TableSeparator</span><span class="s1">()]</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows</span><span class="s1">))))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">) {</span>
+            <span class="s1">++</span><span class="s8">$numberOfRows</span><span class="s0">; </span><span class="s2">// Add row for header separator</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">rows</span><span class="s1">) &gt; </span><span class="s7">0</span><span class="s1">) {</span>
+            <span class="s1">++</span><span class="s8">$numberOfRows</span><span class="s0">; </span><span class="s2">// Add row for footer separator</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$numberOfRows</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* fill rows that contains rowspan &gt; 1.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">fillNextRows</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$rows</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$line</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$unmergedRows </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$line</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$column </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$cell </span><span class="s1">&amp;&amp; !</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">&amp;&amp; !</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s8">$cell</span><span class="s1">) &amp;&amp; !(\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s8">$cell</span><span class="s1">) &amp;&amp; </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s9">'__toString'</span><span class="s1">))) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'A cell must be a TableCell, a scalar or an object implementing &quot;__toString()&quot;, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s8">$cell</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">&amp;&amp; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getRowspan</span><span class="s1">() &gt; </span><span class="s7">1</span><span class="s1">) {</span>
+                <span class="s8">$nbLines </span><span class="s1">= </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getRowspan</span><span class="s1">() - </span><span class="s7">1</span><span class="s0">;</span>
+                <span class="s8">$lines </span><span class="s1">= [</span><span class="s8">$cell</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">strstr</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s1">)) {</span>
+                    <span class="s8">$lines </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s0">, </span><span class="s9">&quot;&lt;fg=default;bg=default&gt;</span><span class="s0">\n</span><span class="s9">&lt;/&gt;&quot;</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s8">$nbLines </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">) &gt; </span><span class="s8">$nbLines </span><span class="s1">? </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s8">$cell</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s1">) : </span><span class="s8">$nbLines</span><span class="s0">;</span>
+
+                    <span class="s8">$rows</span><span class="s1">[</span><span class="s8">$line</span><span class="s1">][</span><span class="s8">$column</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TableCell</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'colspan' </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">()])</span><span class="s0">;</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s7">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// create a two dimensional array (rowspan x colspan)</span>
+                <span class="s8">$unmergedRows </span><span class="s1">= </span><span class="s3">array_replace_recursive</span><span class="s1">(</span><span class="s3">array_fill</span><span class="s1">(</span><span class="s8">$line </span><span class="s1">+ </span><span class="s7">1</span><span class="s0">, </span><span class="s8">$nbLines</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">, </span><span class="s8">$unmergedRows</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$unmergedRows </span><span class="s0">as </span><span class="s8">$unmergedRowKey </span><span class="s1">=&gt; </span><span class="s8">$unmergedRow</span><span class="s1">) {</span>
+                    <span class="s8">$value </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$unmergedRowKey </span><span class="s1">- </span><span class="s8">$line</span><span class="s1">]) ? </span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$unmergedRowKey </span><span class="s1">- </span><span class="s8">$line</span><span class="s1">] : </span><span class="s9">''</span><span class="s0">;</span>
+                    <span class="s8">$unmergedRows</span><span class="s1">[</span><span class="s8">$unmergedRowKey</span><span class="s1">][</span><span class="s8">$column</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TableCell</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'colspan' </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">()])</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$nbLines </span><span class="s1">=== </span><span class="s8">$unmergedRowKey </span><span class="s1">- </span><span class="s8">$line</span><span class="s1">) {</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$unmergedRows </span><span class="s0">as </span><span class="s8">$unmergedRowKey </span><span class="s1">=&gt; </span><span class="s8">$unmergedRow</span><span class="s1">) {</span>
+            <span class="s2">// we need to know if $unmergedRow will be merged or inserted into $rows</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$unmergedRowKey</span><span class="s1">]) &amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$unmergedRowKey</span><span class="s1">]) &amp;&amp; (</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNumberOfColumns</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$unmergedRowKey</span><span class="s1">]) + </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNumberOfColumns</span><span class="s1">(</span><span class="s8">$unmergedRows</span><span class="s1">[</span><span class="s8">$unmergedRowKey</span><span class="s1">]) &lt;= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">numberOfColumns</span><span class="s1">)) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$unmergedRow </span><span class="s0">as </span><span class="s8">$cellKey </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+                    <span class="s2">// insert cell into row at cellKey position</span>
+                    <span class="s3">array_splice</span><span class="s1">(</span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$unmergedRowKey</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$cellKey</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s1">[</span><span class="s8">$cell</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$row </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">copyRow</span><span class="s1">(</span><span class="s8">$rows</span><span class="s0">, </span><span class="s8">$unmergedRowKey </span><span class="s1">- </span><span class="s7">1</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$unmergedRow </span><span class="s0">as </span><span class="s8">$column </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$cell</span><span class="s1">)) {</span>
+                        <span class="s8">$row</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">] = </span><span class="s8">$unmergedRow</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s3">array_splice</span><span class="s1">(</span><span class="s8">$rows</span><span class="s0">, </span><span class="s8">$unmergedRowKey</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s1">[</span><span class="s8">$row</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$rows</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* fill cells for a row that contains colspan &gt; 1.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">fillCells</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$newRow </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">as </span><span class="s8">$column </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+            <span class="s8">$newRow</span><span class="s1">[] = </span><span class="s8">$cell</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">&amp;&amp; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() &gt; </span><span class="s7">1</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s3">range</span><span class="s1">(</span><span class="s8">$column </span><span class="s1">+ </span><span class="s7">1</span><span class="s0">, </span><span class="s8">$column </span><span class="s1">+ </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() - </span><span class="s7">1</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$position</span><span class="s1">) {</span>
+                    <span class="s2">// insert empty value at column position</span>
+                    <span class="s8">$newRow</span><span class="s1">[] = </span><span class="s9">''</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$newRow </span><span class="s1">?: </span><span class="s8">$row</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">copyRow</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$rows</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$line</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$row </span><span class="s1">= </span><span class="s8">$rows</span><span class="s1">[</span><span class="s8">$line</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">as </span><span class="s8">$cellKey </span><span class="s1">=&gt; </span><span class="s8">$cellValue</span><span class="s1">) {</span>
+            <span class="s8">$row</span><span class="s1">[</span><span class="s8">$cellKey</span><span class="s1">] = </span><span class="s9">''</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$cellValue </span><span class="s0">instanceof </span><span class="s3">TableCell</span><span class="s1">) {</span>
+                <span class="s8">$row</span><span class="s1">[</span><span class="s8">$cellKey</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TableCell</span><span class="s1">(</span><span class="s9">''</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'colspan' </span><span class="s1">=&gt; </span><span class="s8">$cellValue</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">()])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$row</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets number of columns by row.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getNumberOfColumns</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$row</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s8">$columns </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">as </span><span class="s8">$column</span><span class="s1">) {</span>
+            <span class="s8">$columns </span><span class="s1">+= </span><span class="s8">$column </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">? (</span><span class="s8">$column</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() - </span><span class="s7">1</span><span class="s1">) : </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$columns</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets list of columns for the given row.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getRowColumns</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$row</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$columns </span><span class="s1">= </span><span class="s3">range</span><span class="s1">(</span><span class="s7">0</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">numberOfColumns </span><span class="s1">- </span><span class="s7">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">as </span><span class="s8">$cellKey </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell </span><span class="s1">&amp;&amp; </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() &gt; </span><span class="s7">1</span><span class="s1">) {</span>
+                <span class="s2">// exclude grouped columns.</span>
+                <span class="s8">$columns </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s8">$columns</span><span class="s0">, </span><span class="s3">range</span><span class="s1">(</span><span class="s8">$cellKey </span><span class="s1">+ </span><span class="s7">1</span><span class="s0">, </span><span class="s8">$cellKey </span><span class="s1">+ </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">() - </span><span class="s7">1</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$columns</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Calculates columns widths.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">calculateColumnsWidth</span><span class="s1">(</span><span class="s3">iterable </span><span class="s8">$rows</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$column </span><span class="s1">= </span><span class="s7">0</span><span class="s0">; </span><span class="s8">$column </span><span class="s1">&lt; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">numberOfColumns</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$column</span><span class="s1">) {</span>
+            <span class="s8">$lengths </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$rows </span><span class="s0">as </span><span class="s8">$row</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">instanceof </span><span class="s3">TableSeparator</span><span class="s1">) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$row </span><span class="s0">as </span><span class="s8">$i </span><span class="s1">=&gt; </span><span class="s8">$cell</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$cell </span><span class="s0">instanceof </span><span class="s3">TableCell</span><span class="s1">) {</span>
+                        <span class="s8">$textContent </span><span class="s1">= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">removeDecoration</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s8">$textLength </span><span class="s1">= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$textContent</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">$textLength </span><span class="s1">&gt; </span><span class="s7">0</span><span class="s1">) {</span>
+                            <span class="s8">$contentColumns </span><span class="s1">= </span><span class="s3">str_split</span><span class="s1">(</span><span class="s8">$textContent</span><span class="s0">, </span><span class="s3">ceil</span><span class="s1">(</span><span class="s8">$textLength </span><span class="s1">/ </span><span class="s8">$cell</span><span class="s1">-&gt;</span><span class="s3">getColspan</span><span class="s1">()))</span><span class="s0">;</span>
+                            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$contentColumns </span><span class="s0">as </span><span class="s8">$position </span><span class="s1">=&gt; </span><span class="s8">$content</span><span class="s1">) {</span>
+                                <span class="s8">$row</span><span class="s1">[</span><span class="s8">$i </span><span class="s1">+ </span><span class="s8">$position</span><span class="s1">] = </span><span class="s8">$content</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$lengths</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCellWidth</span><span class="s1">(</span><span class="s8">$row</span><span class="s0">, </span><span class="s8">$column</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">effectiveColumnWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">] = </span><span class="s3">max</span><span class="s1">(</span><span class="s8">$lengths</span><span class="s1">) + </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getCellRowContentFormat</span><span class="s1">()) - </span><span class="s7">2</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getColumnSeparatorWidth</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlen</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getBorderFormat</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">-&gt;</span><span class="s3">getBorderChars</span><span class="s1">()[</span><span class="s7">3</span><span class="s1">]))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getCellWidth</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$row</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$column</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s8">$cellWidth </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$row</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">])) {</span>
+            <span class="s8">$cell </span><span class="s1">= </span><span class="s8">$row</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s8">$cellWidth </span><span class="s1">= </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">strlenWithoutDecoration</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$cell</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$columnWidth </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]) ? </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">] : </span><span class="s7">0</span><span class="s0">;</span>
+        <span class="s8">$cellWidth </span><span class="s1">= </span><span class="s3">max</span><span class="s1">(</span><span class="s8">$cellWidth</span><span class="s0">, </span><span class="s8">$columnWidth</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnMaxWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]) ? </span><span class="s3">min</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">columnMaxWidths</span><span class="s1">[</span><span class="s8">$column</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$cellWidth</span><span class="s1">) : </span><span class="s8">$cellWidth</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Called after rendering to cleanup cache data.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">cleanup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">effectiveColumnWidths </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">numberOfColumns </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">initStyles</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$borderless </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TableStyle</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$borderless</span>
+            <span class="s1">-&gt;</span><span class="s3">setHorizontalBorderChars</span><span class="s1">(</span><span class="s9">'='</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setVerticalBorderChars</span><span class="s1">(</span><span class="s9">' '</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setDefaultCrossingChar</span><span class="s1">(</span><span class="s9">' '</span><span class="s1">)</span>
+        <span class="s0">;</span>
+
+        <span class="s8">$compact </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TableStyle</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$compact</span>
+            <span class="s1">-&gt;</span><span class="s3">setHorizontalBorderChars</span><span class="s1">(</span><span class="s9">''</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setVerticalBorderChars</span><span class="s1">(</span><span class="s9">' '</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setDefaultCrossingChar</span><span class="s1">(</span><span class="s9">''</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setCellRowContentFormat</span><span class="s1">(</span><span class="s9">'%s'</span><span class="s1">)</span>
+        <span class="s0">;</span>
+
+        <span class="s8">$styleGuide </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TableStyle</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$styleGuide</span>
+            <span class="s1">-&gt;</span><span class="s3">setHorizontalBorderChars</span><span class="s1">(</span><span class="s9">'-'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setVerticalBorderChars</span><span class="s1">(</span><span class="s9">' '</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setDefaultCrossingChar</span><span class="s1">(</span><span class="s9">' '</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setCellHeaderFormat</span><span class="s1">(</span><span class="s9">'%s'</span><span class="s1">)</span>
+        <span class="s0">;</span>
+
+        <span class="s8">$box </span><span class="s1">= (</span><span class="s0">new </span><span class="s3">TableStyle</span><span class="s1">())</span>
+            <span class="s1">-&gt;</span><span class="s3">setHorizontalBorderChars</span><span class="s1">(</span><span class="s9">'─'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setVerticalBorderChars</span><span class="s1">(</span><span class="s9">'│'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setCrossingChars</span><span class="s1">(</span><span class="s9">'┼'</span><span class="s0">, </span><span class="s9">'┌'</span><span class="s0">, </span><span class="s9">'┬'</span><span class="s0">, </span><span class="s9">'┐'</span><span class="s0">, </span><span class="s9">'┤'</span><span class="s0">, </span><span class="s9">'┘'</span><span class="s0">, </span><span class="s9">'┴'</span><span class="s0">, </span><span class="s9">'└'</span><span class="s0">, </span><span class="s9">'├'</span><span class="s1">)</span>
+        <span class="s0">;</span>
+
+        <span class="s8">$boxDouble </span><span class="s1">= (</span><span class="s0">new </span><span class="s3">TableStyle</span><span class="s1">())</span>
+            <span class="s1">-&gt;</span><span class="s3">setHorizontalBorderChars</span><span class="s1">(</span><span class="s9">'═'</span><span class="s0">, </span><span class="s9">'─'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setVerticalBorderChars</span><span class="s1">(</span><span class="s9">'║'</span><span class="s0">, </span><span class="s9">'│'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setCrossingChars</span><span class="s1">(</span><span class="s9">'┼'</span><span class="s0">, </span><span class="s9">'╔'</span><span class="s0">, </span><span class="s9">'╤'</span><span class="s0">, </span><span class="s9">'╗'</span><span class="s0">, </span><span class="s9">'╢'</span><span class="s0">, </span><span class="s9">'╝'</span><span class="s0">, </span><span class="s9">'╧'</span><span class="s0">, </span><span class="s9">'╚'</span><span class="s0">, </span><span class="s9">'╟'</span><span class="s0">, </span><span class="s9">'╠'</span><span class="s0">, </span><span class="s9">'╪'</span><span class="s0">, </span><span class="s9">'╣'</span><span class="s1">)</span>
+        <span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'default' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">TableStyle</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'borderless' </span><span class="s1">=&gt; </span><span class="s8">$borderless</span><span class="s0">,</span>
+            <span class="s9">'compact' </span><span class="s1">=&gt; </span><span class="s8">$compact</span><span class="s0">,</span>
+            <span class="s9">'symfony-style-guide' </span><span class="s1">=&gt; </span><span class="s8">$styleGuide</span><span class="s0">,</span>
+            <span class="s9">'box' </span><span class="s1">=&gt; </span><span class="s8">$box</span><span class="s0">,</span>
+            <span class="s9">'box-double' </span><span class="s1">=&gt; </span><span class="s8">$boxDouble</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">resolveStyle</span><span class="s1">(</span><span class="s8">$name</span><span class="s1">): </span><span class="s3">TableStyle</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$name </span><span class="s0">instanceof </span><span class="s3">TableStyle</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$name</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">[</span><span class="s8">$name</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$styles</span><span class="s1">[</span><span class="s8">$name</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Style &quot;%s&quot; is not defined.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

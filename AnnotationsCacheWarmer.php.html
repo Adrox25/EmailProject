@@ -1,0 +1,126 @@
+<html>
+<head>
+<title>AnnotationsCacheWarmer.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AnnotationsCacheWarmer.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">CacheWarmer</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Common</span><span class="s1">\</span><span class="s3">Annotations</span><span class="s1">\</span><span class="s3">AnnotationException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Common</span><span class="s1">\</span><span class="s3">Annotations</span><span class="s1">\</span><span class="s3">CachedReader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Common</span><span class="s1">\</span><span class="s3">Annotations</span><span class="s1">\</span><span class="s3">Reader</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">ArrayAdapter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">DoctrineProvider</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Warms up annotation caches for classes found in composer's autoload class map</span>
+ <span class="s4">* and declared in DI bundle extensions using the addAnnotatedClassesToCache method.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Titouan Galopin </span><span class="s6">&lt;galopintitouan</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">AnnotationsCacheWarmer </span><span class="s0">extends </span><span class="s3">AbstractPhpFileCacheWarmer</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$annotationReader</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$excludeRegexp</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$debug</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $phpArrayFile The PHP file where annotations are cached</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Reader </span><span class="s7">$annotationReader</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$phpArrayFile</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$excludeRegexp </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$debug </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$phpArrayFile</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">annotationReader </span><span class="s1">= </span><span class="s7">$annotationReader</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">excludeRegexp </span><span class="s1">= </span><span class="s7">$excludeRegexp</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">= </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doWarmUp</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$cacheDir</span><span class="s0">, </span><span class="s3">ArrayAdapter </span><span class="s7">$arrayAdapter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$annotatedClassPatterns </span><span class="s1">= </span><span class="s7">$cacheDir</span><span class="s1">.</span><span class="s8">'/annotations.map'</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$annotatedClassPatterns</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$annotatedClasses </span><span class="s1">= </span><span class="s0">include </span><span class="s7">$annotatedClassPatterns</span><span class="s0">;</span>
+        <span class="s7">$reader </span><span class="s1">= </span><span class="s0">new </span><span class="s3">CachedReader</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">annotationReader</span><span class="s0">, new </span><span class="s3">DoctrineProvider</span><span class="s1">(</span><span class="s7">$arrayAdapter</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$annotatedClasses </span><span class="s0">as </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">excludeRegexp </span><span class="s1">&amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">excludeRegexp</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">readAllComponents</span><span class="s1">(</span><span class="s7">$reader</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreAutoloadException</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">readAllComponents</span><span class="s1">(</span><span class="s3">Reader </span><span class="s7">$reader</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$reflectionClass </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$reader</span><span class="s1">-&gt;</span><span class="s3">getClassAnnotations</span><span class="s1">(</span><span class="s7">$reflectionClass</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">AnnotationException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s2">/* 
+             * Ignore any AnnotationException to not break the cache warming process if an Annotation is badly 
+             * configured or could not be found / read / etc. 
+             * 
+             * In particular cases, an Annotation in your code can be used and defined only for a specific 
+             * environment but is always added to the annotations.map file by some Symfony default behaviors, 
+             * and you always end up with a not found Annotation. 
+             */</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$reflectionClass</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$reflectionMethod</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$reader</span><span class="s1">-&gt;</span><span class="s3">getMethodAnnotations</span><span class="s1">(</span><span class="s7">$reflectionMethod</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">AnnotationException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$reflectionClass</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$reflectionProperty</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$reader</span><span class="s1">-&gt;</span><span class="s3">getPropertyAnnotations</span><span class="s1">(</span><span class="s7">$reflectionProperty</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">AnnotationException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

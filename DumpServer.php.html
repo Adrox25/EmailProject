@@ -1,0 +1,132 @@
+<html>
+<head>
+<title>DumpServer.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DumpServer.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Server</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Data</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* A server collecting Data clones sent by a ServerDumper.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Maxime Steinhausser </span><span class="s6">&lt;maxime.steinhausser</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DumpServer</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$host</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$socket</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$logger</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$host</span><span class="s0">, </span><span class="s3">LoggerInterface </span><span class="s7">$logger </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$host</span><span class="s0">, </span><span class="s8">'://'</span><span class="s1">)) {</span>
+            <span class="s7">$host </span><span class="s1">= </span><span class="s8">'tcp://'</span><span class="s1">.</span><span class="s7">$host</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">host </span><span class="s1">= </span><span class="s7">$host</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger </span><span class="s1">= </span><span class="s7">$logger</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">start</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">socket </span><span class="s1">= </span><span class="s3">stream_socket_server</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">host</span><span class="s0">, </span><span class="s7">$errno</span><span class="s0">, </span><span class="s7">$errstr</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Server start failed on &quot;%s&quot;: '</span><span class="s1">.</span><span class="s7">$errstr</span><span class="s1">.</span><span class="s8">' '</span><span class="s1">.</span><span class="s7">$errno</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">host</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">listen</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$callback</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">socket</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getMessages</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$clientId </span><span class="s1">=&gt; </span><span class="s7">$message</span><span class="s1">) {</span>
+            <span class="s7">$payload </span><span class="s1">= @</span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">base64_decode</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'allowed_classes' </span><span class="s1">=&gt; [</span><span class="s3">Data</span><span class="s1">::</span><span class="s0">class, </span><span class="s3">Stub</span><span class="s1">::</span><span class="s0">class</span><span class="s1">]])</span><span class="s0">;</span>
+
+            <span class="s2">// Impossible to decode the message, give up.</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$payload</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">warning</span><span class="s1">(</span><span class="s8">'Unable to decode a message from {clientId} client.'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'clientId' </span><span class="s1">=&gt; </span><span class="s7">$clientId</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$payload</span><span class="s1">) || \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$payload</span><span class="s1">) &lt; </span><span class="s9">2 </span><span class="s1">|| !</span><span class="s7">$payload</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">Data </span><span class="s1">|| !\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$payload</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">logger</span><span class="s1">-&gt;</span><span class="s3">warning</span><span class="s1">(</span><span class="s8">'Invalid payload from {clientId} client. Expected an array of two elements (Data $data, array $context)'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'clientId' </span><span class="s1">=&gt; </span><span class="s7">$clientId</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">) = </span><span class="s7">$payload</span><span class="s0">;</span>
+
+            <span class="s7">$callback</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$context</span><span class="s0">, </span><span class="s7">$clientId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getHost</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">host</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getMessages</span><span class="s1">(): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s7">$sockets </span><span class="s1">= [(int) </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">socket </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">socket</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$write </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s7">$read </span><span class="s1">= </span><span class="s7">$sockets</span><span class="s0">;</span>
+            <span class="s3">stream_select</span><span class="s1">(</span><span class="s7">$read</span><span class="s0">, </span><span class="s7">$write</span><span class="s0">, </span><span class="s7">$write</span><span class="s0">, </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$read </span><span class="s0">as </span><span class="s7">$stream</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">socket </span><span class="s1">=== </span><span class="s7">$stream</span><span class="s1">) {</span>
+                    <span class="s7">$stream </span><span class="s1">= </span><span class="s3">stream_socket_accept</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">socket</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$sockets</span><span class="s1">[(int) </span><span class="s7">$stream</span><span class="s1">] = </span><span class="s7">$stream</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">feof</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s7">$sockets</span><span class="s1">[(int) </span><span class="s7">$stream</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s0">yield </span><span class="s1">(int) </span><span class="s7">$stream </span><span class="s1">=&gt; </span><span class="s3">fgets</span><span class="s1">(</span><span class="s7">$stream</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

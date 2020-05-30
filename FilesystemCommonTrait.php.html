@@ -1,0 +1,210 @@
+<html>
+<head>
+<title>FilesystemCommonTrait.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+FilesystemCommonTrait.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">trait </span><span class="s3">FilesystemCommonTrait</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$directory</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$tmp</span><span class="s0">;</span>
+
+    <span class="s0">private function </span><span class="s3">init</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$namespace</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$directory</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])) {</span>
+            <span class="s7">$directory </span><span class="s1">= </span><span class="s3">sys_get_temp_dir</span><span class="s1">().\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s9">'symfony-cache'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$directory </span><span class="s1">= </span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">) ?: </span><span class="s7">$directory</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s1">[</span><span class="s8">0</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'#[^-+_.A-Za-z0-9]#'</span><span class="s0">, </span><span class="s7">$namespace</span><span class="s0">, </span><span class="s7">$match</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Namespace contains &quot;%s&quot; but only characters in [-+_.A-Za-z0-9] are allowed.'</span><span class="s0">, </span><span class="s7">$match</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$directory </span><span class="s1">.= \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">$namespace</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$directory </span><span class="s1">.= \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s9">'@'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">)) {</span>
+            <span class="s1">@</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$directory</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$directory </span><span class="s1">.= \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">;</span>
+        <span class="s2">// On Windows the whole path is limited to 258 chars</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'</span><span class="s0">\\</span><span class="s9">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">&amp;&amp; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">) &gt; </span><span class="s8">234</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Cache directory too long (%s).'</span><span class="s0">, </span><span class="s7">$directory</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directory </span><span class="s1">= </span><span class="s7">$directory</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doClear</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$namespace</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$ok </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scanHashDir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directory</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">!== </span><span class="s7">$namespace </span><span class="s1">&amp;&amp; </span><span class="s8">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFileKey</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$namespace</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$ok </span><span class="s1">= (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doUnlink</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) || !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) &amp;&amp; </span><span class="s7">$ok</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$ok</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDelete</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$ids</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$ok </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$ids </span><span class="s0">as </span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$ok </span><span class="s1">= (!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) || </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doUnlink</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">) || !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) &amp;&amp; </span><span class="s7">$ok</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$ok</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">doUnlink</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">write</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$data</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$expiresAt </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s9">'::throwError'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directory</span><span class="s1">.</span><span class="s3">uniqid</span><span class="s1">(</span><span class="s9">''</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$expiresAt</span><span class="s1">) {</span>
+                <span class="s3">touch</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp</span><span class="s0">, </span><span class="s7">$expiresAt</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getFile</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$mkdir </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$directory </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// Use MD5 to favor speed over security, which is not an issue here</span>
+        <span class="s7">$hash </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">'/'</span><span class="s0">, </span><span class="s9">'-'</span><span class="s0">, </span><span class="s3">base64_encode</span><span class="s1">(</span><span class="s3">hash</span><span class="s1">(</span><span class="s9">'md5'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">.</span><span class="s7">$id</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s7">$dir </span><span class="s1">= (</span><span class="s7">$directory </span><span class="s1">?? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">directory</span><span class="s1">).</span><span class="s3">strtoupper</span><span class="s1">(</span><span class="s7">$hash</span><span class="s1">[</span><span class="s8">0</span><span class="s1">].\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">$hash</span><span class="s1">[</span><span class="s8">1</span><span class="s1">].\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$mkdir </span><span class="s1">&amp;&amp; !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+            <span class="s1">@</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dir</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$hash</span><span class="s0">, </span><span class="s8">2</span><span class="s0">, </span><span class="s8">20</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getFileKey</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">''</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">scanHashDir</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$directory</span><span class="s1">): \</span><span class="s3">Generator</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$chars </span><span class="s1">= </span><span class="s9">'+-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s8">0</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s8">38</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">.</span><span class="s7">$chars</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s7">$j </span><span class="s1">= </span><span class="s8">0</span><span class="s0">; </span><span class="s7">$j </span><span class="s1">&lt; </span><span class="s8">38</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$j</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$dir </span><span class="s1">= </span><span class="s7">$directory</span><span class="s1">.</span><span class="s7">$chars</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">].\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">$chars</span><span class="s1">[</span><span class="s7">$j</span><span class="s1">])) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(@</span><span class="s3">scandir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s0">, </span><span class="s3">SCANDIR_SORT_NONE</span><span class="s1">) ?: [] </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">'.' </span><span class="s1">!== </span><span class="s7">$file </span><span class="s1">&amp;&amp; </span><span class="s9">'..' </span><span class="s1">!== </span><span class="s7">$file</span><span class="s1">) {</span>
+                        <span class="s0">yield </span><span class="s7">$dir</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">throwError</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">BadMethodCallException</span><span class="s1">(</span><span class="s9">'Cannot serialize '</span><span class="s1">.</span><span class="s3">__CLASS__</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__wakeup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">BadMethodCallException</span><span class="s1">(</span><span class="s9">'Cannot unserialize '</span><span class="s1">.</span><span class="s3">__CLASS__</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__destruct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s3">parent</span><span class="s1">::</span><span class="s0">class, </span><span class="s9">'__destruct'</span><span class="s1">)) {</span>
+            <span class="s3">parent</span><span class="s1">::</span><span class="s3">__destruct</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp </span><span class="s1">&amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp</span><span class="s1">)) {</span>
+            <span class="s3">unlink</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tmp</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,1254 @@
+<html>
+<head>
+<title>Response.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #9876aa;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Response.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+
+<span class="s2">// Help opcache.preload discover always-needed symbols</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ResponseHeaderBag</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Response represents an HTTP response.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Response</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">HTTP_CONTINUE </span><span class="s1">= </span><span class="s7">100</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_SWITCHING_PROTOCOLS </span><span class="s1">= </span><span class="s7">101</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_PROCESSING </span><span class="s1">= </span><span class="s7">102</span><span class="s0">;            </span><span class="s2">// RFC2518</span>
+    <span class="s0">const </span><span class="s3">HTTP_EARLY_HINTS </span><span class="s1">= </span><span class="s7">103</span><span class="s0">;           </span><span class="s2">// RFC8297</span>
+    <span class="s0">const </span><span class="s3">HTTP_OK </span><span class="s1">= </span><span class="s7">200</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_CREATED </span><span class="s1">= </span><span class="s7">201</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_ACCEPTED </span><span class="s1">= </span><span class="s7">202</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_NON_AUTHORITATIVE_INFORMATION </span><span class="s1">= </span><span class="s7">203</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_NO_CONTENT </span><span class="s1">= </span><span class="s7">204</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_RESET_CONTENT </span><span class="s1">= </span><span class="s7">205</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_PARTIAL_CONTENT </span><span class="s1">= </span><span class="s7">206</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_MULTI_STATUS </span><span class="s1">= </span><span class="s7">207</span><span class="s0">;          </span><span class="s2">// RFC4918</span>
+    <span class="s0">const </span><span class="s3">HTTP_ALREADY_REPORTED </span><span class="s1">= </span><span class="s7">208</span><span class="s0">;      </span><span class="s2">// RFC5842</span>
+    <span class="s0">const </span><span class="s3">HTTP_IM_USED </span><span class="s1">= </span><span class="s7">226</span><span class="s0">;               </span><span class="s2">// RFC3229</span>
+    <span class="s0">const </span><span class="s3">HTTP_MULTIPLE_CHOICES </span><span class="s1">= </span><span class="s7">300</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_MOVED_PERMANENTLY </span><span class="s1">= </span><span class="s7">301</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_FOUND </span><span class="s1">= </span><span class="s7">302</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_SEE_OTHER </span><span class="s1">= </span><span class="s7">303</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_NOT_MODIFIED </span><span class="s1">= </span><span class="s7">304</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_USE_PROXY </span><span class="s1">= </span><span class="s7">305</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_RESERVED </span><span class="s1">= </span><span class="s7">306</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_TEMPORARY_REDIRECT </span><span class="s1">= </span><span class="s7">307</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_PERMANENTLY_REDIRECT </span><span class="s1">= </span><span class="s7">308</span><span class="s0">;  </span><span class="s2">// RFC7238</span>
+    <span class="s0">const </span><span class="s3">HTTP_BAD_REQUEST </span><span class="s1">= </span><span class="s7">400</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_UNAUTHORIZED </span><span class="s1">= </span><span class="s7">401</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_PAYMENT_REQUIRED </span><span class="s1">= </span><span class="s7">402</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_FORBIDDEN </span><span class="s1">= </span><span class="s7">403</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_NOT_FOUND </span><span class="s1">= </span><span class="s7">404</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_METHOD_NOT_ALLOWED </span><span class="s1">= </span><span class="s7">405</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_NOT_ACCEPTABLE </span><span class="s1">= </span><span class="s7">406</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_PROXY_AUTHENTICATION_REQUIRED </span><span class="s1">= </span><span class="s7">407</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_REQUEST_TIMEOUT </span><span class="s1">= </span><span class="s7">408</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_CONFLICT </span><span class="s1">= </span><span class="s7">409</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_GONE </span><span class="s1">= </span><span class="s7">410</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_LENGTH_REQUIRED </span><span class="s1">= </span><span class="s7">411</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_PRECONDITION_FAILED </span><span class="s1">= </span><span class="s7">412</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_REQUEST_ENTITY_TOO_LARGE </span><span class="s1">= </span><span class="s7">413</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_REQUEST_URI_TOO_LONG </span><span class="s1">= </span><span class="s7">414</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_UNSUPPORTED_MEDIA_TYPE </span><span class="s1">= </span><span class="s7">415</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_REQUESTED_RANGE_NOT_SATISFIABLE </span><span class="s1">= </span><span class="s7">416</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_EXPECTATION_FAILED </span><span class="s1">= </span><span class="s7">417</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_I_AM_A_TEAPOT </span><span class="s1">= </span><span class="s7">418</span><span class="s0">;                                               </span><span class="s2">// RFC2324</span>
+    <span class="s0">const </span><span class="s3">HTTP_MISDIRECTED_REQUEST </span><span class="s1">= </span><span class="s7">421</span><span class="s0">;                                         </span><span class="s2">// RFC7540</span>
+    <span class="s0">const </span><span class="s3">HTTP_UNPROCESSABLE_ENTITY </span><span class="s1">= </span><span class="s7">422</span><span class="s0">;                                        </span><span class="s2">// RFC4918</span>
+    <span class="s0">const </span><span class="s3">HTTP_LOCKED </span><span class="s1">= </span><span class="s7">423</span><span class="s0">;                                                      </span><span class="s2">// RFC4918</span>
+    <span class="s0">const </span><span class="s3">HTTP_FAILED_DEPENDENCY </span><span class="s1">= </span><span class="s7">424</span><span class="s0">;                                           </span><span class="s2">// RFC4918</span>
+    <span class="s0">const </span><span class="s3">HTTP_TOO_EARLY </span><span class="s1">= </span><span class="s7">425</span><span class="s0">;                                                   </span><span class="s2">// RFC-ietf-httpbis-replay-04</span>
+    <span class="s0">const </span><span class="s3">HTTP_UPGRADE_REQUIRED </span><span class="s1">= </span><span class="s7">426</span><span class="s0">;                                            </span><span class="s2">// RFC2817</span>
+    <span class="s0">const </span><span class="s3">HTTP_PRECONDITION_REQUIRED </span><span class="s1">= </span><span class="s7">428</span><span class="s0">;                                       </span><span class="s2">// RFC6585</span>
+    <span class="s0">const </span><span class="s3">HTTP_TOO_MANY_REQUESTS </span><span class="s1">= </span><span class="s7">429</span><span class="s0">;                                           </span><span class="s2">// RFC6585</span>
+    <span class="s0">const </span><span class="s3">HTTP_REQUEST_HEADER_FIELDS_TOO_LARGE </span><span class="s1">= </span><span class="s7">431</span><span class="s0">;                             </span><span class="s2">// RFC6585</span>
+    <span class="s0">const </span><span class="s3">HTTP_UNAVAILABLE_FOR_LEGAL_REASONS </span><span class="s1">= </span><span class="s7">451</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_INTERNAL_SERVER_ERROR </span><span class="s1">= </span><span class="s7">500</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_NOT_IMPLEMENTED </span><span class="s1">= </span><span class="s7">501</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_BAD_GATEWAY </span><span class="s1">= </span><span class="s7">502</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_SERVICE_UNAVAILABLE </span><span class="s1">= </span><span class="s7">503</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_GATEWAY_TIMEOUT </span><span class="s1">= </span><span class="s7">504</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_VERSION_NOT_SUPPORTED </span><span class="s1">= </span><span class="s7">505</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">HTTP_VARIANT_ALSO_NEGOTIATES_EXPERIMENTAL </span><span class="s1">= </span><span class="s7">506</span><span class="s0">;                        </span><span class="s2">// RFC2295</span>
+    <span class="s0">const </span><span class="s3">HTTP_INSUFFICIENT_STORAGE </span><span class="s1">= </span><span class="s7">507</span><span class="s0">;                                        </span><span class="s2">// RFC4918</span>
+    <span class="s0">const </span><span class="s3">HTTP_LOOP_DETECTED </span><span class="s1">= </span><span class="s7">508</span><span class="s0">;                                               </span><span class="s2">// RFC5842</span>
+    <span class="s0">const </span><span class="s3">HTTP_NOT_EXTENDED </span><span class="s1">= </span><span class="s7">510</span><span class="s0">;                                                </span><span class="s2">// RFC2774</span>
+    <span class="s0">const </span><span class="s3">HTTP_NETWORK_AUTHENTICATION_REQUIRED </span><span class="s1">= </span><span class="s7">511</span><span class="s0">;                             </span><span class="s2">// RFC6585</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">ResponseHeaderBag</span>
+     <span class="s4">*/</span>
+    <span class="s0">public </span><span class="s8">$headers</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s8">$content</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s8">$version</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">int</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s8">$statusCode</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s8">$statusText</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s8">$charset</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Status codes translation table.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The list of codes is complete according to the</span>
+     <span class="s4">* {</span><span class="s5">@link https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml </span><span class="s4">Hypertext Transfer Protocol (HTTP) Status Code Registry}</span>
+     <span class="s4">* (last updated 2016-03-01).</span>
+     <span class="s4">*</span>
+     <span class="s4">* Unless otherwise noted, the status code is defined in RFC2616.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static </span><span class="s8">$statusTexts </span><span class="s1">= [</span>
+        <span class="s7">100 </span><span class="s1">=&gt; </span><span class="s9">'Continue'</span><span class="s0">,</span>
+        <span class="s7">101 </span><span class="s1">=&gt; </span><span class="s9">'Switching Protocols'</span><span class="s0">,</span>
+        <span class="s7">102 </span><span class="s1">=&gt; </span><span class="s9">'Processing'</span><span class="s0">,            </span><span class="s2">// RFC2518</span>
+        <span class="s7">103 </span><span class="s1">=&gt; </span><span class="s9">'Early Hints'</span><span class="s0">,</span>
+        <span class="s7">200 </span><span class="s1">=&gt; </span><span class="s9">'OK'</span><span class="s0">,</span>
+        <span class="s7">201 </span><span class="s1">=&gt; </span><span class="s9">'Created'</span><span class="s0">,</span>
+        <span class="s7">202 </span><span class="s1">=&gt; </span><span class="s9">'Accepted'</span><span class="s0">,</span>
+        <span class="s7">203 </span><span class="s1">=&gt; </span><span class="s9">'Non-Authoritative Information'</span><span class="s0">,</span>
+        <span class="s7">204 </span><span class="s1">=&gt; </span><span class="s9">'No Content'</span><span class="s0">,</span>
+        <span class="s7">205 </span><span class="s1">=&gt; </span><span class="s9">'Reset Content'</span><span class="s0">,</span>
+        <span class="s7">206 </span><span class="s1">=&gt; </span><span class="s9">'Partial Content'</span><span class="s0">,</span>
+        <span class="s7">207 </span><span class="s1">=&gt; </span><span class="s9">'Multi-Status'</span><span class="s0">,          </span><span class="s2">// RFC4918</span>
+        <span class="s7">208 </span><span class="s1">=&gt; </span><span class="s9">'Already Reported'</span><span class="s0">,      </span><span class="s2">// RFC5842</span>
+        <span class="s7">226 </span><span class="s1">=&gt; </span><span class="s9">'IM Used'</span><span class="s0">,               </span><span class="s2">// RFC3229</span>
+        <span class="s7">300 </span><span class="s1">=&gt; </span><span class="s9">'Multiple Choices'</span><span class="s0">,</span>
+        <span class="s7">301 </span><span class="s1">=&gt; </span><span class="s9">'Moved Permanently'</span><span class="s0">,</span>
+        <span class="s7">302 </span><span class="s1">=&gt; </span><span class="s9">'Found'</span><span class="s0">,</span>
+        <span class="s7">303 </span><span class="s1">=&gt; </span><span class="s9">'See Other'</span><span class="s0">,</span>
+        <span class="s7">304 </span><span class="s1">=&gt; </span><span class="s9">'Not Modified'</span><span class="s0">,</span>
+        <span class="s7">305 </span><span class="s1">=&gt; </span><span class="s9">'Use Proxy'</span><span class="s0">,</span>
+        <span class="s7">307 </span><span class="s1">=&gt; </span><span class="s9">'Temporary Redirect'</span><span class="s0">,</span>
+        <span class="s7">308 </span><span class="s1">=&gt; </span><span class="s9">'Permanent Redirect'</span><span class="s0">,    </span><span class="s2">// RFC7238</span>
+        <span class="s7">400 </span><span class="s1">=&gt; </span><span class="s9">'Bad Request'</span><span class="s0">,</span>
+        <span class="s7">401 </span><span class="s1">=&gt; </span><span class="s9">'Unauthorized'</span><span class="s0">,</span>
+        <span class="s7">402 </span><span class="s1">=&gt; </span><span class="s9">'Payment Required'</span><span class="s0">,</span>
+        <span class="s7">403 </span><span class="s1">=&gt; </span><span class="s9">'Forbidden'</span><span class="s0">,</span>
+        <span class="s7">404 </span><span class="s1">=&gt; </span><span class="s9">'Not Found'</span><span class="s0">,</span>
+        <span class="s7">405 </span><span class="s1">=&gt; </span><span class="s9">'Method Not Allowed'</span><span class="s0">,</span>
+        <span class="s7">406 </span><span class="s1">=&gt; </span><span class="s9">'Not Acceptable'</span><span class="s0">,</span>
+        <span class="s7">407 </span><span class="s1">=&gt; </span><span class="s9">'Proxy Authentication Required'</span><span class="s0">,</span>
+        <span class="s7">408 </span><span class="s1">=&gt; </span><span class="s9">'Request Timeout'</span><span class="s0">,</span>
+        <span class="s7">409 </span><span class="s1">=&gt; </span><span class="s9">'Conflict'</span><span class="s0">,</span>
+        <span class="s7">410 </span><span class="s1">=&gt; </span><span class="s9">'Gone'</span><span class="s0">,</span>
+        <span class="s7">411 </span><span class="s1">=&gt; </span><span class="s9">'Length Required'</span><span class="s0">,</span>
+        <span class="s7">412 </span><span class="s1">=&gt; </span><span class="s9">'Precondition Failed'</span><span class="s0">,</span>
+        <span class="s7">413 </span><span class="s1">=&gt; </span><span class="s9">'Payload Too Large'</span><span class="s0">,</span>
+        <span class="s7">414 </span><span class="s1">=&gt; </span><span class="s9">'URI Too Long'</span><span class="s0">,</span>
+        <span class="s7">415 </span><span class="s1">=&gt; </span><span class="s9">'Unsupported Media Type'</span><span class="s0">,</span>
+        <span class="s7">416 </span><span class="s1">=&gt; </span><span class="s9">'Range Not Satisfiable'</span><span class="s0">,</span>
+        <span class="s7">417 </span><span class="s1">=&gt; </span><span class="s9">'Expectation Failed'</span><span class="s0">,</span>
+        <span class="s7">418 </span><span class="s1">=&gt; </span><span class="s9">'I</span><span class="s0">\'</span><span class="s9">m a teapot'</span><span class="s0">,                                               </span><span class="s2">// RFC2324</span>
+        <span class="s7">421 </span><span class="s1">=&gt; </span><span class="s9">'Misdirected Request'</span><span class="s0">,                                         </span><span class="s2">// RFC7540</span>
+        <span class="s7">422 </span><span class="s1">=&gt; </span><span class="s9">'Unprocessable Entity'</span><span class="s0">,                                        </span><span class="s2">// RFC4918</span>
+        <span class="s7">423 </span><span class="s1">=&gt; </span><span class="s9">'Locked'</span><span class="s0">,                                                      </span><span class="s2">// RFC4918</span>
+        <span class="s7">424 </span><span class="s1">=&gt; </span><span class="s9">'Failed Dependency'</span><span class="s0">,                                           </span><span class="s2">// RFC4918</span>
+        <span class="s7">425 </span><span class="s1">=&gt; </span><span class="s9">'Too Early'</span><span class="s0">,                                                   </span><span class="s2">// RFC-ietf-httpbis-replay-04</span>
+        <span class="s7">426 </span><span class="s1">=&gt; </span><span class="s9">'Upgrade Required'</span><span class="s0">,                                            </span><span class="s2">// RFC2817</span>
+        <span class="s7">428 </span><span class="s1">=&gt; </span><span class="s9">'Precondition Required'</span><span class="s0">,                                       </span><span class="s2">// RFC6585</span>
+        <span class="s7">429 </span><span class="s1">=&gt; </span><span class="s9">'Too Many Requests'</span><span class="s0">,                                           </span><span class="s2">// RFC6585</span>
+        <span class="s7">431 </span><span class="s1">=&gt; </span><span class="s9">'Request Header Fields Too Large'</span><span class="s0">,                             </span><span class="s2">// RFC6585</span>
+        <span class="s7">451 </span><span class="s1">=&gt; </span><span class="s9">'Unavailable For Legal Reasons'</span><span class="s0">,                               </span><span class="s2">// RFC7725</span>
+        <span class="s7">500 </span><span class="s1">=&gt; </span><span class="s9">'Internal Server Error'</span><span class="s0">,</span>
+        <span class="s7">501 </span><span class="s1">=&gt; </span><span class="s9">'Not Implemented'</span><span class="s0">,</span>
+        <span class="s7">502 </span><span class="s1">=&gt; </span><span class="s9">'Bad Gateway'</span><span class="s0">,</span>
+        <span class="s7">503 </span><span class="s1">=&gt; </span><span class="s9">'Service Unavailable'</span><span class="s0">,</span>
+        <span class="s7">504 </span><span class="s1">=&gt; </span><span class="s9">'Gateway Timeout'</span><span class="s0">,</span>
+        <span class="s7">505 </span><span class="s1">=&gt; </span><span class="s9">'HTTP Version Not Supported'</span><span class="s0">,</span>
+        <span class="s7">506 </span><span class="s1">=&gt; </span><span class="s9">'Variant Also Negotiates'</span><span class="s0">,                                     </span><span class="s2">// RFC2295</span>
+        <span class="s7">507 </span><span class="s1">=&gt; </span><span class="s9">'Insufficient Storage'</span><span class="s0">,                                        </span><span class="s2">// RFC4918</span>
+        <span class="s7">508 </span><span class="s1">=&gt; </span><span class="s9">'Loop Detected'</span><span class="s0">,                                               </span><span class="s2">// RFC5842</span>
+        <span class="s7">510 </span><span class="s1">=&gt; </span><span class="s9">'Not Extended'</span><span class="s0">,                                                </span><span class="s2">// RFC2774</span>
+        <span class="s7">511 </span><span class="s1">=&gt; </span><span class="s9">'Network Authentication Required'</span><span class="s0">,                             </span><span class="s2">// RFC6585</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When the HTTP status code is not valid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(?</span><span class="s3">string </span><span class="s8">$content </span><span class="s1">= </span><span class="s9">''</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$status </span><span class="s1">= </span><span class="s7">200</span><span class="s0">, array </span><span class="s8">$headers </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ResponseHeaderBag</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setContent</span><span class="s1">(</span><span class="s8">$content</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s8">$status</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setProtocolVersion</span><span class="s1">(</span><span class="s9">'1.0'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Factory method for chainability.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Example:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     return Response::create($body, 200)</span>
+     <span class="s4">*         -&gt;setSharedMaxAge(300);</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">static</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">create</span><span class="s1">(?</span><span class="s3">string </span><span class="s8">$content </span><span class="s1">= </span><span class="s9">''</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$status </span><span class="s1">= </span><span class="s7">200</span><span class="s0">, array </span><span class="s8">$headers </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">return new static</span><span class="s1">(</span><span class="s8">$content</span><span class="s0">, </span><span class="s8">$status</span><span class="s0">, </span><span class="s8">$headers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the Response as an HTTP string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The string representation of the Response is the same as the</span>
+     <span class="s4">* one that will be sent to the client only if the prepare() method</span>
+     <span class="s4">* has been called before.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The Response as an HTTP string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">prepare()</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__toString</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return</span>
+            <span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'HTTP/%s %s %s'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">version</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusText</span><span class="s1">).</span><span class="s9">&quot;</span><span class="s0">\r\n</span><span class="s9">&quot;</span><span class="s1">.</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">.</span><span class="s9">&quot;</span><span class="s0">\r\n</span><span class="s9">&quot;</span><span class="s1">.</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getContent</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Clones the current Response instance.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__clone</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers </span><span class="s1">= </span><span class="s0">clone </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Prepares the Response before it is sent to the client.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method tweaks the Response to ensure that it is</span>
+     <span class="s4">* compliant with RFC 2616. Most of the changes are based on</span>
+     <span class="s4">* the Request that is &quot;associated&quot; with this Response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">prepare</span><span class="s1">(</span><span class="s3">Request </span><span class="s8">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$headers </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isInformational</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isEmpty</span><span class="s1">()) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setContent</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s2">// prevent PHP from sending the Content-Type header based on default_mimetype</span>
+            <span class="s3">ini_set</span><span class="s1">(</span><span class="s9">'default_mimetype'</span><span class="s0">, </span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s2">// Content-type based on the Request</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">)) {</span>
+                <span class="s8">$format </span><span class="s1">= </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">getRequestFormat</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$format </span><span class="s1">&amp;&amp; </span><span class="s8">$mimeType </span><span class="s1">= </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">getMimeType</span><span class="s1">(</span><span class="s8">$format</span><span class="s1">)) {</span>
+                    <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s0">, </span><span class="s8">$mimeType</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// Fix Content-Type</span>
+            <span class="s8">$charset </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">charset </span><span class="s1">?: </span><span class="s9">'UTF-8'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">)) {</span>
+                <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s0">, </span><span class="s9">'text/html; charset='</span><span class="s1">.</span><span class="s8">$charset</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">=== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">)</span><span class="s0">, </span><span class="s9">'text/'</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">)</span><span class="s0">, </span><span class="s9">'charset'</span><span class="s1">)) {</span>
+                <span class="s2">// add the charset</span>
+                <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s0">, </span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">).</span><span class="s9">'; charset='</span><span class="s1">.</span><span class="s8">$charset</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// Fix Content-Length</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Transfer-Encoding'</span><span class="s1">)) {</span>
+                <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">isMethod</span><span class="s1">(</span><span class="s9">'HEAD'</span><span class="s1">)) {</span>
+                <span class="s2">// cf. RFC2616 14.13</span>
+                <span class="s8">$length </span><span class="s1">= </span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setContent</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$length</span><span class="s1">) {</span>
+                    <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s0">, </span><span class="s8">$length</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Fix protocol</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'HTTP/1.0' </span><span class="s1">!= </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'SERVER_PROTOCOL'</span><span class="s1">)) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setProtocolVersion</span><span class="s1">(</span><span class="s9">'1.1'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Check if we need to send extra expire info headers</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'1.0' </span><span class="s1">== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getProtocolVersion</span><span class="s1">() &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Cache-Control'</span><span class="s1">)</span><span class="s0">, </span><span class="s9">'no-cache'</span><span class="s1">)) {</span>
+            <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'pragma'</span><span class="s0">, </span><span class="s9">'no-cache'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'expires'</span><span class="s0">, </span><span class="s1">-</span><span class="s7">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">ensureIEOverSSLCompatibility</span><span class="s1">(</span><span class="s8">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">isSecure</span><span class="s1">()) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$headers</span><span class="s1">-&gt;</span><span class="s3">getCookies</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$cookie</span><span class="s1">) {</span>
+                <span class="s8">$cookie</span><span class="s1">-&gt;</span><span class="s3">setSecureDefault</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sends HTTP headers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sendHeaders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s2">// headers have already been sent by the developer</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">headers_sent</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// headers</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">allPreserveCaseWithoutCookies</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$name </span><span class="s1">=&gt; </span><span class="s8">$values</span><span class="s1">) {</span>
+            <span class="s8">$replace </span><span class="s1">= </span><span class="s7">0 </span><span class="s1">=== </span><span class="s3">strcasecmp</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s9">'Content-Type'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$values </span><span class="s0">as </span><span class="s8">$value</span><span class="s1">) {</span>
+                <span class="s3">header</span><span class="s1">(</span><span class="s8">$name</span><span class="s1">.</span><span class="s9">': '</span><span class="s1">.</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$replace</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// cookies</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCookies</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$cookie</span><span class="s1">) {</span>
+            <span class="s3">header</span><span class="s1">(</span><span class="s9">'Set-Cookie: '</span><span class="s1">.</span><span class="s8">$cookie</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// status</span>
+        <span class="s3">header</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'HTTP/%s %s %s'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">version</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusText</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sends content for the current web response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sendContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">echo </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">content</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sends HTTP headers and content.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">send</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sendHeaders</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sendContent</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'fastcgi_finish_request'</span><span class="s1">)) {</span>
+            <span class="s3">fastcgi_finish_request</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(\</span><span class="s3">PHP_SAPI</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'cli'</span><span class="s0">, </span><span class="s9">'phpdbg'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s0">static</span><span class="s1">::</span><span class="s3">closeOutputBuffers</span><span class="s1">(</span><span class="s7">0</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the response content.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\UnexpectedValueException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setContent</span><span class="s1">(?</span><span class="s3">string </span><span class="s8">$content</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">content </span><span class="s1">= </span><span class="s8">$content </span><span class="s1">?? </span><span class="s9">''</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the current response content.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|false</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">content</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the HTTP protocol version (1.0 or 1.1).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setProtocolVersion</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$version</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">version </span><span class="s1">= </span><span class="s8">$version</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the HTTP protocol version.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getProtocolVersion</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">version</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the response status code.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If the status text is null it will be automatically populated for the known</span>
+     <span class="s4">* status codes and left empty otherwise.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When the HTTP status code is not valid</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$code</span><span class="s0">, </span><span class="s8">$text </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">= </span><span class="s8">$code</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isInvalid</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The HTTP status code &quot;%s&quot; is not valid.'</span><span class="s0">, </span><span class="s8">$code</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$text</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusText </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$statusTexts</span><span class="s1">[</span><span class="s8">$code</span><span class="s1">]) ? </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$statusTexts</span><span class="s1">[</span><span class="s8">$code</span><span class="s1">] : </span><span class="s9">'unknown status'</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$text</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusText </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusText </span><span class="s1">= </span><span class="s8">$text</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Retrieves the status code for the current web response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStatusCode</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the response charset.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCharset</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$charset</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">charset </span><span class="s1">= </span><span class="s8">$charset</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Retrieves the response charset.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCharset</span><span class="s1">(): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">charset</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the response may safely be kept in a shared (surrogate) cache.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Responses marked &quot;private&quot; with an explicit Cache-Control directive are</span>
+     <span class="s4">* considered uncacheable.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Responses with neither a freshness lifetime (Expires, max-age) nor cache</span>
+     <span class="s4">* validator (Last-Modified, ETag) are considered uncacheable because there is</span>
+     <span class="s4">* no way to tell when or how to remove them from the cache.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Note that RFC 7231 and RFC 7234 possibly allow for a more permissive implementation,</span>
+     <span class="s4">* for example &quot;status codes that are defined as cacheable by default [...]</span>
+     <span class="s4">* can be reused by a cache with heuristic expiration unless otherwise indicated&quot;</span>
+     <span class="s4">* (https://tools.ietf.org/html/rfc7231#section-6.1)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isCacheable</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">, </span><span class="s1">[</span><span class="s7">200</span><span class="s0">, </span><span class="s7">203</span><span class="s0">, </span><span class="s7">300</span><span class="s0">, </span><span class="s7">301</span><span class="s0">, </span><span class="s7">302</span><span class="s0">, </span><span class="s7">404</span><span class="s0">, </span><span class="s7">410</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s9">'no-store'</span><span class="s1">) || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s9">'private'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isValidateable</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isFresh</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the response is &quot;fresh&quot;.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Fresh responses may be served from cache without any interaction with the</span>
+     <span class="s4">* origin. A response is considered fresh when it includes a Cache-Control/max-age</span>
+     <span class="s4">* indicator or Expires header and the calculated age is less than the freshness lifetime.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isFresh</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTtl</span><span class="s1">() &gt; </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the response includes headers that can be used to validate</span>
+     <span class="s4">* the response with the origin server using a conditional GET request.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isValidateable</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Last-Modified'</span><span class="s1">) || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'ETag'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Marks the response as &quot;private&quot;.</span>
+     <span class="s4">*</span>
+     <span class="s4">* It makes the response ineligible for serving other clients.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPrivate</span><span class="s1">(): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">removeCacheControlDirective</span><span class="s1">(</span><span class="s9">'public'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s9">'private'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Marks the response as &quot;public&quot;.</span>
+     <span class="s4">*</span>
+     <span class="s4">* It makes the response eligible for serving other clients.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPublic</span><span class="s1">(): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s9">'public'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">removeCacheControlDirective</span><span class="s1">(</span><span class="s9">'private'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Marks the response as &quot;immutable&quot;.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setImmutable</span><span class="s1">(</span><span class="s3">bool </span><span class="s8">$immutable </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$immutable</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s9">'immutable'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">removeCacheControlDirective</span><span class="s1">(</span><span class="s9">'immutable'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the response is marked as &quot;immutable&quot;.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isImmutable</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s9">'immutable'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the response must be revalidated by shared caches once it has become stale.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method indicates that the response must not be served stale by a</span>
+     <span class="s4">* cache in any circumstance without first revalidating with the origin.</span>
+     <span class="s4">* When present, the TTL of the response should not be overridden to be</span>
+     <span class="s4">* greater than the value provided by the origin.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">mustRevalidate</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s9">'must-revalidate'</span><span class="s1">) || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s9">'proxy-revalidate'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the Date header as a DateTime instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException When the header is not parseable</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDate</span><span class="s1">(): ?\</span><span class="s3">DateTimeInterface</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">(</span><span class="s9">'Date'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Date header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDate</span><span class="s1">(\</span><span class="s3">DateTimeInterface </span><span class="s8">$date</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$date </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">) {</span>
+            <span class="s8">$date </span><span class="s1">= \</span><span class="s3">DateTimeImmutable</span><span class="s1">::</span><span class="s3">createFromMutable</span><span class="s1">(</span><span class="s8">$date</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$date </span><span class="s1">= </span><span class="s8">$date</span><span class="s1">-&gt;</span><span class="s3">setTimezone</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTimeZone</span><span class="s1">(</span><span class="s9">'UTC'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Date'</span><span class="s0">, </span><span class="s8">$date</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'D, d M Y H:i:s'</span><span class="s1">).</span><span class="s9">' GMT'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the age of the response in seconds.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getAge</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$age </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Age'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s8">$age</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">max</span><span class="s1">(</span><span class="s3">time</span><span class="s1">() - (int) </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">()-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U'</span><span class="s1">)</span><span class="s0">, </span><span class="s7">0</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Marks the response stale by setting the Age header to be equal to the maximum age of the response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">expire</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isFresh</span><span class="s1">()) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Age'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getMaxAge</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Expires'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the value of the Expires header as a DateTime instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getExpires</span><span class="s1">(): ?\</span><span class="s3">DateTimeInterface</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">(</span><span class="s9">'Expires'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">RuntimeException </span><span class="s8">$e</span><span class="s1">) {</span>
+            <span class="s2">// according to RFC 2616 invalid date formats (e.g. &quot;0&quot; and &quot;-1&quot;) must be treated as in the past</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">::</span><span class="s3">createFromFormat</span><span class="s1">(</span><span class="s9">'U'</span><span class="s0">, </span><span class="s3">time</span><span class="s1">() - </span><span class="s7">172800</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Expires HTTP header with a DateTime instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Passing null as value will remove the header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setExpires</span><span class="s1">(\</span><span class="s3">DateTimeInterface </span><span class="s8">$date </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$date</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Expires'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$date </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">) {</span>
+            <span class="s8">$date </span><span class="s1">= \</span><span class="s3">DateTimeImmutable</span><span class="s1">::</span><span class="s3">createFromMutable</span><span class="s1">(</span><span class="s8">$date</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$date </span><span class="s1">= </span><span class="s8">$date</span><span class="s1">-&gt;</span><span class="s3">setTimezone</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTimeZone</span><span class="s1">(</span><span class="s9">'UTC'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Expires'</span><span class="s0">, </span><span class="s8">$date</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'D, d M Y H:i:s'</span><span class="s1">).</span><span class="s9">' GMT'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the number of seconds after the time specified in the response's Date</span>
+     <span class="s4">* header when the response should no longer be considered fresh.</span>
+     <span class="s4">*</span>
+     <span class="s4">* First, it checks for a s-maxage directive, then a max-age directive, and then it falls</span>
+     <span class="s4">* back on an expires header. It returns null when no maximum age can be established.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getMaxAge</span><span class="s1">(): ?</span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s9">'s-maxage'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s9">'s-maxage'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">hasCacheControlDirective</span><span class="s1">(</span><span class="s9">'max-age'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getCacheControlDirective</span><span class="s1">(</span><span class="s9">'max-age'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getExpires</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getExpires</span><span class="s1">()-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U'</span><span class="s1">) - (int) </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">()-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'U'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the number of seconds after which the response should no longer be considered fresh.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This methods sets the Cache-Control max-age directive.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMaxAge</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s9">'max-age'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the number of seconds after which the response should no longer be considered fresh by shared caches.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This methods sets the Cache-Control s-maxage directive.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setSharedMaxAge</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">addCacheControlDirective</span><span class="s1">(</span><span class="s9">'s-maxage'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the response's time-to-live in seconds.</span>
+     <span class="s4">*</span>
+     <span class="s4">* It returns null when no freshness information is present in the response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* When the responses TTL is &lt;= 0, the response may not be served from cache without first</span>
+     <span class="s4">* revalidating with the origin.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTtl</span><span class="s1">(): ?</span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s8">$maxAge </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getMaxAge</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$maxAge </span><span class="s1">? </span><span class="s8">$maxAge </span><span class="s1">- </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getAge</span><span class="s1">() : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the response's time-to-live for shared caches in seconds.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method adjusts the Cache-Control/s-maxage directive.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setTtl</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$seconds</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setSharedMaxAge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getAge</span><span class="s1">() + </span><span class="s8">$seconds</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the response's time-to-live for private/client caches in seconds.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method adjusts the Cache-Control/max-age directive.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setClientTtl</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$seconds</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setMaxAge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getAge</span><span class="s1">() + </span><span class="s8">$seconds</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the Last-Modified HTTP header as a DateTime instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException When the HTTP header is not parseable</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getLastModified</span><span class="s1">(): ?\</span><span class="s3">DateTimeInterface</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">getDate</span><span class="s1">(</span><span class="s9">'Last-Modified'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Last-Modified HTTP header with a DateTime instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Passing null as value will remove the header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setLastModified</span><span class="s1">(\</span><span class="s3">DateTimeInterface </span><span class="s8">$date </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$date</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Last-Modified'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$date </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DateTime</span><span class="s1">) {</span>
+            <span class="s8">$date </span><span class="s1">= \</span><span class="s3">DateTimeImmutable</span><span class="s1">::</span><span class="s3">createFromMutable</span><span class="s1">(</span><span class="s8">$date</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$date </span><span class="s1">= </span><span class="s8">$date</span><span class="s1">-&gt;</span><span class="s3">setTimezone</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DateTimeZone</span><span class="s1">(</span><span class="s9">'UTC'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Last-Modified'</span><span class="s0">, </span><span class="s8">$date</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'D, d M Y H:i:s'</span><span class="s1">).</span><span class="s9">' GMT'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the literal value of the ETag HTTP header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getEtag</span><span class="s1">(): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'ETag'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the ETag value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $etag The ETag unique identifier or null to remove the header</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool        $weak Whether you want a weak ETag or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setEtag</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$etag </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$weak </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$etag</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Etag'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$etag</span><span class="s0">, </span><span class="s9">'&quot;'</span><span class="s1">)) {</span>
+                <span class="s8">$etag </span><span class="s1">= </span><span class="s9">'&quot;'</span><span class="s1">.</span><span class="s8">$etag</span><span class="s1">.</span><span class="s9">'&quot;'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'ETag'</span><span class="s0">, </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s8">$weak </span><span class="s1">? </span><span class="s9">'W/' </span><span class="s1">: </span><span class="s9">''</span><span class="s1">).</span><span class="s8">$etag</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the response's cache headers (validation and/or expiration).</span>
+     <span class="s4">*</span>
+     <span class="s4">* Available options are: etag, last_modified, max_age, s_maxage, private, public and immutable.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCache</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$options</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$diff </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'etag'</span><span class="s0">, </span><span class="s9">'last_modified'</span><span class="s0">, </span><span class="s9">'max_age'</span><span class="s0">, </span><span class="s9">'s_maxage'</span><span class="s0">, </span><span class="s9">'private'</span><span class="s0">, </span><span class="s9">'public'</span><span class="s0">, </span><span class="s9">'immutable'</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Response does not support the following options: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">'&quot;, &quot;'</span><span class="s0">, </span><span class="s8">$diff</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'etag'</span><span class="s1">])) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setEtag</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'etag'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'last_modified'</span><span class="s1">])) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setLastModified</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'last_modified'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'max_age'</span><span class="s1">])) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setMaxAge</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'max_age'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'s_maxage'</span><span class="s1">])) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setSharedMaxAge</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'s_maxage'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'public'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'public'</span><span class="s1">]) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setPrivate</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'private'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'private'</span><span class="s1">]) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setPrivate</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'immutable'</span><span class="s1">])) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setImmutable</span><span class="s1">((bool) </span><span class="s8">$options</span><span class="s1">[</span><span class="s9">'immutable'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Modifies the response so that it conforms to the rules defined for a 304 status code.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This sets the status, removes the body, and discards any headers</span>
+     <span class="s4">* that MUST NOT be included in 304 responses.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://tools.ietf.org/html/rfc2616#section-10.3.5</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setNotModified</span><span class="s1">(): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s7">304</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setContent</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// remove headers that MUST NOT be included with 304 Not Modified responses</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s9">'Allow'</span><span class="s0">, </span><span class="s9">'Content-Encoding'</span><span class="s0">, </span><span class="s9">'Content-Language'</span><span class="s0">, </span><span class="s9">'Content-Length'</span><span class="s0">, </span><span class="s9">'Content-MD5'</span><span class="s0">, </span><span class="s9">'Content-Type'</span><span class="s0">, </span><span class="s9">'Last-Modified'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$header</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s8">$header</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the response includes a Vary header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasVary</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Vary'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns an array of header names given in the Vary header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getVary</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$vary </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">(</span><span class="s9">'Vary'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$ret </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$vary </span><span class="s0">as </span><span class="s8">$item</span><span class="s1">) {</span>
+            <span class="s8">$ret </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$ret</span><span class="s0">, </span><span class="s3">preg_split</span><span class="s1">(</span><span class="s9">'/[\s,]+/'</span><span class="s0">, </span><span class="s8">$item</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ret</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Vary header.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array $headers</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool         $replace Whether to replace the actual value or not (true by default)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setVary</span><span class="s1">(</span><span class="s8">$headers</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$replace </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Vary'</span><span class="s0">, </span><span class="s8">$headers</span><span class="s0">, </span><span class="s8">$replace</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Determines if the Response validators (ETag, Last-Modified) match</span>
+     <span class="s4">* a conditional value specified in the Request.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If the Response is not modified, it sets the status code to 304 and</span>
+     <span class="s4">* removes the actual content by calling the setNotModified() method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool true if the Response validators match the Request, false otherwise</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isNotModified</span><span class="s1">(</span><span class="s3">Request </span><span class="s8">$request</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">isMethodCacheable</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$notModified </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s8">$lastModified </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Last-Modified'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$modifiedSince </span><span class="s1">= </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'If-Modified-Since'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$etags </span><span class="s1">= </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">getETags</span><span class="s1">()) {</span>
+            <span class="s8">$notModified </span><span class="s1">= \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getEtag</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$etags</span><span class="s1">) || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s9">'*'</span><span class="s0">, </span><span class="s8">$etags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$modifiedSince </span><span class="s1">&amp;&amp; </span><span class="s8">$lastModified</span><span class="s1">) {</span>
+            <span class="s8">$notModified </span><span class="s1">= </span><span class="s3">strtotime</span><span class="s1">(</span><span class="s8">$modifiedSince</span><span class="s1">) &gt;= </span><span class="s3">strtotime</span><span class="s1">(</span><span class="s8">$lastModified</span><span class="s1">) &amp;&amp; (!</span><span class="s8">$etags </span><span class="s1">|| </span><span class="s8">$notModified</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$notModified</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setNotModified</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$notModified</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is response invalid?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isInvalid</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&lt; </span><span class="s7">100 </span><span class="s1">|| </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&gt;= </span><span class="s7">600</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is response informative?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isInformational</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&gt;= </span><span class="s7">100 </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&lt; </span><span class="s7">200</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is response successful?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isSuccessful</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&gt;= </span><span class="s7">200 </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&lt; </span><span class="s7">300</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the response a redirect?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isRedirection</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&gt;= </span><span class="s7">300 </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&lt; </span><span class="s7">400</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is there a client error?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isClientError</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&gt;= </span><span class="s7">400 </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&lt; </span><span class="s7">500</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Was there a server side error?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isServerError</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&gt;= </span><span class="s7">500 </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">&lt; </span><span class="s7">600</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the response OK?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isOk</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">200 </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the response forbidden?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isForbidden</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">403 </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the response a not found error?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isNotFound</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">404 </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the response a redirect of some form?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isRedirect</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$location </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">, </span><span class="s1">[</span><span class="s7">201</span><span class="s0">, </span><span class="s7">301</span><span class="s0">, </span><span class="s7">302</span><span class="s0">, </span><span class="s7">303</span><span class="s0">, </span><span class="s7">307</span><span class="s0">, </span><span class="s7">308</span><span class="s1">]) &amp;&amp; (</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$location </span><span class="s1">?: </span><span class="s8">$location </span><span class="s1">== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Location'</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the response empty?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isEmpty</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">, </span><span class="s1">[</span><span class="s7">204</span><span class="s0">, </span><span class="s7">304</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Cleans or flushes output buffers up to target level.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Resulting level can be greater than target level if a non-removable buffer has been encountered.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">closeOutputBuffers</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$targetLevel</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$flush</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s8">$status </span><span class="s1">= </span><span class="s3">ob_get_status</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$level </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$status</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$flags </span><span class="s1">= </span><span class="s3">PHP_OUTPUT_HANDLER_REMOVABLE </span><span class="s1">| (</span><span class="s8">$flush </span><span class="s1">? </span><span class="s3">PHP_OUTPUT_HANDLER_FLUSHABLE </span><span class="s1">: </span><span class="s3">PHP_OUTPUT_HANDLER_CLEANABLE</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$level</span><span class="s1">-- &gt; </span><span class="s8">$targetLevel </span><span class="s1">&amp;&amp; (</span><span class="s8">$s </span><span class="s1">= </span><span class="s8">$status</span><span class="s1">[</span><span class="s8">$level</span><span class="s1">]) &amp;&amp; (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$s</span><span class="s1">[</span><span class="s9">'del'</span><span class="s1">]) ? !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$s</span><span class="s1">[</span><span class="s9">'flags'</span><span class="s1">]) || (</span><span class="s8">$s</span><span class="s1">[</span><span class="s9">'flags'</span><span class="s1">] &amp; </span><span class="s8">$flags</span><span class="s1">) === </span><span class="s8">$flags </span><span class="s1">: </span><span class="s8">$s</span><span class="s1">[</span><span class="s9">'del'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$flush</span><span class="s1">) {</span>
+                <span class="s3">ob_end_flush</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s3">ob_end_clean</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if we need to remove Cache-Control for SSL encrypted downloads when using IE &lt; 9.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">http://support.microsoft.com/kb/323308</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@final</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">ensureIEOverSSLCompatibility</span><span class="s1">(</span><span class="s3">Request </span><span class="s8">$request</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Content-Disposition'</span><span class="s1">)</span><span class="s0">, </span><span class="s9">'attachment'</span><span class="s1">) &amp;&amp; </span><span class="s7">1 </span><span class="s1">== </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'/MSIE (.*?);/i'</span><span class="s0">, </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'HTTP_USER_AGENT'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$match</span><span class="s1">) &amp;&amp; </span><span class="s3">true </span><span class="s1">=== </span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">isSecure</span><span class="s1">()) {</span>
+            <span class="s0">if </span><span class="s1">((int) </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s9">'/(MSIE )(.*?);/'</span><span class="s0">, </span><span class="s9">'$2'</span><span class="s0">, </span><span class="s8">$match</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]) &lt; </span><span class="s7">9</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s9">'Cache-Control'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

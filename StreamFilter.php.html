@@ -1,0 +1,322 @@
+<html>
+<head>
+<title>StreamFilter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #629755; font-style: italic;}
+.s3 { color: #629755; font-weight: bold; font-style: italic;}
+.s4 { color: #a9b7c6;}
+.s5 { color: #9876aa;}
+.s6 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+StreamFilter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span><hr class="ls0"><span class="s2">/**</span>
+<span class="s2">* This file is part of the League.csv library</span>
+<span class="s2">*</span>
+<span class="s2">* </span><span class="s3">@license </span><span class="s2">http://opensource.org/licenses/MIT</span>
+<span class="s2">* </span><span class="s3">@link </span><span class="s2">https://github.com/thephpleague/csv/</span>
+<span class="s2">* </span><span class="s3">@version </span><span class="s2">8.0.0</span>
+<span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+<span class="s2">*</span>
+<span class="s2">* For the full copyright and license information, please view the LICENSE</span>
+<span class="s2">* file that was distributed with this source code.</span>
+<span class="s2">*/</span>
+<span class="s0">namespace </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Modifier</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s4">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">OutOfBoundsException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s2">/**</span>
+ <span class="s2">*  A Trait to ease PHP Stream Filters manipulation</span>
+ <span class="s2">*  with a SplFileObject</span>
+ <span class="s2">*</span>
+ <span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+ <span class="s2">* </span><span class="s3">@since  </span><span class="s2">6.0.0</span>
+ <span class="s2">*</span>
+ <span class="s2">*/</span>
+<span class="s0">trait </span><span class="s4">StreamFilter</span>
+<span class="s1">{</span>
+    <span class="s2">/**</span>
+     <span class="s2">* collection of stream filters</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$stream_filters </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Stream filtering mode to apply on all filters</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">int</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$stream_filter_mode </span><span class="s1">= </span><span class="s4">STREAM_FILTER_ALL</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">*the real path</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string the real path to the file</span>
+     <span class="s2">*</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$stream_uri</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* PHP Stream Filter Regex</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$stream_regex </span><span class="s1">= </span><span class="s6">',^ 
+        php://filter/ 
+        (?P&lt;mode&gt;:?read=|write=)?  # The resource open mode 
+        (?P&lt;filters&gt;.*?)           # The resource registered filters 
+        /resource=(?P&lt;resource&gt;.*) # The resource path 
+        $,ix'</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Internal path setter</span>
+     <span class="s2">*</span>
+     <span class="s2">* The path must be an SplFileInfo object</span>
+     <span class="s2">* an object that implements the `__toString` method</span>
+     <span class="s2">* a path to a file</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">\SplFileObject|string $path The file path</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">initStreamFilter</span><span class="s1">(</span><span class="s5">$path</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">is_string</span><span class="s1">(</span><span class="s5">$path</span><span class="s1">)) {</span>
+            <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri </span><span class="s1">= </span><span class="s4">null</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">preg_match</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_regex</span><span class="s0">, </span><span class="s5">$path</span><span class="s0">, </span><span class="s5">$matches</span><span class="s1">)) {</span>
+            <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri </span><span class="s1">= </span><span class="s5">$path</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri </span><span class="s1">= </span><span class="s5">$matches</span><span class="s1">[</span><span class="s6">'resource'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters </span><span class="s1">= </span><span class="s4">explode</span><span class="s1">(</span><span class="s6">'|'</span><span class="s0">, </span><span class="s5">$matches</span><span class="s1">[</span><span class="s6">'filters'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filter_mode </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">fetchStreamModeAsInt</span><span class="s1">(</span><span class="s5">$matches</span><span class="s1">[</span><span class="s6">'mode'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Get the stream mode</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $mode</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">int</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">fetchStreamModeAsInt</span><span class="s1">(</span><span class="s5">$mode</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$mode </span><span class="s1">= </span><span class="s4">strtolower</span><span class="s1">(</span><span class="s5">$mode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$mode </span><span class="s1">= </span><span class="s4">rtrim</span><span class="s1">(</span><span class="s5">$mode</span><span class="s0">, </span><span class="s6">'='</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">'write' </span><span class="s1">== </span><span class="s5">$mode</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s4">STREAM_FILTER_WRITE</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">'read' </span><span class="s1">== </span><span class="s5">$mode</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s4">STREAM_FILTER_READ</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s4">STREAM_FILTER_ALL</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Check if the trait methods can be used</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">LogicException If the API can not be use</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">assertStreamable</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">is_string</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s4">LogicException</span><span class="s1">(</span><span class="s6">'The stream filter API can not be used'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Tells whether the stream filter capabilities can be used</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">bool</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">isActiveStreamFilter</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s4">is_string</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* stream filter mode Setter</span>
+     <span class="s2">*</span>
+     <span class="s2">* Set the new Stream Filter mode and remove all</span>
+     <span class="s2">* previously attached stream filters</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int $mode</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">OutOfBoundsException If the mode is invalid</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">setStreamFilterMode</span><span class="s1">(</span><span class="s5">$mode</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">in_array</span><span class="s1">(</span><span class="s5">$mode</span><span class="s0">, </span><span class="s1">[</span><span class="s4">STREAM_FILTER_ALL</span><span class="s0">, </span><span class="s4">STREAM_FILTER_READ</span><span class="s0">, </span><span class="s4">STREAM_FILTER_WRITE</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s4">OutOfBoundsException</span><span class="s1">(</span><span class="s6">'the $mode should be a valid `STREAM_FILTER_*` constant'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filter_mode </span><span class="s1">= </span><span class="s5">$mode</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* stream filter mode getter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">int</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">getStreamFilterMode</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filter_mode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* append a stream filter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $filter_name a string or an object that implements the '__toString' method</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">appendStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s1">[] = </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">sanitizeStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* prepend a stream filter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $filter_name a string or an object that implements the '__toString' method</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">prependStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">array_unshift</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">sanitizeStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Sanitize the stream filter name</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $filter_name the stream filter name</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">sanitizeStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateString</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* </span><span class="s3">@inheritdoc</span>
+     <span class="s2">*/</span>
+    <span class="s0">abstract public function </span><span class="s4">validateString</span><span class="s1">(</span><span class="s5">$str</span><span class="s1">)</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Detect if the stream filter is already present</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $filter_name</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">bool</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">hasStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s4">false </span><span class="s1">!== </span><span class="s4">array_search</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s0">, </span><span class="s4">true</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Remove a filter from the collection</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $filter_name</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">removeStreamFilter</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$res </span><span class="s1">= </span><span class="s4">array_search</span><span class="s1">(</span><span class="s5">$filter_name</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s0">, </span><span class="s4">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">false </span><span class="s1">!== </span><span class="s5">$res</span><span class="s1">) {</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s1">[</span><span class="s5">$res</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Remove all registered stream filter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">clearStreamFilter</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return the filter path</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">getStreamFilterPath</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">assertStreamable</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s6">'php://filter/'</span>
+            <span class="s1">.</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getStreamFilterPrefix</span><span class="s1">()</span>
+            <span class="s1">.</span><span class="s4">implode</span><span class="s1">(</span><span class="s6">'|'</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filters</span><span class="s1">)</span>
+            <span class="s1">.</span><span class="s6">'/resource='</span><span class="s1">.</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_uri</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return PHP stream filter prefix</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">getStreamFilterPrefix</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">STREAM_FILTER_READ </span><span class="s1">== </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filter_mode</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s6">'read='</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">STREAM_FILTER_WRITE </span><span class="s1">== </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">stream_filter_mode</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s6">'write='</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s6">''</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

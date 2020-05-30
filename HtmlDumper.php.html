@@ -1,0 +1,1029 @@
+<html>
+<head>
+<title>HtmlDumper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+HtmlDumper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Cursor</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Data</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* HtmlDumper dumps variables as HTML.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">HtmlDumper </span><span class="s0">extends </span><span class="s3">CliDumper</span>
+<span class="s1">{</span>
+    <span class="s0">public static </span><span class="s7">$defaultOutput </span><span class="s1">= </span><span class="s8">'php://output'</span><span class="s0">;</span>
+
+    <span class="s0">protected static </span><span class="s7">$themes </span><span class="s1">= [</span>
+        <span class="s8">'dark' </span><span class="s1">=&gt; [</span>
+            <span class="s8">'default' </span><span class="s1">=&gt; </span><span class="s8">'background-color:#18171B; color:#FF8400; line-height:1.2em; font:12px Menlo, Monaco, Consolas, monospace; word-wrap: break-word; white-space: pre-wrap; position:relative; z-index:99999; word-break: break-all'</span><span class="s0">,</span>
+            <span class="s8">'num' </span><span class="s1">=&gt; </span><span class="s8">'font-weight:bold; color:#1299DA'</span><span class="s0">,</span>
+            <span class="s8">'const' </span><span class="s1">=&gt; </span><span class="s8">'font-weight:bold'</span><span class="s0">,</span>
+            <span class="s8">'str' </span><span class="s1">=&gt; </span><span class="s8">'font-weight:bold; color:#56DB3A'</span><span class="s0">,</span>
+            <span class="s8">'note' </span><span class="s1">=&gt; </span><span class="s8">'color:#1299DA'</span><span class="s0">,</span>
+            <span class="s8">'ref' </span><span class="s1">=&gt; </span><span class="s8">'color:#A0A0A0'</span><span class="s0">,</span>
+            <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">'color:#FFFFFF'</span><span class="s0">,</span>
+            <span class="s8">'protected' </span><span class="s1">=&gt; </span><span class="s8">'color:#FFFFFF'</span><span class="s0">,</span>
+            <span class="s8">'private' </span><span class="s1">=&gt; </span><span class="s8">'color:#FFFFFF'</span><span class="s0">,</span>
+            <span class="s8">'meta' </span><span class="s1">=&gt; </span><span class="s8">'color:#B729D9'</span><span class="s0">,</span>
+            <span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s8">'color:#56DB3A'</span><span class="s0">,</span>
+            <span class="s8">'index' </span><span class="s1">=&gt; </span><span class="s8">'color:#1299DA'</span><span class="s0">,</span>
+            <span class="s8">'ellipsis' </span><span class="s1">=&gt; </span><span class="s8">'color:#FF8400'</span><span class="s0">,</span>
+            <span class="s8">'ns' </span><span class="s1">=&gt; </span><span class="s8">'user-select:none;'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s8">'light' </span><span class="s1">=&gt; [</span>
+            <span class="s8">'default' </span><span class="s1">=&gt; </span><span class="s8">'background:none; color:#CC7832; line-height:1.2em; font:12px Menlo, Monaco, Consolas, monospace; word-wrap: break-word; white-space: pre-wrap; position:relative; z-index:99999; word-break: break-all'</span><span class="s0">,</span>
+            <span class="s8">'num' </span><span class="s1">=&gt; </span><span class="s8">'font-weight:bold; color:#1299DA'</span><span class="s0">,</span>
+            <span class="s8">'const' </span><span class="s1">=&gt; </span><span class="s8">'font-weight:bold'</span><span class="s0">,</span>
+            <span class="s8">'str' </span><span class="s1">=&gt; </span><span class="s8">'font-weight:bold; color:#629755;'</span><span class="s0">,</span>
+            <span class="s8">'note' </span><span class="s1">=&gt; </span><span class="s8">'color:#6897BB'</span><span class="s0">,</span>
+            <span class="s8">'ref' </span><span class="s1">=&gt; </span><span class="s8">'color:#6E6E6E'</span><span class="s0">,</span>
+            <span class="s8">'public' </span><span class="s1">=&gt; </span><span class="s8">'color:#262626'</span><span class="s0">,</span>
+            <span class="s8">'protected' </span><span class="s1">=&gt; </span><span class="s8">'color:#262626'</span><span class="s0">,</span>
+            <span class="s8">'private' </span><span class="s1">=&gt; </span><span class="s8">'color:#262626'</span><span class="s0">,</span>
+            <span class="s8">'meta' </span><span class="s1">=&gt; </span><span class="s8">'color:#B729D9'</span><span class="s0">,</span>
+            <span class="s8">'key' </span><span class="s1">=&gt; </span><span class="s8">'color:#789339'</span><span class="s0">,</span>
+            <span class="s8">'index' </span><span class="s1">=&gt; </span><span class="s8">'color:#1299DA'</span><span class="s0">,</span>
+            <span class="s8">'ellipsis' </span><span class="s1">=&gt; </span><span class="s8">'color:#CC7832'</span><span class="s0">,</span>
+            <span class="s8">'ns' </span><span class="s1">=&gt; </span><span class="s8">'user-select:none;'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$dumpHeader</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$dumpPrefix </span><span class="s1">= </span><span class="s8">'&lt;pre class=sf-dump id=%s data-indent-pad=&quot;%s&quot;&gt;'</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$dumpSuffix </span><span class="s1">= </span><span class="s8">'&lt;/pre&gt;&lt;script&gt;Sfdump(%s)&lt;/script&gt;'</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$dumpId </span><span class="s1">= </span><span class="s8">'sf-dump'</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$colors </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$headerIsDumped </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$lastDepth </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$styles</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$displayOptions </span><span class="s1">= [</span>
+        <span class="s8">'maxDepth' </span><span class="s1">=&gt; </span><span class="s9">1</span><span class="s0">,</span>
+        <span class="s8">'maxStringLength' </span><span class="s1">=&gt; </span><span class="s9">160</span><span class="s0">,</span>
+        <span class="s8">'fileLinkFormat' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$extraDisplayOptions </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$output </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$charset </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">AbstractDumper</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$charset</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpId </span><span class="s1">= </span><span class="s8">'sf-dump-'</span><span class="s1">.</span><span class="s3">mt_rand</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s1">[</span><span class="s8">'fileLinkFormat'</span><span class="s1">] = </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'xdebug.file_link_format'</span><span class="s1">) ?: </span><span class="s3">get_cfg_var</span><span class="s1">(</span><span class="s8">'xdebug.file_link_format'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s7">$themes</span><span class="s1">[</span><span class="s8">'dark'</span><span class="s1">] ?? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$themes</span><span class="s1">[</span><span class="s8">'dark'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setStyles</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$styles</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headerIsDumped </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles </span><span class="s1">= </span><span class="s7">$styles </span><span class="s1">+ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setTheme</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$themeName</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s7">$themes</span><span class="s1">[</span><span class="s7">$themeName</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Theme &quot;%s&quot; does not exist in class &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$themeName</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyles</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s7">$themes</span><span class="s1">[</span><span class="s7">$themeName</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Configures display options.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $displayOptions A map of display options to customize the behavior</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDisplayOptions</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$displayOptions</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headerIsDumped </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions </span><span class="s1">= </span><span class="s7">$displayOptions </span><span class="s1">+ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an HTML header that will be dumped once in the output stream.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $header An HTML string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDumpHeader</span><span class="s1">(</span><span class="s7">$header</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpHeader </span><span class="s1">= </span><span class="s7">$header</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an HTML prefix and suffix that will encapse every single dump.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $prefix The prepended HTML string</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $suffix The appended HTML string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDumpBoundaries</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s0">, </span><span class="s7">$suffix</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpPrefix </span><span class="s1">= </span><span class="s7">$prefix</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpSuffix </span><span class="s1">= </span><span class="s7">$suffix</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dump</span><span class="s1">(</span><span class="s3">Data </span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$output </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s7">$extraDisplayOptions </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">extraDisplayOptions </span><span class="s1">= </span><span class="s7">$extraDisplayOptions</span><span class="s0">;</span>
+        <span class="s7">$result </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s7">$data</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpId </span><span class="s1">= </span><span class="s8">'sf-dump-'</span><span class="s1">.</span><span class="s3">mt_rand</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$result</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Dumps the HTML header.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getDumpHeader</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headerIsDumped </span><span class="s1">= </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lineDumper</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpHeader</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpHeader</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$line </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'{$options}'</span><span class="s0">, </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s0">, </span><span class="s3">JSON_FORCE_OBJECT</span><span class="s1">)</span><span class="s0">, </span><span class="s3">&lt;&lt;&lt;'EOHTML' 
+</span><span class="s8">&lt;script&gt; 
+Sfdump = window.Sfdump || (function (doc) { 
+ 
+var refStyle = doc.createElement('style'), 
+    rxEsc = /([.*+?^${}()|\[\]\/\\])/g, 
+    idRx = /\bsf-dump-\d+-ref[012]\w+\b/, 
+    keyHint = 0 &lt;= navigator.platform.toUpperCase().indexOf('MAC') ? 'Cmd' : 'Ctrl', 
+    addEventListener = function (e, n, cb) { 
+        e.addEventListener(n, cb, false); 
+    }; 
+ 
+(doc.documentElement.firstElementChild || doc.documentElement.children[0]).appendChild(refStyle); 
+ 
+if (!doc.addEventListener) { 
+    addEventListener = function (element, eventName, callback) { 
+        element.attachEvent('on' + eventName, function (e) { 
+            e.preventDefault = function () {e.returnValue = false;}; 
+            e.target = e.srcElement; 
+            callback(e); 
+        }); 
+    }; 
+} 
+ 
+function toggle(a, recursive) { 
+    var s = a.nextSibling || {}, oldClass = s.className, arrow, newClass; 
+ 
+    if (/\bsf-dump-compact\b/.test(oldClass)) { 
+        arrow = '▼'; 
+        newClass = 'sf-dump-expanded'; 
+    } else if (/\bsf-dump-expanded\b/.test(oldClass)) { 
+        arrow = '▶'; 
+        newClass = 'sf-dump-compact'; 
+    } else { 
+        return false; 
+    } 
+ 
+    if (doc.createEvent &amp;&amp; s.dispatchEvent) { 
+        var event = doc.createEvent('Event'); 
+        event.initEvent('sf-dump-expanded' === newClass ? 'sfbeforedumpexpand' : 'sfbeforedumpcollapse', true, false); 
+ 
+        s.dispatchEvent(event); 
+    } 
+ 
+    a.lastChild.innerHTML = arrow; 
+    s.className = s.className.replace(/\bsf-dump-(compact|expanded)\b/, newClass); 
+ 
+    if (recursive) { 
+        try { 
+            a = s.querySelectorAll('.'+oldClass); 
+            for (s = 0; s &lt; a.length; ++s) { 
+                if (-1 == a[s].className.indexOf(newClass)) { 
+                    a[s].className = newClass; 
+                    a[s].previousSibling.lastChild.innerHTML = arrow; 
+                } 
+            } 
+        } catch (e) { 
+        } 
+    } 
+ 
+    return true; 
+}; 
+ 
+function collapse(a, recursive) { 
+    var s = a.nextSibling || {}, oldClass = s.className; 
+ 
+    if (/\bsf-dump-expanded\b/.test(oldClass)) { 
+        toggle(a, recursive); 
+ 
+        return true; 
+    } 
+ 
+    return false; 
+}; 
+ 
+function expand(a, recursive) { 
+    var s = a.nextSibling || {}, oldClass = s.className; 
+ 
+    if (/\bsf-dump-compact\b/.test(oldClass)) { 
+        toggle(a, recursive); 
+ 
+        return true; 
+    } 
+ 
+    return false; 
+}; 
+ 
+function collapseAll(root) { 
+    var a = root.querySelector('a.sf-dump-toggle'); 
+    if (a) { 
+        collapse(a, true); 
+        expand(a); 
+ 
+        return true; 
+    } 
+ 
+    return false; 
+} 
+ 
+function reveal(node) { 
+    var previous, parents = []; 
+ 
+    while ((node = node.parentNode || {}) &amp;&amp; (previous = node.previousSibling) &amp;&amp; 'A' === previous.tagName) { 
+        parents.push(previous); 
+    } 
+ 
+    if (0 !== parents.length) { 
+        parents.forEach(function (parent) { 
+            expand(parent); 
+        }); 
+ 
+        return true; 
+    } 
+ 
+    return false; 
+} 
+ 
+function highlight(root, activeNode, nodes) { 
+    resetHighlightedNodes(root); 
+ 
+    Array.from(nodes||[]).forEach(function (node) { 
+        if (!/\bsf-dump-highlight\b/.test(node.className)) { 
+            node.className = node.className + ' sf-dump-highlight'; 
+        } 
+    }); 
+ 
+    if (!/\bsf-dump-highlight-active\b/.test(activeNode.className)) { 
+        activeNode.className = activeNode.className + ' sf-dump-highlight-active'; 
+    } 
+} 
+ 
+function resetHighlightedNodes(root) { 
+    Array.from(root.querySelectorAll('.sf-dump-str, .sf-dump-key, .sf-dump-public, .sf-dump-protected, .sf-dump-private')).forEach(function (strNode) { 
+        strNode.className = strNode.className.replace(/\bsf-dump-highlight\b/, ''); 
+        strNode.className = strNode.className.replace(/\bsf-dump-highlight-active\b/, ''); 
+    }); 
+} 
+ 
+return function (root, x) { 
+    root = doc.getElementById(root); 
+ 
+    var indentRx = new RegExp('^('+(root.getAttribute('data-indent-pad') || '  ').replace(rxEsc, '\\$1')+')+', 'm'), 
+        options = {$options}, 
+        elt = root.getElementsByTagName('A'), 
+        len = elt.length, 
+        i = 0, s, h, 
+        t = []; 
+ 
+    while (i &lt; len) t.push(elt[i++]); 
+ 
+    for (i in x) { 
+        options[i] = x[i]; 
+    } 
+ 
+    function a(e, f) { 
+        addEventListener(root, e, function (e, n) { 
+            if ('A' == e.target.tagName) { 
+                f(e.target, e); 
+            } else if ('A' == e.target.parentNode.tagName) { 
+                f(e.target.parentNode, e); 
+            } else { 
+                n = /\bsf-dump-ellipsis\b/.test(e.target.className) ? e.target.parentNode : e.target; 
+ 
+                if ((n = n.nextElementSibling) &amp;&amp; 'A' == n.tagName) { 
+                    if (!/\bsf-dump-toggle\b/.test(n.className)) { 
+                        n = n.nextElementSibling || n; 
+                    } 
+ 
+                    f(n, e, true); 
+                } 
+            } 
+        }); 
+    }; 
+    function isCtrlKey(e) { 
+        return e.ctrlKey || e.metaKey; 
+    } 
+    function xpathString(str) { 
+        var parts = str.match(/[^'&quot;]+|['&quot;]/g).map(function (part) { 
+            if (&quot;'&quot; == part)  { 
+                return '&quot;\'&quot;'; 
+            } 
+            if ('&quot;' == part) { 
+                return &quot;'\&quot;'&quot;; 
+            } 
+ 
+            return &quot;'&quot; + part + &quot;'&quot;; 
+        }); 
+ 
+        return &quot;concat(&quot; + parts.join(&quot;,&quot;) + &quot;, '')&quot;; 
+    } 
+    function xpathHasClass(className) { 
+        return &quot;contains(concat(' ', normalize-space(@class), ' '), ' &quot; + className +&quot; ')&quot;; 
+    } 
+    addEventListener(root, 'mouseover', function (e) { 
+        if ('' != refStyle.innerHTML) { 
+            refStyle.innerHTML = ''; 
+        } 
+    }); 
+    a('mouseover', function (a, e, c) { 
+        if (c) { 
+            e.target.style.cursor = &quot;pointer&quot;; 
+        } else if (a = idRx.exec(a.className)) { 
+            try { 
+                refStyle.innerHTML = 'pre.sf-dump .'+a[0]+'{background-color: #B729D9; color: #FFF !important; border-radius: 2px}'; 
+            } catch (e) { 
+            } 
+        } 
+    }); 
+    a('click', function (a, e, c) { 
+        if (/\bsf-dump-toggle\b/.test(a.className)) { 
+            e.preventDefault(); 
+            if (!toggle(a, isCtrlKey(e))) { 
+                var r = doc.getElementById(a.getAttribute('href').substr(1)), 
+                    s = r.previousSibling, 
+                    f = r.parentNode, 
+                    t = a.parentNode; 
+                t.replaceChild(r, a); 
+                f.replaceChild(a, s); 
+                t.insertBefore(s, r); 
+                f = f.firstChild.nodeValue.match(indentRx); 
+                t = t.firstChild.nodeValue.match(indentRx); 
+                if (f &amp;&amp; t &amp;&amp; f[0] !== t[0]) { 
+                    r.innerHTML = r.innerHTML.replace(new RegExp('^'+f[0].replace(rxEsc, '\\$1'), 'mg'), t[0]); 
+                } 
+                if (/\bsf-dump-compact\b/.test(r.className)) { 
+                    toggle(s, isCtrlKey(e)); 
+                } 
+            } 
+ 
+            if (c) { 
+            } else if (doc.getSelection) { 
+                try { 
+                    doc.getSelection().removeAllRanges(); 
+                } catch (e) { 
+                    doc.getSelection().empty(); 
+                } 
+            } else { 
+                doc.selection.empty(); 
+            } 
+        } else if (/\bsf-dump-str-toggle\b/.test(a.className)) { 
+            e.preventDefault(); 
+            e = a.parentNode.parentNode; 
+            e.className = e.className.replace(/\bsf-dump-str-(expand|collapse)\b/, a.parentNode.className); 
+        } 
+    }); 
+ 
+    elt = root.getElementsByTagName('SAMP'); 
+    len = elt.length; 
+    i = 0; 
+ 
+    while (i &lt; len) t.push(elt[i++]); 
+    len = t.length; 
+ 
+    for (i = 0; i &lt; len; ++i) { 
+        elt = t[i]; 
+        if ('SAMP' == elt.tagName) { 
+            a = elt.previousSibling || {}; 
+            if ('A' != a.tagName) { 
+                a = doc.createElement('A'); 
+                a.className = 'sf-dump-ref'; 
+                elt.parentNode.insertBefore(a, elt); 
+            } else { 
+                a.innerHTML += ' '; 
+            } 
+            a.title = (a.title ? a.title+'\n[' : '[')+keyHint+'+click] Expand all children'; 
+            a.innerHTML += '&lt;span&gt;▼&lt;/span&gt;'; 
+            a.className += ' sf-dump-toggle'; 
+ 
+            x = 1; 
+            if ('sf-dump' != elt.parentNode.className) { 
+                x += elt.parentNode.getAttribute('data-depth')/1; 
+            } 
+            elt.setAttribute('data-depth', x); 
+            var className = elt.className; 
+            elt.className = 'sf-dump-expanded'; 
+            if (className ? 'sf-dump-expanded' !== className : (x &gt; options.maxDepth)) { 
+                toggle(a); 
+            } 
+        } else if (/\bsf-dump-ref\b/.test(elt.className) &amp;&amp; (a = elt.getAttribute('href'))) { 
+            a = a.substr(1); 
+            elt.className += ' '+a; 
+ 
+            if (/[\[{]$/.test(elt.previousSibling.nodeValue)) { 
+                a = a != elt.nextSibling.id &amp;&amp; doc.getElementById(a); 
+                try { 
+                    s = a.nextSibling; 
+                    elt.appendChild(a); 
+                    s.parentNode.insertBefore(a, s); 
+                    if (/^[@#]/.test(elt.innerHTML)) { 
+                        elt.innerHTML += ' &lt;span&gt;▶&lt;/span&gt;'; 
+                    } else { 
+                        elt.innerHTML = '&lt;span&gt;▶&lt;/span&gt;'; 
+                        elt.className = 'sf-dump-ref'; 
+                    } 
+                    elt.className += ' sf-dump-toggle'; 
+                } catch (e) { 
+                    if ('&amp;' == elt.innerHTML.charAt(0)) { 
+                        elt.innerHTML = '…'; 
+                        elt.className = 'sf-dump-ref'; 
+                    } 
+                } 
+            } 
+        } 
+    } 
+ 
+    if (doc.evaluate &amp;&amp; Array.from &amp;&amp; root.children.length &gt; 1) { 
+        root.setAttribute('tabindex', 0); 
+ 
+        SearchState = function () { 
+            this.nodes = []; 
+            this.idx = 0; 
+        }; 
+        SearchState.prototype = { 
+            next: function () { 
+                if (this.isEmpty()) { 
+                    return this.current(); 
+                } 
+                this.idx = this.idx &lt; (this.nodes.length - 1) ? this.idx + 1 : 0; 
+ 
+                return this.current(); 
+            }, 
+            previous: function () { 
+                if (this.isEmpty()) { 
+                    return this.current(); 
+                } 
+                this.idx = this.idx &gt; 0 ? this.idx - 1 : (this.nodes.length - 1); 
+ 
+                return this.current(); 
+            }, 
+            isEmpty: function () { 
+                return 0 === this.count(); 
+            }, 
+            current: function () { 
+                if (this.isEmpty()) { 
+                    return null; 
+                } 
+                return this.nodes[this.idx]; 
+            }, 
+            reset: function () { 
+                this.nodes = []; 
+                this.idx = 0; 
+            }, 
+            count: function () { 
+                return this.nodes.length; 
+            }, 
+        }; 
+ 
+        function showCurrent(state) 
+        { 
+            var currentNode = state.current(), currentRect, searchRect; 
+            if (currentNode) { 
+                reveal(currentNode); 
+                highlight(root, currentNode, state.nodes); 
+                if ('scrollIntoView' in currentNode) { 
+                    currentNode.scrollIntoView(true); 
+                    currentRect = currentNode.getBoundingClientRect(); 
+                    searchRect = search.getBoundingClientRect(); 
+                    if (currentRect.top &lt; (searchRect.top + searchRect.height)) { 
+                        window.scrollBy(0, -(searchRect.top + searchRect.height + 5)); 
+                    } 
+                } 
+            } 
+            counter.textContent = (state.isEmpty() ? 0 : state.idx + 1) + ' of ' + state.count(); 
+        } 
+ 
+        var search = doc.createElement('div'); 
+        search.className = 'sf-dump-search-wrapper sf-dump-search-hidden'; 
+        search.innerHTML = ' 
+            &lt;input type=&quot;text&quot; class=&quot;sf-dump-search-input&quot;&gt; 
+            &lt;span class=&quot;sf-dump-search-count&quot;&gt;0 of 0&lt;\/span&gt; 
+            &lt;button type=&quot;button&quot; class=&quot;sf-dump-search-input-previous&quot; tabindex=&quot;-1&quot;&gt; 
+                &lt;svg viewBox=&quot;0 0 1792 1792&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;&gt;&lt;path d=&quot;M1683 1331l-166 165q-19 19-45 19t-45-19L896 965l-531 531q-19 19-45 19t-45-19l-166-165q-19-19-19-45.5t19-45.5l742-741q19-19 45-19t45 19l742 741q19 19 19 45.5t-19 45.5z&quot;\/&gt;&lt;\/svg&gt; 
+            &lt;\/button&gt; 
+            &lt;button type=&quot;button&quot; class=&quot;sf-dump-search-input-next&quot; tabindex=&quot;-1&quot;&gt; 
+                &lt;svg viewBox=&quot;0 0 1792 1792&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;&gt;&lt;path d=&quot;M1683 808l-742 741q-19 19-45 19t-45-19L109 808q-19-19-19-45.5t19-45.5l166-165q19-19 45-19t45 19l531 531 531-531q19-19 45-19t45 19l166 165q19 19 19 45.5t-19 45.5z&quot;\/&gt;&lt;\/svg&gt; 
+            &lt;\/button&gt; 
+        '; 
+        root.insertBefore(search, root.firstChild); 
+ 
+        var state = new SearchState(); 
+        var searchInput = search.querySelector('.sf-dump-search-input'); 
+        var counter = search.querySelector('.sf-dump-search-count'); 
+        var searchInputTimer = 0; 
+        var previousSearchQuery = ''; 
+ 
+        addEventListener(searchInput, 'keyup', function (e) { 
+            var searchQuery = e.target.value; 
+            /* Don't perform anything if the pressed key didn't change the query */ 
+            if (searchQuery === previousSearchQuery) { 
+                return; 
+            } 
+            previousSearchQuery = searchQuery; 
+            clearTimeout(searchInputTimer); 
+            searchInputTimer = setTimeout(function () { 
+                state.reset(); 
+                collapseAll(root); 
+                resetHighlightedNodes(root); 
+                if ('' === searchQuery) { 
+                    counter.textContent = '0 of 0'; 
+ 
+                    return; 
+                } 
+ 
+                var classMatches = [ 
+                    &quot;sf-dump-str&quot;, 
+                    &quot;sf-dump-key&quot;, 
+                    &quot;sf-dump-public&quot;, 
+                    &quot;sf-dump-protected&quot;, 
+                    &quot;sf-dump-private&quot;, 
+                ].map(xpathHasClass).join(' or '); 
+ 
+                var xpathResult = doc.evaluate('.//span[' + classMatches + '][contains(translate(child::text(), ' + xpathString(searchQuery.toUpperCase()) + ', ' + xpathString(searchQuery.toLowerCase()) + '), ' + xpathString(searchQuery.toLowerCase()) + ')]', root, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null); 
+ 
+                while (node = xpathResult.iterateNext()) state.nodes.push(node); 
+ 
+                showCurrent(state); 
+            }, 400); 
+        }); 
+ 
+        Array.from(search.querySelectorAll('.sf-dump-search-input-next, .sf-dump-search-input-previous')).forEach(function (btn) { 
+            addEventListener(btn, 'click', function (e) { 
+                e.preventDefault(); 
+                -1 !== e.target.className.indexOf('next') ? state.next() : state.previous(); 
+                searchInput.focus(); 
+                collapseAll(root); 
+                showCurrent(state); 
+            }) 
+        }); 
+ 
+        addEventListener(root, 'keydown', function (e) { 
+            var isSearchActive = !/\bsf-dump-search-hidden\b/.test(search.className); 
+            if ((114 === e.keyCode &amp;&amp; !isSearchActive) || (isCtrlKey(e) &amp;&amp; 70 === e.keyCode)) { 
+                /* F3 or CMD/CTRL + F */ 
+                if (70 === e.keyCode &amp;&amp; document.activeElement === searchInput) { 
+                   /* 
+                    * If CMD/CTRL + F is hit while having focus on search input, 
+                    * the user probably meant to trigger browser search instead. 
+                    * Let the browser execute its behavior: 
+                    */ 
+                    return; 
+                } 
+     
+                e.preventDefault(); 
+                search.className = search.className.replace(/\bsf-dump-search-hidden\b/, ''); 
+                searchInput.focus(); 
+            } else if (isSearchActive) { 
+                if (27 === e.keyCode) { 
+                    /* ESC key */ 
+                    search.className += ' sf-dump-search-hidden'; 
+                    e.preventDefault(); 
+                    resetHighlightedNodes(root); 
+                    searchInput.value = ''; 
+                } else if ( 
+                    (isCtrlKey(e) &amp;&amp; 71 === e.keyCode) /* CMD/CTRL + G */ 
+                    || 13 === e.keyCode /* Enter */ 
+                    || 114 === e.keyCode /* F3 */ 
+                ) { 
+                    e.preventDefault(); 
+                    e.shiftKey ? state.previous() : state.next(); 
+                    collapseAll(root); 
+                    showCurrent(state); 
+                } 
+            } 
+        }); 
+    } 
+ 
+    if (0 &gt;= options.maxStringLength) { 
+        return; 
+    } 
+    try { 
+        elt = root.querySelectorAll('.sf-dump-str'); 
+        len = elt.length; 
+        i = 0; 
+        t = []; 
+ 
+        while (i &lt; len) t.push(elt[i++]); 
+        len = t.length; 
+ 
+        for (i = 0; i &lt; len; ++i) { 
+            elt = t[i]; 
+            s = elt.innerText || elt.textContent; 
+            x = s.length - options.maxStringLength; 
+            if (0 &lt; x) { 
+                h = elt.innerHTML; 
+                elt[elt.innerText ? 'innerText' : 'textContent'] = s.substring(0, options.maxStringLength); 
+                elt.className += ' sf-dump-str-collapse'; 
+                elt.innerHTML = '&lt;span class=sf-dump-str-collapse&gt;'+h+'&lt;a class=&quot;sf-dump-ref sf-dump-str-toggle&quot; title=&quot;Collapse&quot;&gt; ◀&lt;/a&gt;&lt;/span&gt;'+ 
+                    '&lt;span class=sf-dump-str-expand&gt;'+elt.innerHTML+'&lt;a class=&quot;sf-dump-ref sf-dump-str-toggle&quot; title=&quot;'+x+' remaining characters&quot;&gt; ▶&lt;/a&gt;&lt;/span&gt;'; 
+            } 
+        } 
+    } catch (e) { 
+    } 
+}; 
+ 
+})(document); 
+&lt;/script&gt;&lt;style&gt; 
+pre.sf-dump { 
+    display: block; 
+    white-space: pre; 
+    padding: 5px; 
+    overflow: initial !important; 
+} 
+pre.sf-dump:after { 
+   content: &quot;&quot;; 
+   visibility: hidden; 
+   display: block; 
+   height: 0; 
+   clear: both; 
+} 
+pre.sf-dump span { 
+    display: inline; 
+} 
+pre.sf-dump .sf-dump-compact { 
+    display: none; 
+} 
+pre.sf-dump a { 
+    text-decoration: none; 
+    cursor: pointer; 
+    border: 0; 
+    outline: none; 
+    color: inherit; 
+} 
+pre.sf-dump img { 
+    max-width: 50em; 
+    max-height: 50em; 
+    margin: .5em 0 0 0; 
+    padding: 0; 
+    background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAAAAAA6mKC9AAAAHUlEQVQY02O8zAABilCaiQEN0EeA8QuUcX9g3QEAAjcC5piyhyEAAAAASUVORK5CYII=) #D3D3D3; 
+} 
+pre.sf-dump .sf-dump-ellipsis { 
+    display: inline-block; 
+    overflow: visible; 
+    text-overflow: ellipsis; 
+    max-width: 5em; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    vertical-align: top; 
+} 
+pre.sf-dump .sf-dump-ellipsis+.sf-dump-ellipsis { 
+    max-width: none; 
+} 
+pre.sf-dump code { 
+    display:inline; 
+    padding:0; 
+    background:none; 
+} 
+.sf-dump-str-collapse .sf-dump-str-collapse { 
+    display: none; 
+} 
+.sf-dump-str-expand .sf-dump-str-expand { 
+    display: none; 
+} 
+.sf-dump-public.sf-dump-highlight, 
+.sf-dump-protected.sf-dump-highlight, 
+.sf-dump-private.sf-dump-highlight, 
+.sf-dump-str.sf-dump-highlight, 
+.sf-dump-key.sf-dump-highlight { 
+    background: rgba(111, 172, 204, 0.3); 
+    border: 1px solid #7DA0B1; 
+    border-radius: 3px; 
+} 
+.sf-dump-public.sf-dump-highlight-active, 
+.sf-dump-protected.sf-dump-highlight-active, 
+.sf-dump-private.sf-dump-highlight-active, 
+.sf-dump-str.sf-dump-highlight-active, 
+.sf-dump-key.sf-dump-highlight-active { 
+    background: rgba(253, 175, 0, 0.4); 
+    border: 1px solid #ffa500; 
+    border-radius: 3px; 
+} 
+pre.sf-dump .sf-dump-search-hidden { 
+    display: none !important; 
+} 
+pre.sf-dump .sf-dump-search-wrapper { 
+    font-size: 0; 
+    white-space: nowrap; 
+    margin-bottom: 5px; 
+    display: flex; 
+    position: -webkit-sticky; 
+    position: sticky; 
+    top: 5px; 
+} 
+pre.sf-dump .sf-dump-search-wrapper &gt; * { 
+    vertical-align: top; 
+    box-sizing: border-box; 
+    height: 21px; 
+    font-weight: normal; 
+    border-radius: 0; 
+    background: #FFF; 
+    color: #757575; 
+    border: 1px solid #BBB; 
+} 
+pre.sf-dump .sf-dump-search-wrapper &gt; input.sf-dump-search-input { 
+    padding: 3px; 
+    height: 21px; 
+    font-size: 12px; 
+    border-right: none; 
+    border-top-left-radius: 3px; 
+    border-bottom-left-radius: 3px; 
+    color: #000; 
+    min-width: 15px; 
+    width: 100%; 
+} 
+pre.sf-dump .sf-dump-search-wrapper &gt; .sf-dump-search-input-next, 
+pre.sf-dump .sf-dump-search-wrapper &gt; .sf-dump-search-input-previous { 
+    background: #F2F2F2; 
+    outline: none; 
+    border-left: none; 
+    font-size: 0; 
+    line-height: 0; 
+} 
+pre.sf-dump .sf-dump-search-wrapper &gt; .sf-dump-search-input-next { 
+    border-top-right-radius: 3px; 
+    border-bottom-right-radius: 3px; 
+} 
+pre.sf-dump .sf-dump-search-wrapper &gt; .sf-dump-search-input-next &gt; svg, 
+pre.sf-dump .sf-dump-search-wrapper &gt; .sf-dump-search-input-previous &gt; svg { 
+    pointer-events: none; 
+    width: 12px; 
+    height: 12px; 
+} 
+pre.sf-dump .sf-dump-search-wrapper &gt; .sf-dump-search-count { 
+    display: inline-block; 
+    padding: 0 5px; 
+    margin: 0; 
+    border-left: none; 
+    line-height: 21px; 
+    font-size: 12px; 
+}</span>
+<span class="s3">EOHTML</span>
+        <span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles </span><span class="s0">as </span><span class="s7">$class </span><span class="s1">=&gt; </span><span class="s7">$style</span><span class="s1">) {</span>
+            <span class="s7">$line </span><span class="s1">.= </span><span class="s8">'pre.sf-dump'</span><span class="s1">.(</span><span class="s8">'default' </span><span class="s1">=== </span><span class="s7">$class </span><span class="s1">? </span><span class="s8">', pre.sf-dump' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">).</span><span class="s8">' .sf-dump-'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'{'</span><span class="s1">.</span><span class="s7">$style</span><span class="s1">.</span><span class="s8">'}'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$line </span><span class="s1">.= </span><span class="s8">'pre.sf-dump .sf-dump-ellipsis-note{'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s8">'note'</span><span class="s1">].</span><span class="s8">'}'</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpHeader </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/\s+/'</span><span class="s0">, </span><span class="s8">' '</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">).</span><span class="s8">'&lt;/style&gt;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpHeader</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dumpString</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$str</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$bin</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$cut</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$str </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'img-data'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'content-type'</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpKey</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">style</span><span class="s1">(</span><span class="s8">'default'</span><span class="s0">, </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'img-size'</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s0">, </span><span class="s1">[]).</span><span class="s8">' &lt;samp&gt;'</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endValue</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indentPad</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;img src=&quot;data:%s;base64,%s&quot; /&gt;&lt;/samp&gt;'</span><span class="s0">, </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'content-type'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">base64_encode</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'img-data'</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">endValue</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s3">parent</span><span class="s1">::</span><span class="s3">dumpString</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s0">, </span><span class="s7">$str</span><span class="s0">, </span><span class="s7">$bin</span><span class="s0">, </span><span class="s7">$cut</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">enterHash</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$hasChild</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_OBJECT </span><span class="s1">=== </span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">attr</span><span class="s1">[</span><span class="s8">'depth'</span><span class="s1">] = </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">enterHash</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">skipChildren</span><span class="s1">) {</span>
+            <span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">skipChildren </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s7">$eol </span><span class="s1">= </span><span class="s8">' class=sf-dump-compact&gt;'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expandNextHash</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expandNextHash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s7">$eol </span><span class="s1">= </span><span class="s8">' class=sf-dump-expanded&gt;'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$eol </span><span class="s1">= </span><span class="s8">'&gt;'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasChild</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&lt;samp'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">refIndex</span><span class="s1">) {</span>
+                <span class="s7">$r </span><span class="s1">= </span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_OBJECT </span><span class="s1">!== </span><span class="s7">$type </span><span class="s1">? </span><span class="s9">1 </span><span class="s1">- (</span><span class="s3">Cursor</span><span class="s1">::</span><span class="s3">HASH_RESOURCE </span><span class="s1">!== </span><span class="s7">$type</span><span class="s1">) : </span><span class="s9">2</span><span class="s0">;</span>
+                <span class="s7">$r </span><span class="s1">.= </span><span class="s7">$r </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefHandle </span><span class="s1">? </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">softRefHandle </span><span class="s1">: </span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">refIndex</span><span class="s0">;</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' id=%s-ref%s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpId</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s7">$eol</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s1">-&gt;</span><span class="s3">depth</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">leaveHash</span><span class="s1">(</span><span class="s3">Cursor </span><span class="s7">$cursor</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$hasChild</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$cut</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpEllipsis</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s0">, </span><span class="s7">$hasChild</span><span class="s0">, </span><span class="s7">$cut</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasChild</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s8">'&lt;/samp&gt;'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">leaveHash</span><span class="s1">(</span><span class="s7">$cursor</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$hasChild</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">style</span><span class="s1">(</span><span class="s7">$style</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$attr </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$v </span><span class="s1">= </span><span class="s3">esc</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'ref' </span><span class="s1">=== </span><span class="s7">$style</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'count'</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;a class=sf-dump-ref&gt;%s&lt;/a&gt;'</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$r </span><span class="s1">= (</span><span class="s8">'#' </span><span class="s1">!== </span><span class="s7">$v</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] ? </span><span class="s9">1 </span><span class="s1">- (</span><span class="s8">'@' </span><span class="s1">!== </span><span class="s7">$v</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) : </span><span class="s9">2</span><span class="s1">).</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;a class=sf-dump-ref href=#%s-ref%s title=&quot;%d occurrences&quot;&gt;%s&lt;/a&gt;'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpId</span><span class="s0">, </span><span class="s7">$r</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'count'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'const' </span><span class="s1">=== </span><span class="s7">$style </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'value'</span><span class="s1">])) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' title=&quot;%s&quot;'</span><span class="s0">, </span><span class="s3">esc</span><span class="s1">(</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'value'</span><span class="s1">]) ? </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'value'</span><span class="s1">] : </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'value'</span><span class="s1">])))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'public' </span><span class="s1">=== </span><span class="s7">$style</span><span class="s1">) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' title=&quot;%s&quot;'</span><span class="s0">, empty</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'dynamic'</span><span class="s1">]) ? </span><span class="s8">'Public property' </span><span class="s1">: </span><span class="s8">'Runtime added dynamic property'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'str' </span><span class="s1">=== </span><span class="s7">$style </span><span class="s1">&amp;&amp; </span><span class="s9">1 </span><span class="s1">&lt; </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'length'</span><span class="s1">]) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' title=&quot;%d%s characters&quot;'</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'length'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'binary'</span><span class="s1">] ? </span><span class="s8">' binary or non-UTF-8' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'note' </span><span class="s1">=== </span><span class="s7">$style </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">&lt; (</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'depth'</span><span class="s1">] ?? </span><span class="s9">0</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$c </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s8">' title=&quot;&quot;'</span><span class="s0">;</span>
+            <span class="s7">$attr </span><span class="s1">+= [</span>
+                <span class="s8">'ellipsis' </span><span class="s1">=&gt; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) - </span><span class="s7">$c</span><span class="s0">,</span>
+                <span class="s8">'ellipsis-type' </span><span class="s1">=&gt; </span><span class="s8">'note'</span><span class="s0">,</span>
+                <span class="s8">'ellipsis-tail' </span><span class="s1">=&gt; </span><span class="s9">1</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'protected' </span><span class="s1">=== </span><span class="s7">$style</span><span class="s1">) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s8">' title=&quot;Protected property&quot;'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'meta' </span><span class="s1">=== </span><span class="s7">$style </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'title'</span><span class="s1">])) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' title=&quot;%s&quot;'</span><span class="s0">, </span><span class="s3">esc</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'title'</span><span class="s1">])))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'private' </span><span class="s1">=== </span><span class="s7">$style</span><span class="s1">) {</span>
+            <span class="s7">$style </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">' title=&quot;Private property defined in class:&amp;#10;`%s`&quot;'</span><span class="s0">, </span><span class="s3">esc</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">])))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$map </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s7">$controlCharsMap</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">])) {</span>
+            <span class="s7">$class </span><span class="s1">= </span><span class="s8">'sf-dump-ellipsis'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-type'</span><span class="s1">])) {</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;%s sf-dump-ellipsis-%s&quot;'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-type'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$label </span><span class="s1">= </span><span class="s3">esc</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s7">$style </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">' title=&quot;'</span><span class="s0">, </span><span class="s8">&quot; title=</span><span class="s0">\&quot;</span><span class="s7">$v</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$style</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$v </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;span class=%s&gt;%s&lt;/span&gt;'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$label</span><span class="s1">)))</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-tail'</span><span class="s1">])) {</span>
+                <span class="s7">$tail </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s3">esc</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'ellipsis-tail'</span><span class="s1">])))</span><span class="s0">;</span>
+                <span class="s7">$v </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;span class=%s&gt;%s&lt;/span&gt;%s'</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$label</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$tail</span><span class="s1">)</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$label</span><span class="s0">, </span><span class="s7">$tail</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$v </span><span class="s1">.= </span><span class="s7">$label</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$v </span><span class="s1">= </span><span class="s8">&quot;&lt;span class=sf-dump-</span><span class="s1">{</span><span class="s7">$style</span><span class="s1">}</span><span class="s8">&gt;&quot;</span><span class="s1">.</span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s7">$controlCharsRx</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$c</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$map</span><span class="s1">) {</span>
+            <span class="s7">$s </span><span class="s1">= </span><span class="s7">$b </span><span class="s1">= </span><span class="s8">'&lt;span class=&quot;sf-dump-default'</span><span class="s0">;</span>
+            <span class="s7">$c </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$ns </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\r</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] || </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) {</span>
+                <span class="s7">$s </span><span class="s1">.= </span><span class="s8">' sf-dump-ns'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$s </span><span class="s1">.= </span><span class="s8">'&quot;&gt;'</span><span class="s0">;</span>
+            <span class="s0">do </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">((</span><span class="s8">&quot;</span><span class="s0">\r</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] || </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]) !== </span><span class="s7">$ns</span><span class="s1">) {</span>
+                    <span class="s7">$s </span><span class="s1">.= </span><span class="s8">'&lt;/span&gt;'</span><span class="s1">.</span><span class="s7">$b</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$ns </span><span class="s1">= !</span><span class="s7">$ns</span><span class="s1">) {</span>
+                        <span class="s7">$s </span><span class="s1">.= </span><span class="s8">' sf-dump-ns'</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$s </span><span class="s1">.= </span><span class="s8">'&quot;&gt;'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$s </span><span class="s1">.= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$map</span><span class="s1">[</span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]]) ? </span><span class="s7">$map</span><span class="s1">[</span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]] : </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'\x%02X'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">[++</span><span class="s7">$i</span><span class="s1">]))</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$s</span><span class="s1">.</span><span class="s8">'&lt;/span&gt;'</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">).</span><span class="s8">'&lt;/span&gt;'</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$href </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSourceLink</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'line'</span><span class="s1">]) ? </span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'line'</span><span class="s1">] : </span><span class="s9">0</span><span class="s1">)) {</span>
+            <span class="s7">$attr</span><span class="s1">[</span><span class="s8">'href'</span><span class="s1">] = </span><span class="s7">$href</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'href'</span><span class="s1">])) {</span>
+            <span class="s7">$target </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">]) ? </span><span class="s8">'' </span><span class="s1">: </span><span class="s8">' target=&quot;_blank&quot;'</span><span class="s0">;</span>
+            <span class="s7">$v </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;a href=&quot;%s&quot;%s rel=&quot;noopener noreferrer&quot;&gt;%s&lt;/a&gt;'</span><span class="s0">, </span><span class="s3">esc</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">utf8Encode</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'href'</span><span class="s1">]))</span><span class="s0">, </span><span class="s7">$target</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'lang'</span><span class="s1">])) {</span>
+            <span class="s7">$v </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;code class=&quot;%s&quot;&gt;%s&lt;/code&gt;'</span><span class="s0">, </span><span class="s3">esc</span><span class="s1">(</span><span class="s7">$attr</span><span class="s1">[</span><span class="s8">'lang'</span><span class="s1">])</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$v</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$depth</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$endOfValue </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(-</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lastDepth</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpPrefix</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpId</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indentPad</span><span class="s1">).</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headerIsDumped </span><span class="s1">!== (</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">outputStream </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lineDumper</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDumpHeader</span><span class="s1">().</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(-</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$depth</span><span class="s1">) {</span>
+            <span class="s7">$args </span><span class="s1">= [</span><span class="s8">'&quot;'</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpId</span><span class="s1">.</span><span class="s8">'&quot;'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">extraDisplayOptions</span><span class="s1">) {</span>
+                <span class="s7">$args</span><span class="s1">[] = </span><span class="s3">json_encode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">extraDisplayOptions</span><span class="s0">, </span><span class="s3">JSON_FORCE_OBJECT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s2">// Replace is for BC</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'&quot;%s&quot;'</span><span class="s0">, </span><span class="s8">'%s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dumpSuffix</span><span class="s1">)</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$args</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lastDepth </span><span class="s1">= </span><span class="s7">$depth</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line </span><span class="s1">= </span><span class="s3">mb_convert_encoding</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">line</span><span class="s0">, </span><span class="s8">'HTML-ENTITIES'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(-</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$depth</span><span class="s1">) {</span>
+            <span class="s3">AbstractDumper</span><span class="s1">::</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">AbstractDumper</span><span class="s1">::</span><span class="s3">dumpLine</span><span class="s1">(</span><span class="s7">$depth</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getSourceLink</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$line</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$options </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">extraDisplayOptions </span><span class="s1">+ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">displayOptions</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$fmt </span><span class="s1">= </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'fileLinkFormat'</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s1">\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$fmt</span><span class="s1">) ? </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$fmt</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'%f' </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s0">, </span><span class="s8">'%l' </span><span class="s1">=&gt; </span><span class="s7">$line</span><span class="s1">]) : </span><span class="s7">$fmt</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+
+<span class="s0">function </span><span class="s3">esc</span><span class="s1">(</span><span class="s7">$str</span><span class="s1">)</span>
+<span class="s1">{</span>
+    <span class="s0">return </span><span class="s3">htmlspecialchars</span><span class="s1">(</span><span class="s7">$str</span><span class="s0">, </span><span class="s3">ENT_QUOTES</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

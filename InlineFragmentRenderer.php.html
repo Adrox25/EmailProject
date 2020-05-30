@@ -1,0 +1,169 @@
+<html>
+<head>
+<title>InlineFragmentRenderer.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+InlineFragmentRenderer.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Fragment</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Controller</span><span class="s1">\</span><span class="s3">ControllerReference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ExceptionEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpCache</span><span class="s1">\</span><span class="s3">SubRequestHandler</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpKernelInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcherInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Implements the inline rendering strategy where the Request is rendered by the current HTTP kernel.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">InlineFragmentRenderer </span><span class="s0">extends </span><span class="s3">RoutableFragmentRenderer</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$kernel</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">HttpKernelInterface </span><span class="s7">$kernel</span><span class="s0">, </span><span class="s3">EventDispatcherInterface </span><span class="s7">$dispatcher </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel </span><span class="s1">= </span><span class="s7">$kernel</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher </span><span class="s1">= </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* Additional available options:</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * alt: an alternative URI to render in case of an error</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">render</span><span class="s1">(</span><span class="s7">$uri</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$reference </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$uri </span><span class="s0">instanceof </span><span class="s3">ControllerReference</span><span class="s1">) {</span>
+            <span class="s7">$reference </span><span class="s1">= </span><span class="s7">$uri</span><span class="s0">;</span>
+
+            <span class="s2">// Remove attributes from the generated URI because if not, the Symfony</span>
+            <span class="s2">// routing system will use them to populate the Request attributes. We don't</span>
+            <span class="s2">// want that as we want to preserve objects (so we manually set Request attributes</span>
+            <span class="s2">// below instead)</span>
+            <span class="s7">$attributes </span><span class="s1">= </span><span class="s7">$reference</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s0">;</span>
+            <span class="s7">$reference</span><span class="s1">-&gt;</span><span class="s3">attributes </span><span class="s1">= []</span><span class="s0">;</span>
+
+            <span class="s2">// The request format and locale might have been overridden by the user</span>
+            <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'_format'</span><span class="s0">, </span><span class="s8">'_locale'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$key</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                    <span class="s7">$reference</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$uri </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateFragmentUri</span><span class="s1">(</span><span class="s7">$uri</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$reference</span><span class="s1">-&gt;</span><span class="s3">attributes </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s7">$reference</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$subRequest </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createSubRequest</span><span class="s1">(</span><span class="s7">$uri</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// override Request attributes as they can be objects (which are not supported by the generated URI)</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$reference</span><span class="s1">) {</span>
+            <span class="s7">$subRequest</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$reference</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$level </span><span class="s1">= </span><span class="s3">ob_get_level</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s3">SubRequestHandler</span><span class="s1">::</span><span class="s3">handle</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s0">, </span><span class="s7">$subRequest</span><span class="s0">, </span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s3">SUB_REQUEST</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s2">// we dispatch the exception event to trigger the logging</span>
+            <span class="s2">// the response that comes back is ignored</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'ignore_errors'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'ignore_errors'</span><span class="s1">] &amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">) {</span>
+                <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ExceptionEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">kernel</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s3">SUB_REQUEST</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">EXCEPTION</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// let's clean up the output buffers that were created by the sub-request</span>
+            <span class="s3">Response</span><span class="s1">::</span><span class="s3">closeOutputBuffers</span><span class="s1">(</span><span class="s7">$level</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'alt'</span><span class="s1">])) {</span>
+                <span class="s7">$alt </span><span class="s1">= </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'alt'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'alt'</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">render</span><span class="s1">(</span><span class="s7">$alt</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'ignore_errors'</span><span class="s1">]) || !</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'ignore_errors'</span><span class="s1">]) {</span>
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return new </span><span class="s3">Response</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">createSubRequest</span><span class="s1">(</span><span class="s7">$uri</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$cookies </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">cookies</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$server </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$server</span><span class="s1">[</span><span class="s8">'HTTP_IF_MODIFIED_SINCE'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$server</span><span class="s1">[</span><span class="s8">'HTTP_IF_NONE_MATCH'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s7">$subRequest </span><span class="s1">= </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">create</span><span class="s1">(</span><span class="s7">$uri</span><span class="s0">, </span><span class="s8">'get'</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s7">$cookies</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s7">$server</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s8">'Surrogate-Capability'</span><span class="s1">)) {</span>
+            <span class="s7">$subRequest</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'Surrogate-Capability'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'Surrogate-Capability'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">static </span><span class="s7">$setSession</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$setSession</span><span class="s1">) {</span>
+            <span class="s7">$setSession </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span><span class="s0">static function </span><span class="s1">(</span><span class="s7">$subRequest</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">) { </span><span class="s7">$subRequest</span><span class="s1">-&gt;</span><span class="s3">session </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">session</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">Request</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$setSession</span><span class="s1">(</span><span class="s7">$subRequest</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_format'</span><span class="s1">)) {</span>
+            <span class="s7">$subRequest</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'_format'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_format'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getDefaultLocale</span><span class="s1">() !== </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getLocale</span><span class="s1">()) {</span>
+            <span class="s7">$subRequest</span><span class="s1">-&gt;</span><span class="s3">setLocale</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getLocale</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$subRequest</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">'inline'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

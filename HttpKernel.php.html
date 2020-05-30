@@ -1,0 +1,319 @@
+<html>
+<head>
+<title>HttpKernel.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+HttpKernel.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RequestExceptionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Controller</span><span class="s1">\</span><span class="s3">ArgumentResolver</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Controller</span><span class="s1">\</span><span class="s3">ArgumentResolverInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Controller</span><span class="s1">\</span><span class="s3">ControllerResolverInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ControllerArgumentsEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ControllerEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ExceptionEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">FinishRequestEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">RequestEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ResponseEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">TerminateEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ViewEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">BadRequestHttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ControllerDoesNotReturnResponseException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">HttpExceptionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NotFoundHttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcherInterface</span><span class="s0">;</span>
+
+<span class="s2">// Help opcache.preload discover always-needed symbols</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">LegacyEventDispatcherProxy</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ControllerArgumentsEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ControllerEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ExceptionEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">FinishRequestEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">RequestEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ResponseEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">TerminateEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ViewEvent</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* HttpKernel notifies events to convert a Request object to a Response one.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">HttpKernel </span><span class="s0">implements </span><span class="s3">HttpKernelInterface</span><span class="s0">, </span><span class="s3">TerminableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$resolver</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$argumentResolver</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">EventDispatcherInterface </span><span class="s7">$dispatcher</span><span class="s0">, </span><span class="s3">ControllerResolverInterface </span><span class="s7">$resolver</span><span class="s0">, </span><span class="s3">RequestStack </span><span class="s7">$requestStack </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">ArgumentResolverInterface </span><span class="s7">$argumentResolver </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher </span><span class="s1">= </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolver </span><span class="s1">= </span><span class="s7">$resolver</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">= </span><span class="s7">$requestStack </span><span class="s1">?: </span><span class="s0">new </span><span class="s3">RequestStack</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">argumentResolver </span><span class="s1">= </span><span class="s7">$argumentResolver</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">argumentResolver</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">argumentResolver </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ArgumentResolver</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">handle</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">HttpKernelInterface</span><span class="s1">::</span><span class="s3">MASTER_REQUEST</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$catch </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'X-Php-Ob-Level'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s3">ob_get_level</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handleRaw</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$e </span><span class="s0">instanceof </span><span class="s3">RequestExceptionInterface</span><span class="s1">) {</span>
+                <span class="s7">$e </span><span class="s1">= </span><span class="s0">new </span><span class="s3">BadRequestHttpException</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$catch</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">finishRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handleThrowable</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">terminate</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">Response </span><span class="s7">$response</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s0">new </span><span class="s3">TerminateEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">)</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">TERMINATE</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">terminateWithException</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$exception</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$request </span><span class="s1">= </span><span class="s7">$request </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">throw </span><span class="s7">$exception</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$response </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handleThrowable</span><span class="s1">(</span><span class="s7">$exception</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">MASTER_REQUEST</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">sendHeaders</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">sendContent</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">terminate</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Handles a request to convert it to a response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Exceptions are not caught.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException       If one of the listener does not behave as expected</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">NotFoundHttpException When controller cannot be found</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">handleRaw</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">MASTER_REQUEST</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">push</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// request</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RequestEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">REQUEST</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">hasResponse</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filterResponse</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// load controller</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$controller </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolver</span><span class="s1">-&gt;</span><span class="s3">getController</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">NotFoundHttpException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unable to find the controller for path &quot;%s&quot;. The route is wrongly configured.'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ControllerEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$controller</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">CONTROLLER</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$controller </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getController</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// controller arguments</span>
+        <span class="s7">$arguments </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">argumentResolver</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$controller</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ControllerArgumentsEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$controller</span><span class="s0">, </span><span class="s7">$arguments</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">CONTROLLER_ARGUMENTS</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$controller </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getController</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$arguments </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// call controller</span>
+        <span class="s7">$response </span><span class="s1">= </span><span class="s7">$controller</span><span class="s1">(...</span><span class="s7">$arguments</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// view</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$response </span><span class="s0">instanceof </span><span class="s3">Response</span><span class="s1">) {</span>
+            <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ViewEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">VIEW</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">hasResponse</span><span class="s1">()) {</span>
+                <span class="s7">$response </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$msg </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The controller must return a &quot;Symfony\Component\HttpFoundation\Response&quot; object but it returned %s.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">varToString</span><span class="s1">(</span><span class="s7">$response</span><span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s2">// the user may have forgotten to return something</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$response</span><span class="s1">) {</span>
+                    <span class="s7">$msg </span><span class="s1">.= </span><span class="s8">' Did you forget to add a return statement somewhere in your controller?'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw new </span><span class="s3">ControllerDoesNotReturnResponseException</span><span class="s1">(</span><span class="s7">$msg</span><span class="s0">, </span><span class="s7">$controller</span><span class="s0">, </span><span class="s3">__FILE__</span><span class="s0">, </span><span class="s3">__LINE__ </span><span class="s1">- </span><span class="s9">17</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filterResponse</span><span class="s1">(</span><span class="s7">$response</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Filters a response object.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException if the passed object is not a Response instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">filterResponse</span><span class="s1">(</span><span class="s3">Response </span><span class="s7">$response</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ResponseEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$response</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">RESPONSE</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">finishRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Publishes the finish request event, then pop the request from the stack.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Note that the order of the operations is important here, otherwise</span>
+     <span class="s4">* operations such as {</span><span class="s5">@link </span><span class="s4">RequestStack::getParentRequest()} can lead to</span>
+     <span class="s4">* weird results.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">finishRequest</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s0">new </span><span class="s3">FinishRequestEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">FINISH_REQUEST</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">pop</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Handles a throwable by trying to convert it to a Response.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\Exception</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">handleThrowable</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$event </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ExceptionEvent</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">dispatch</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">EXCEPTION</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// a listener might have replaced the exception</span>
+        <span class="s7">$e </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getThrowable</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">hasResponse</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">finishRequest</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$response </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// the developer asked for a specific status code</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isAllowingCustomResponseCode</span><span class="s1">() &amp;&amp; !</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">isClientError</span><span class="s1">() &amp;&amp; !</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">isServerError</span><span class="s1">() &amp;&amp; !</span><span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">isRedirect</span><span class="s1">()) {</span>
+            <span class="s2">// ensure that we actually have an error response</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$e </span><span class="s0">instanceof </span><span class="s3">HttpExceptionInterface</span><span class="s1">) {</span>
+                <span class="s2">// keep the HTTP status code and headers</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$response</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s9">500</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filterResponse</span><span class="s1">(</span><span class="s7">$response</span><span class="s0">, </span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$response</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a human-readable string for the specified variable.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">varToString</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'an object of type %s'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">)) {</span>
+            <span class="s7">$a </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$var </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$a</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s =&gt; ...'</span><span class="s0">, </span><span class="s7">$k</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'an array ([%s])'</span><span class="s0">, </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">)</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">255</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'a resource (%s)'</span><span class="s0">, </span><span class="s3">get_resource_type</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$var</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">'null'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$var</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">'a boolean value (false)'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$var</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">'a boolean value (true)'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'a string (&quot;%s%s&quot;)'</span><span class="s0">, </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s7">$var</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">255</span><span class="s1">)</span><span class="s0">, </span><span class="s3">mb_strlen</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">) &gt; </span><span class="s9">255 </span><span class="s1">? </span><span class="s8">'...' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$var</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'a number (%s)'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$var</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">(string) </span><span class="s7">$var</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

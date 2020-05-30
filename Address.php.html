@@ -1,0 +1,149 @@
+<html>
+<head>
+<title>Address.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Address.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Egulias</span><span class="s1">\</span><span class="s3">EmailValidator</span><span class="s1">\</span><span class="s3">EmailValidator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Egulias</span><span class="s1">\</span><span class="s3">EmailValidator</span><span class="s1">\</span><span class="s3">Validation</span><span class="s1">\</span><span class="s3">RFCValidation</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Encoder</span><span class="s1">\</span><span class="s3">IdnAddressEncoder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RfcComplianceException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">Address</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* A regex that matches a structure like 'Name </span><span class="s6">&lt;email</span><span class="s4">@address.com&gt;'.</span>
+     <span class="s4">* It matches anything between the first &lt; and last &gt; as email address.</span>
+     <span class="s4">* This allows to use a single string to construct an Address, which can be convenient to use in</span>
+     <span class="s4">* config, and allows to have more readable config.</span>
+     <span class="s4">* This does not try to cover all edge cases for address.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private const </span><span class="s3">FROM_STRING_PATTERN </span><span class="s1">= </span><span class="s7">'~(?&lt;displayName&gt;[^&lt;]*)&lt;(?&lt;addrSpec&gt;.*)&gt;[^&gt;]*~'</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$validator</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$encoder</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$address</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$name</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$address</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$name </span><span class="s1">= </span><span class="s7">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">EmailValidator</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s&quot; class cannot be used as it needs &quot;%s&quot;; try running &quot;composer require egulias/email-validator&quot;.'</span><span class="s0">, </span><span class="s3">__CLASS__</span><span class="s0">, </span><span class="s3">EmailValidator</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$validator</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$validator </span><span class="s1">= </span><span class="s0">new </span><span class="s3">EmailValidator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">address </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s3">str_replace</span><span class="s1">([</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\r</span><span class="s7">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$validator</span><span class="s1">-&gt;</span><span class="s3">isValid</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">address</span><span class="s0">, new </span><span class="s3">RFCValidation</span><span class="s1">())) {</span>
+            <span class="s0">throw new </span><span class="s3">RfcComplianceException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Email &quot;%s&quot; does not comply with addr-spec of RFC 2822.'</span><span class="s0">, </span><span class="s8">$address</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getAddress</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">address</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getEncodedAddress</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$encoder</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$encoder </span><span class="s1">= </span><span class="s0">new </span><span class="s3">IdnAddressEncoder</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$encoder</span><span class="s1">-&gt;</span><span class="s3">encodeString</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">address</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">toString</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">(</span><span class="s8">$n </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()) ? </span><span class="s8">$n</span><span class="s1">.</span><span class="s7">' &lt;'</span><span class="s1">.</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getEncodedAddress</span><span class="s1">().</span><span class="s7">'&gt;' </span><span class="s1">: </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getEncodedAddress</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string $address</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">create</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$address </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$address</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">)) {</span>
+            <span class="s0">return new </span><span class="s3">self</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'An address can be an instance of Address or a string (&quot;%s&quot;) given).'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">)))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">(Address|string)[] $addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Address[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">createArray</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$addresses</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$addrs </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$addresses </span><span class="s0">as </span><span class="s8">$address</span><span class="s1">) {</span>
+            <span class="s8">$addrs</span><span class="s1">[] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">create</span><span class="s1">(</span><span class="s8">$address</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$addrs</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">fromString</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$string</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$string</span><span class="s0">, </span><span class="s7">'&lt;'</span><span class="s1">)) {</span>
+            <span class="s0">return new </span><span class="s3">self</span><span class="s1">(</span><span class="s8">$string</span><span class="s0">, </span><span class="s7">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">FROM_STRING_PATTERN</span><span class="s0">, </span><span class="s8">$string</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Could not parse &quot;%s&quot; to a &quot;%s&quot; instance.'</span><span class="s0">, </span><span class="s8">$string</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">self</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'addrSpec'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'displayName'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">' </span><span class="s0">\'</span><span class="s7">&quot;'</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

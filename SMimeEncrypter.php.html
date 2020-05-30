@@ -1,0 +1,88 @@
+<html>
+<head>
+<title>SMimeEncrypter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SMimeEncrypter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Crypto</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Message</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Sebastiaan Stok </span><span class="s6">&lt;s.stok</span><span class="s4">@rollerscapes.net&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">SMimeEncrypter </span><span class="s0">extends </span><span class="s3">SMime</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$certs</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cipher</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[] $certificate The path (or array of paths) of the file(s) containing the X.509 certificate(s)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null        $cipher      A set of algorithms used to encrypt the message. Must be one of these PHP constants: https://www.php.net/manual/en/openssl.ciphers.php</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$certificate</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$cipher </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">extension_loaded</span><span class="s1">(</span><span class="s8">'openssl'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'PHP extension &quot;openssl&quot; is required to use SMime.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$certificate</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">certs </span><span class="s1">= </span><span class="s3">array_map</span><span class="s1">([</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'normalizeFilePath'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$certificate</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">certs </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalizeFilePath</span><span class="s1">(</span><span class="s7">$certificate</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cipher </span><span class="s1">= </span><span class="s7">$cipher </span><span class="s1">?? </span><span class="s3">OPENSSL_CIPHER_AES_256_CBC</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">encrypt</span><span class="s1">(</span><span class="s3">Message </span><span class="s7">$message</span><span class="s1">): </span><span class="s3">Message</span>
+    <span class="s1">{</span>
+        <span class="s7">$bufferFile </span><span class="s1">= </span><span class="s3">tmpfile</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$outputFile </span><span class="s1">= </span><span class="s3">tmpfile</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">iteratorToFile</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">-&gt;</span><span class="s3">toIterable</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$bufferFile</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!@</span><span class="s3">openssl_pkcs7_encrypt</span><span class="s1">(</span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s7">$bufferFile</span><span class="s1">)[</span><span class="s8">'uri'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s7">$outputFile</span><span class="s1">)[</span><span class="s8">'uri'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">certs</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cipher</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Failed to encrypt S/Mime message. Error: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">openssl_error_string</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$mimePart </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">convertMessageToSMimePart</span><span class="s1">(</span><span class="s7">$outputFile</span><span class="s0">, </span><span class="s8">'application'</span><span class="s0">, </span><span class="s8">'pkcs7-mime'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$mimePart</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()</span>
+            <span class="s1">-&gt;</span><span class="s3">addTextHeader</span><span class="s1">(</span><span class="s8">'Content-Transfer-Encoding'</span><span class="s0">, </span><span class="s8">'base64'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">addParameterizedHeader</span><span class="s1">(</span><span class="s8">'Content-Disposition'</span><span class="s0">, </span><span class="s8">'attachment'</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s8">'smime.p7m'</span><span class="s1">])</span>
+        <span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">Message</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$mimePart</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

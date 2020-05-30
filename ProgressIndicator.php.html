@@ -1,0 +1,279 @@
+<html>
+<head>
+<title>ProgressIndicator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ProgressIndicator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Helper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Kevin Bond </span><span class="s6">&lt;kevinbond</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ProgressIndicator</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$output</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$startTime</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$format</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$message</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$indicatorValues</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$indicatorCurrent</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$indicatorChangeInterval</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$indicatorUpdateTime</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$started </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$formatters</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$formats</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int        $indicatorChangeInterval Change interval in milliseconds</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|null $indicatorValues         Animated indicator characters</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$format </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$indicatorChangeInterval </span><span class="s1">= </span><span class="s8">100</span><span class="s0">, array </span><span class="s7">$indicatorValues </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s1">= </span><span class="s7">$output</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$format</span><span class="s1">) {</span>
+            <span class="s7">$format </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">determineBestFormat</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$indicatorValues</span><span class="s1">) {</span>
+            <span class="s7">$indicatorValues </span><span class="s1">= [</span><span class="s9">'-'</span><span class="s0">, </span><span class="s9">'</span><span class="s0">\\</span><span class="s9">'</span><span class="s0">, </span><span class="s9">'|'</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$indicatorValues </span><span class="s1">= </span><span class="s3">array_values</span><span class="s1">(</span><span class="s7">$indicatorValues</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">2 </span><span class="s1">&gt; \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$indicatorValues</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s9">'Must have at least 2 indicator value characters.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s7">$format</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorChangeInterval </span><span class="s1">= </span><span class="s7">$indicatorChangeInterval</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorValues </span><span class="s1">= </span><span class="s7">$indicatorValues</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">= </span><span class="s3">time</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the current indicator message.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMessage</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">= </span><span class="s7">$message</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Starts the indicator output.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">start</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">started</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'Progress indicator already started.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">= </span><span class="s7">$message</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">started </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">startTime </span><span class="s1">= </span><span class="s3">time</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorUpdateTime </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentTimeInMilliseconds</span><span class="s1">() + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorChangeInterval</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorCurrent </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Advances the indicator.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">advance</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">started</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'Progress indicator has not yet been started.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$currentTime </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentTimeInMilliseconds</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$currentTime </span><span class="s1">&lt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorUpdateTime</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorUpdateTime </span><span class="s1">= </span><span class="s7">$currentTime </span><span class="s1">+ </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorChangeInterval</span><span class="s0">;</span>
+        <span class="s1">++</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indicatorCurrent</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finish the indicator with message.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">$message</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">finish</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">started</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'Progress indicator has not yet been started.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">message </span><span class="s1">= </span><span class="s7">$message</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">display</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s9">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">started </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the format for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null A format string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getFormatDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formats </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initFormats</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) ? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formats</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a placeholder formatter for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method also allow you to override an existing placeholder.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">setPlaceholderFormatterDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, callable </span><span class="s7">$callable</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initPlaceholderFormatters</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$callable</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the placeholder formatter for a given name (including the delimiter char like %).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">callable|null A PHP callable</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getPlaceholderFormatterDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">initPlaceholderFormatters</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) ? </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$formatters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">display</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_QUIET </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">overwrite</span><span class="s1">(</span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s9">&quot;{%([a-z\-_]+)(?:\:([^%]+))?%}i&quot;</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$formatter </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getPlaceholderFormatterDefinition</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])) {</span>
+                <span class="s0">return </span><span class="s7">$formatter</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$matches</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">determineBestFormat</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">switch </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">()) {</span>
+            <span class="s2">// OutputInterface::VERBOSITY_QUIET: display is disabled anyway</span>
+            <span class="s0">case </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERBOSE</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">() ? </span><span class="s9">'verbose' </span><span class="s1">: </span><span class="s9">'verbose_no_ansi'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERY_VERBOSE</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_DEBUG</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">() ? </span><span class="s9">'very_verbose' </span><span class="s1">: </span><span class="s9">'very_verbose_no_ansi'</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">() ? </span><span class="s9">'normal' </span><span class="s1">: </span><span class="s9">'normal_no_ansi'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Overwrites a previous message to the output.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">overwrite</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s9">&quot;</span><span class="s0">\x0D\x1B</span><span class="s9">[2K&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getCurrentTimeInMilliseconds</span><span class="s1">(): </span><span class="s3">float</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">round</span><span class="s1">(</span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">) * </span><span class="s8">1000</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">initPlaceholderFormatters</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'indicator' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$indicator</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$indicator</span><span class="s1">-&gt;</span><span class="s3">indicatorValues</span><span class="s1">[</span><span class="s7">$indicator</span><span class="s1">-&gt;</span><span class="s3">indicatorCurrent </span><span class="s1">% \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$indicator</span><span class="s1">-&gt;</span><span class="s3">indicatorValues</span><span class="s1">)]</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'message' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$indicator</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$indicator</span><span class="s1">-&gt;</span><span class="s3">message</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'elapsed' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">(</span><span class="s3">self </span><span class="s7">$indicator</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">formatTime</span><span class="s1">(</span><span class="s3">time</span><span class="s1">() - </span><span class="s7">$indicator</span><span class="s1">-&gt;</span><span class="s3">startTime</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s9">'memory' </span><span class="s1">=&gt; </span><span class="s0">function </span><span class="s1">() {</span>
+                <span class="s0">return </span><span class="s3">Helper</span><span class="s1">::</span><span class="s3">formatMemory</span><span class="s1">(</span><span class="s3">memory_get_usage</span><span class="s1">(</span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">initFormats</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'normal' </span><span class="s1">=&gt; </span><span class="s9">' %indicator% %message%'</span><span class="s0">,</span>
+            <span class="s9">'normal_no_ansi' </span><span class="s1">=&gt; </span><span class="s9">' %message%'</span><span class="s0">,</span>
+
+            <span class="s9">'verbose' </span><span class="s1">=&gt; </span><span class="s9">' %indicator% %message% (%elapsed:6s%)'</span><span class="s0">,</span>
+            <span class="s9">'verbose_no_ansi' </span><span class="s1">=&gt; </span><span class="s9">' %message% (%elapsed:6s%)'</span><span class="s0">,</span>
+
+            <span class="s9">'very_verbose' </span><span class="s1">=&gt; </span><span class="s9">' %indicator% %message% (%elapsed:6s%, %memory:6s%)'</span><span class="s0">,</span>
+            <span class="s9">'very_verbose_no_ansi' </span><span class="s1">=&gt; </span><span class="s9">' %message% (%elapsed:6s%, %memory:6s%)'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

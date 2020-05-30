@@ -1,0 +1,66 @@
+<html>
+<head>
+<title>AddAnnotationsCachedReaderPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #9876aa;}
+.s7 { color: #6a8759;}
+.s8 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AddAnnotationsCachedReaderPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">CompilerPassInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">AddAnnotationsCachedReaderPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s6">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// &quot;annotations.cached_reader&quot; is wired late so that any passes using</span>
+        <span class="s2">// &quot;annotation_reader&quot; at build time don't get any cache</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s6">$container</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s7">'annotations.cached_reader'</span><span class="s1">) </span><span class="s0">as </span><span class="s6">$id </span><span class="s1">=&gt; </span><span class="s6">$tags</span><span class="s1">) {</span>
+            <span class="s6">$reader </span><span class="s1">= </span><span class="s6">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s6">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s6">$properties </span><span class="s1">= </span><span class="s6">$reader</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s6">$properties</span><span class="s1">[</span><span class="s7">'cacheProviderBackup'</span><span class="s1">])) {</span>
+                <span class="s6">$provider </span><span class="s1">= </span><span class="s6">$properties</span><span class="s1">[</span><span class="s7">'cacheProviderBackup'</span><span class="s1">]-&gt;</span><span class="s3">getValues</span><span class="s1">()[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s6">$properties</span><span class="s1">[</span><span class="s7">'cacheProviderBackup'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s6">$reader</span><span class="s1">-&gt;</span><span class="s3">setProperties</span><span class="s1">(</span><span class="s6">$properties</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s6">$container</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s6">$id</span><span class="s0">, </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s6">$container</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s6">$id</span><span class="s0">, </span><span class="s6">$reader</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s8">1</span><span class="s0">, </span><span class="s6">$provider</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

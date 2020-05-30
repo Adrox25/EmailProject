@@ -1,0 +1,189 @@
+<html>
+<head>
+<title>TraceableUrlMatcher.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #9876aa;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+TraceableUrlMatcher.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Matcher</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ExceptionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Route</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCollection</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* TraceableUrlMatcher helps debug path info matching by tracing the match.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">TraceableUrlMatcher </span><span class="s0">extends </span><span class="s3">UrlMatcher</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">ROUTE_DOES_NOT_MATCH </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">ROUTE_ALMOST_MATCHES </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">ROUTE_MATCHES </span><span class="s1">= </span><span class="s7">2</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s8">$traces</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">getTraces</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$pathinfo</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">traces </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">match</span><span class="s1">(</span><span class="s8">$pathinfo</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ExceptionInterface </span><span class="s8">$e</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">traces</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getTracesForRequest</span><span class="s1">(</span><span class="s3">Request </span><span class="s8">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">request </span><span class="s1">= </span><span class="s8">$request</span><span class="s0">;</span>
+        <span class="s8">$traces </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTraces</span><span class="s1">(</span><span class="s8">$request</span><span class="s1">-&gt;</span><span class="s3">getPathInfo</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">request </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$traces</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">matchCollection</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$pathinfo</span><span class="s0">, </span><span class="s3">RouteCollection </span><span class="s8">$routes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// HEAD and GET are equivalent as per RFC</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'HEAD' </span><span class="s1">=== </span><span class="s8">$method </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()) {</span>
+            <span class="s8">$method </span><span class="s1">= </span><span class="s9">'GET'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$supportsTrailingSlash </span><span class="s1">= </span><span class="s9">'GET' </span><span class="s1">=== </span><span class="s8">$method </span><span class="s1">&amp;&amp; </span><span class="s8">$this </span><span class="s0">instanceof </span><span class="s3">RedirectableUrlMatcherInterface</span><span class="s0">;</span>
+        <span class="s8">$trimmedPathinfo </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$pathinfo</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">) ?: </span><span class="s9">'/'</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$routes </span><span class="s0">as </span><span class="s8">$name </span><span class="s1">=&gt; </span><span class="s8">$route</span><span class="s1">) {</span>
+            <span class="s8">$compiledRoute </span><span class="s1">= </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s8">$staticPrefix </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getStaticPrefix</span><span class="s1">()</span><span class="s0">, </span><span class="s9">'/'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$requiredMethods </span><span class="s1">= </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s2">// check the static prefix of the URL first. Only use the more expensive preg_match when it matches</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">!== </span><span class="s8">$staticPrefix </span><span class="s1">&amp;&amp; </span><span class="s7">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$trimmedPathinfo</span><span class="s0">, </span><span class="s8">$staticPrefix</span><span class="s1">)) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Path &quot;%s&quot; does not match'</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_DOES_NOT_MATCH</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s8">$regex </span><span class="s1">= </span><span class="s8">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s8">$pos </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$regex</span><span class="s0">, </span><span class="s9">'$'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$hasTrailingSlash </span><span class="s1">= </span><span class="s9">'/' </span><span class="s1">=== </span><span class="s8">$regex</span><span class="s1">[</span><span class="s8">$pos </span><span class="s1">- </span><span class="s7">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s8">$regex </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s8">$regex</span><span class="s0">, </span><span class="s9">'/?$'</span><span class="s0">, </span><span class="s8">$pos </span><span class="s1">- </span><span class="s8">$hasTrailingSlash</span><span class="s0">, </span><span class="s7">1 </span><span class="s1">+ </span><span class="s8">$hasTrailingSlash</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$regex</span><span class="s0">, </span><span class="s8">$pathinfo</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) {</span>
+                <span class="s2">// does it match without any requirements?</span>
+                <span class="s8">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Route</span><span class="s1">(</span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s8">$cr </span><span class="s1">= </span><span class="s8">$r</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$cr</span><span class="s1">-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$pathinfo</span><span class="s1">)) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Path &quot;%s&quot; does not match'</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_DOES_NOT_MATCH</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getRequirements</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$n </span><span class="s1">=&gt; </span><span class="s8">$regex</span><span class="s1">) {</span>
+                    <span class="s8">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Route</span><span class="s1">(</span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[</span><span class="s8">$n </span><span class="s1">=&gt; </span><span class="s8">$regex</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">())</span><span class="s0">;</span>
+                    <span class="s8">$cr </span><span class="s1">= </span><span class="s8">$r</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$n</span><span class="s0">, </span><span class="s8">$cr</span><span class="s1">-&gt;</span><span class="s3">getVariables</span><span class="s1">()) &amp;&amp; !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$cr</span><span class="s1">-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$pathinfo</span><span class="s1">)) {</span>
+                        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Requirement for &quot;%s&quot; does not match (%s)'</span><span class="s0">, </span><span class="s8">$n</span><span class="s0">, </span><span class="s8">$regex</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_ALMOST_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s0">continue </span><span class="s7">2</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$hasTrailingVar </span><span class="s1">= </span><span class="s8">$trimmedPathinfo </span><span class="s1">!== </span><span class="s8">$pathinfo </span><span class="s1">&amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'#\{\w+\}/?$#'</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$hasTrailingVar </span><span class="s1">&amp;&amp; (</span><span class="s8">$hasTrailingSlash </span><span class="s1">|| (</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$m </span><span class="s1">= </span><span class="s8">$matches</span><span class="s1">[\</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getPathVariables</span><span class="s1">())] ?? </span><span class="s3">null</span><span class="s1">) || </span><span class="s9">'/' </span><span class="s1">!== (</span><span class="s8">$m</span><span class="s1">[-</span><span class="s7">1</span><span class="s1">] ?? </span><span class="s9">'/'</span><span class="s1">)) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$regex</span><span class="s0">, </span><span class="s8">$trimmedPathinfo</span><span class="s0">, </span><span class="s8">$m</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$hasTrailingSlash</span><span class="s1">) {</span>
+                    <span class="s8">$matches </span><span class="s1">= </span><span class="s8">$m</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$hasTrailingVar </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$hostMatches </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getHostRegex</span><span class="s1">() &amp;&amp; !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getHostRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$hostMatches</span><span class="s1">)) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Host &quot;%s&quot; does not match the requirement (&quot;%s&quot;)'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">())</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_ALMOST_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$status </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">handleRouteRequirements</span><span class="s1">(</span><span class="s8">$pathinfo</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">REQUIREMENT_MISMATCH </span><span class="s1">=== </span><span class="s8">$status</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Condition &quot;%s&quot; does not evaluate to &quot;true&quot;'</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">())</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_ALMOST_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'/' </span><span class="s1">!== </span><span class="s8">$pathinfo </span><span class="s1">&amp;&amp; !</span><span class="s8">$hasTrailingVar </span><span class="s1">&amp;&amp; </span><span class="s8">$hasTrailingSlash </span><span class="s1">=== (</span><span class="s8">$trimmedPathinfo </span><span class="s1">=== </span><span class="s8">$pathinfo</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$supportsTrailingSlash </span><span class="s1">&amp;&amp; (!</span><span class="s8">$requiredMethods </span><span class="s1">|| \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s9">'GET'</span><span class="s0">, </span><span class="s8">$requiredMethods</span><span class="s1">))) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s9">'Route matches!'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">allow </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">allowSchemes </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Path &quot;%s&quot; does not match'</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_DOES_NOT_MATCH</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">() &amp;&amp; !</span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">hasScheme</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">())) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">allowSchemes </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">allowSchemes</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Scheme &quot;%s&quot; does not match any of the required schemes (%s)'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">()</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">', '</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">()))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_ALMOST_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$requiredMethods </span><span class="s1">&amp;&amp; !\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$method</span><span class="s0">, </span><span class="s8">$requiredMethods</span><span class="s1">)) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">allow </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">allow</span><span class="s0">, </span><span class="s8">$requiredMethods</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Method &quot;%s&quot; does not match any of the required methods (%s)'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">context</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">', '</span><span class="s0">, </span><span class="s8">$requiredMethods</span><span class="s1">))</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_ALMOST_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">addTrace</span><span class="s1">(</span><span class="s9">'Route matches!'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_MATCHES</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$route</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getAttributes</span><span class="s1">(</span><span class="s8">$route</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s3">array_replace</span><span class="s1">(</span><span class="s8">$matches</span><span class="s0">, </span><span class="s8">$hostMatches</span><span class="s0">, isset</span><span class="s1">(</span><span class="s8">$status</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]) ? </span><span class="s8">$status</span><span class="s1">[</span><span class="s7">1</span><span class="s1">] : []))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addTrace</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$log</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$level </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ROUTE_DOES_NOT_MATCH</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">Route </span><span class="s8">$route </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">traces</span><span class="s1">[] = [</span>
+            <span class="s9">'log' </span><span class="s1">=&gt; </span><span class="s8">$log</span><span class="s0">,</span>
+            <span class="s9">'name' </span><span class="s1">=&gt; </span><span class="s8">$name</span><span class="s0">,</span>
+            <span class="s9">'level' </span><span class="s1">=&gt; </span><span class="s8">$level</span><span class="s0">,</span>
+            <span class="s9">'path' </span><span class="s1">=&gt; </span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$route </span><span class="s1">? </span><span class="s8">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">() : </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

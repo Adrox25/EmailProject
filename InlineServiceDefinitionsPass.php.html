@@ -1,0 +1,242 @@
+<html>
+<head>
+<title>InlineServiceDefinitionsPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+InlineServiceDefinitionsPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ArgumentInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ServiceCircularReferenceException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Inline service definitions where this is possible.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">InlineServiceDefinitionsPass </span><span class="s0">extends </span><span class="s3">AbstractRecursivePass</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$analyzingPass</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cloningIds </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$connectedIds </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$notInlinedIds </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$inlinedIds </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$graph</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">AnalyzeServiceReferencesPass </span><span class="s7">$analyzingPass </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">analyzingPass </span><span class="s1">= </span><span class="s7">$analyzingPass</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s7">$container</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">analyzingPass</span><span class="s1">) {</span>
+            <span class="s7">$analyzedContainer </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ContainerBuilder</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">setAliases</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getAliases</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">setDefinitions</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getExpressionLanguageProviders</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$provider</span><span class="s1">) {</span>
+                <span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">addExpressionLanguageProvider</span><span class="s1">(</span><span class="s7">$provider</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$analyzedContainer </span><span class="s1">= </span><span class="s7">$container</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$remainingInlinedIds </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notInlinedIds </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">do </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">analyzingPass</span><span class="s1">) {</span>
+                    <span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">setDefinitions</span><span class="s1">(</span><span class="s3">array_intersect_key</span><span class="s1">(</span><span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">analyzingPass</span><span class="s1">-&gt;</span><span class="s3">process</span><span class="s1">(</span><span class="s7">$analyzedContainer</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph </span><span class="s1">= </span><span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">getCompiler</span><span class="s1">()-&gt;</span><span class="s3">getServiceReferenceGraph</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$notInlinedIds </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notInlinedIds</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notInlinedIds </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inlinedIds </span><span class="s1">= []</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph</span><span class="s1">-&gt;</span><span class="s3">hasNode</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph</span><span class="s1">-&gt;</span><span class="s3">getNode</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">getOutEdges</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$edge</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$notInlinedIds</span><span class="s1">[</span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">getSourceNode</span><span class="s1">()-&gt;</span><span class="s3">getId</span><span class="s1">()])) {</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">= </span><span class="s7">$id</span><span class="s0">;</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$definition</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s0">break;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inlinedIds </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$isPublicOrNotShared</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$isPublicOrNotShared</span><span class="s1">) {</span>
+                        <span class="s7">$remainingInlinedIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s7">$id</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">removeDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$analyzedContainer</span><span class="s1">-&gt;</span><span class="s3">removeDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inlinedIds </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">analyzingPass</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$remainingInlinedIds </span><span class="s0">as </span><span class="s7">$id</span><span class="s1">) {</span>
+                <span class="s7">$definition </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">() &amp;&amp; !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+                    <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">removeDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notInlinedIds </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inlinedIds </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isRoot </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">ArgumentInterface</span><span class="s1">) {</span>
+            <span class="s2">// Reference found in ArgumentInterface::getValues() are not inlineable</span>
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Definition </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloningIds</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">()) {</span>
+                <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s0">clone </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$isRoot</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasDefinition</span><span class="s1">(</span><span class="s7">$id </span><span class="s1">= (string) </span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$definition </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isInlineableDefinition</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">log</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Inlined service &quot;%s&quot; to &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inlinedIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">() || !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notInlinedIds</span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$definition</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloningIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">])) {</span>
+            <span class="s7">$ids </span><span class="s1">= </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloningIds</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$ids</span><span class="s1">[] = </span><span class="s7">$id</span><span class="s0">;</span>
+
+            <span class="s0">throw new </span><span class="s3">ServiceCircularReferenceException</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$ids</span><span class="s0">, </span><span class="s3">array_search</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$ids</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloningIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cloningIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if the definition is inlineable.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isInlineableDefinition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">Definition </span><span class="s7">$definition</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">hasErrors</span><span class="s1">() || </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isDeprecated</span><span class="s1">() || </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">() || </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isSynthetic</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">()) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph</span><span class="s1">-&gt;</span><span class="s3">hasNode</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph</span><span class="s1">-&gt;</span><span class="s3">getNode</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">getInEdges</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$edge</span><span class="s1">) {</span>
+                <span class="s7">$srcId </span><span class="s1">= </span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">getSourceNode</span><span class="s1">()-&gt;</span><span class="s3">getId</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds</span><span class="s1">[</span><span class="s7">$srcId</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isWeak</span><span class="s1">() || </span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">()) {</span>
+                    <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph</span><span class="s1">-&gt;</span><span class="s3">hasNode</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">== </span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$srcIds </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$srcCount </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$isReferencedByConstructor </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">graph</span><span class="s1">-&gt;</span><span class="s3">getNode</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">getInEdges</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$edge</span><span class="s1">) {</span>
+            <span class="s7">$isReferencedByConstructor </span><span class="s1">= </span><span class="s7">$isReferencedByConstructor </span><span class="s1">|| </span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isReferencedByConstructor</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$srcId </span><span class="s1">= </span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">getSourceNode</span><span class="s1">()-&gt;</span><span class="s3">getId</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">connectedIds</span><span class="s1">[</span><span class="s7">$srcId</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isWeak</span><span class="s1">() || </span><span class="s7">$edge</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">()) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$srcIds</span><span class="s1">[</span><span class="s7">$srcId</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">++</span><span class="s7">$srcCount</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">!== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$srcIds</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">notInlinedIds</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$srcCount </span><span class="s1">&gt; </span><span class="s9">1 </span><span class="s1">&amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$factory </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">()) &amp;&amp; (</span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">Reference </span><span class="s1">|| </span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$srcId</span><span class="s1">)-&gt;</span><span class="s3">isShared</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

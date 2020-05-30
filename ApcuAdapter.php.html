@@ -1,0 +1,147 @@
+<html>
+<head>
+<title>ApcuAdapter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ApcuAdapter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">CacheException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ApcuAdapter </span><span class="s0">extends </span><span class="s3">AbstractAdapter</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">CacheException if APCu is not enabled</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$namespace </span><span class="s1">= </span><span class="s8">''</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$defaultLifetime </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$version </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">static</span><span class="s1">::</span><span class="s3">isSupported</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">CacheException</span><span class="s1">(</span><span class="s8">'APCu is not enabled.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'cli' </span><span class="s1">=== \</span><span class="s3">PHP_SAPI</span><span class="s1">) {</span>
+            <span class="s3">ini_set</span><span class="s1">(</span><span class="s8">'apc.use_request_time'</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s0">, </span><span class="s7">$defaultLifetime</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$version</span><span class="s1">) {</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">validateKey</span><span class="s1">(</span><span class="s7">$version</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">apcu_exists</span><span class="s1">(</span><span class="s7">$version</span><span class="s1">.</span><span class="s8">'@'</span><span class="s1">.</span><span class="s7">$namespace</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doClear</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">apcu_add</span><span class="s1">(</span><span class="s7">$version</span><span class="s1">.</span><span class="s8">'@'</span><span class="s1">.</span><span class="s7">$namespace</span><span class="s0">, </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">isSupported</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'apcu_fetch'</span><span class="s1">) &amp;&amp; </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'apc.enabled'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doFetch</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$ids</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$unserializeCallbackHandler </span><span class="s1">= </span><span class="s3">ini_set</span><span class="s1">(</span><span class="s8">'unserialize_callback_func'</span><span class="s0">, </span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s8">'::handleUnserializeCallback'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$values </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">apcu_fetch</span><span class="s1">(</span><span class="s7">$ids</span><span class="s0">, </span><span class="s7">$ok</span><span class="s1">) ?: [] </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$v </span><span class="s1">|| </span><span class="s7">$ok</span><span class="s1">) {</span>
+                    <span class="s7">$values</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$values</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Error </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getCode</span><span class="s1">()</span><span class="s0">, </span><span class="s3">E_ERROR</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getLine</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">ini_set</span><span class="s1">(</span><span class="s8">'unserialize_callback_func'</span><span class="s0">, </span><span class="s7">$unserializeCallbackHandler</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doHave</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">apcu_exists</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doClear</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$namespace</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) &amp;&amp; </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">'APCuIterator'</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) &amp;&amp; (</span><span class="s8">'cli' </span><span class="s1">!== \</span><span class="s3">PHP_SAPI </span><span class="s1">|| </span><span class="s3">filter_var</span><span class="s1">(</span><span class="s3">ini_get</span><span class="s1">(</span><span class="s8">'apc.enable_cli'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">FILTER_VALIDATE_BOOLEAN</span><span class="s1">))</span>
+            <span class="s1">? </span><span class="s3">apcu_delete</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">APCuIterator</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'/^%s/'</span><span class="s0">, </span><span class="s3">preg_quote</span><span class="s1">(</span><span class="s7">$namespace</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">))</span><span class="s0">, </span><span class="s3">APC_ITER_KEY</span><span class="s1">))</span>
+            <span class="s1">: </span><span class="s3">apcu_clear_cache</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDelete</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$ids</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$ids </span><span class="s0">as </span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s3">apcu_delete</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doSave</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$values</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$lifetime</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$failures </span><span class="s1">= </span><span class="s3">apcu_store</span><span class="s1">(</span><span class="s7">$values</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$lifetime</span><span class="s1">)) {</span>
+                <span class="s7">$failures </span><span class="s1">= </span><span class="s7">$values</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$failures</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$values</span><span class="s1">)) {</span>
+                <span class="s2">// Workaround https://github.com/krakjoe/apcu/issues/170</span>
+                <span class="s3">apcu_delete</span><span class="s1">(</span><span class="s3">key</span><span class="s1">(</span><span class="s7">$values</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

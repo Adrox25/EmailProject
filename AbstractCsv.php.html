@@ -1,0 +1,263 @@
+<html>
+<head>
+<title>AbstractCsv.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #629755; font-style: italic;}
+.s3 { color: #629755; font-weight: bold; font-style: italic;}
+.s4 { color: #a9b7c6;}
+.s5 { color: #6a8759;}
+.s6 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AbstractCsv.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span><hr class="ls0"><span class="s2">/**</span>
+<span class="s2">* This file is part of the League.csv library</span>
+<span class="s2">*</span>
+<span class="s2">* </span><span class="s3">@license </span><span class="s2">http://opensource.org/licenses/MIT</span>
+<span class="s2">* </span><span class="s3">@link </span><span class="s2">https://github.com/thephpleague/csv/</span>
+<span class="s2">* </span><span class="s3">@version </span><span class="s2">8.0.0</span>
+<span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+<span class="s2">*</span>
+<span class="s2">* For the full copyright and license information, please view the LICENSE</span>
+<span class="s2">* file that was distributed with this source code.</span>
+<span class="s2">*/</span>
+<span class="s0">namespace </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s4">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">IteratorAggregate</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">JsonSerializable</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Config</span><span class="s1">\</span><span class="s4">Controls</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Config</span><span class="s1">\</span><span class="s4">Output</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Modifier</span><span class="s1">\</span><span class="s4">QueryFilter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Modifier</span><span class="s1">\</span><span class="s4">StreamFilter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">SplFileInfo</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">SplFileObject</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">SplTempFileObject</span><span class="s0">;</span>
+<hr class="ls0"><span class="s2">/**</span>
+ <span class="s2">*  An abstract class to enable basic CSV manipulation</span>
+ <span class="s2">*</span>
+ <span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+ <span class="s2">* </span><span class="s3">@since  </span><span class="s2">4.0.0</span>
+ <span class="s2">*</span>
+ <span class="s2">*/</span>
+<span class="s0">abstract class </span><span class="s4">AbstractCsv </span><span class="s0">implements </span><span class="s4">JsonSerializable</span><span class="s0">, </span><span class="s4">IteratorAggregate</span>
+<span class="s1">{</span>
+    <span class="s0">use </span><span class="s4">Controls</span><span class="s0">;</span>
+
+    <span class="s0">use </span><span class="s4">Output</span><span class="s0">;</span>
+
+    <span class="s0">use </span><span class="s4">QueryFilter</span><span class="s0">;</span>
+
+    <span class="s0">use </span><span class="s4">StreamFilter</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">*  UTF-8 BOM sequence</span>
+     <span class="s2">*/</span>
+    <span class="s0">const </span><span class="s4">BOM_UTF8 </span><span class="s1">= </span><span class="s5">&quot;</span><span class="s0">\xEF\xBB\xBF</span><span class="s5">&quot;</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* UTF-16 BE BOM sequence</span>
+     <span class="s2">*/</span>
+    <span class="s0">const </span><span class="s4">BOM_UTF16_BE </span><span class="s1">= </span><span class="s5">&quot;</span><span class="s0">\xFE\xFF</span><span class="s5">&quot;</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* UTF-16 LE BOM sequence</span>
+     <span class="s2">*/</span>
+    <span class="s0">const </span><span class="s4">BOM_UTF16_LE </span><span class="s1">= </span><span class="s5">&quot;</span><span class="s0">\xFF\xFE</span><span class="s5">&quot;</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* UTF-32 BE BOM sequence</span>
+     <span class="s2">*/</span>
+    <span class="s0">const </span><span class="s4">BOM_UTF32_BE </span><span class="s1">= </span><span class="s5">&quot;</span><span class="s0">\x00\x00\xFE\xFF</span><span class="s5">&quot;</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* UTF-32 LE BOM sequence</span>
+     <span class="s2">*/</span>
+    <span class="s0">const </span><span class="s4">BOM_UTF32_LE </span><span class="s1">= </span><span class="s5">&quot;</span><span class="s0">\x00\x00\xFF\xFE</span><span class="s5">&quot;</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* The constructor path</span>
+     <span class="s2">*</span>
+     <span class="s2">* can be a SplFileInfo object or the string path to a file</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">SplFileObject|string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s6">$path</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* The file open mode flag</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s6">$open_mode</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Creates a new instance</span>
+     <span class="s2">*</span>
+     <span class="s2">* The path must be an SplFileInfo object</span>
+     <span class="s2">* an object that implements the `__toString` method</span>
+     <span class="s2">* a path to a file</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">SplFileObject|string $path      The file path</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string               $open_mode The file open mode flag</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">__construct</span><span class="s1">(</span><span class="s6">$path</span><span class="s0">, </span><span class="s6">$open_mode </span><span class="s1">= </span><span class="s5">'r+'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">open_mode </span><span class="s1">= </span><span class="s4">strtolower</span><span class="s1">(</span><span class="s6">$open_mode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">path </span><span class="s1">= </span><span class="s6">$path</span><span class="s0">;</span>
+        <span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">initStreamFilter</span><span class="s1">(</span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">path</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* The destructor</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">__destruct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">path </span><span class="s1">= </span><span class="s4">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return a new {</span><span class="s3">@link </span><span class="s2">AbstractCsv} from a SplFileObject</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">SplFileObject $file</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">static</span>
+     <span class="s2">*/</span>
+    <span class="s0">public static function </span><span class="s4">createFromFileObject</span><span class="s1">(</span><span class="s4">SplFileObject </span><span class="s6">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return new static</span><span class="s1">(</span><span class="s6">$file</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return a new {</span><span class="s3">@link </span><span class="s2">AbstractCsv} from a string</span>
+     <span class="s2">*</span>
+     <span class="s2">* The string must be an object that implements the `__toString` method,</span>
+     <span class="s2">* or a string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string|object $str the string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">static</span>
+     <span class="s2">*/</span>
+    <span class="s0">public static function </span><span class="s4">createFromString</span><span class="s1">(</span><span class="s6">$str</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s6">$file </span><span class="s1">= </span><span class="s0">new </span><span class="s4">SplTempFileObject</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s6">$file</span><span class="s1">-&gt;</span><span class="s4">fwrite</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s4">validateString</span><span class="s1">(</span><span class="s6">$str</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return new static</span><span class="s1">(</span><span class="s6">$file</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* validate a string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">mixed $str the value to evaluate as a string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException if the submitted data can not be converted to string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected static function </span><span class="s4">validateString</span><span class="s1">(</span><span class="s6">$str</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">is_string</span><span class="s1">(</span><span class="s6">$str</span><span class="s1">) || (</span><span class="s4">is_object</span><span class="s1">(</span><span class="s6">$str</span><span class="s1">) &amp;&amp; </span><span class="s4">method_exists</span><span class="s1">(</span><span class="s6">$str</span><span class="s0">, </span><span class="s5">'__toString'</span><span class="s1">))) {</span>
+            <span class="s0">return </span><span class="s1">(string) </span><span class="s6">$str</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s5">'Expected data must be a string or stringable'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return a new {</span><span class="s3">@link </span><span class="s2">AbstractCsv} from a string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">mixed  $path      file path</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $open_mode the file open mode flag</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If $path is a SplTempFileObject object</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">static</span>
+     <span class="s2">*/</span>
+    <span class="s0">public static function </span><span class="s4">createFromPath</span><span class="s1">(</span><span class="s6">$path</span><span class="s0">, </span><span class="s6">$open_mode </span><span class="s1">= </span><span class="s5">'r+'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">$path </span><span class="s0">instanceof </span><span class="s4">SplTempFileObject</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s5">'an `SplTempFileObject` object does not contain a valid path'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">$path </span><span class="s0">instanceof </span><span class="s4">SplFileInfo</span><span class="s1">) {</span>
+            <span class="s6">$path </span><span class="s1">= </span><span class="s6">$path</span><span class="s1">-&gt;</span><span class="s4">getPath</span><span class="s1">().</span><span class="s5">'/'</span><span class="s1">.</span><span class="s6">$path</span><span class="s1">-&gt;</span><span class="s4">getBasename</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new static</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s4">validateString</span><span class="s1">(</span><span class="s6">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s6">$open_mode</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return a new {</span><span class="s3">@link </span><span class="s2">AbstractCsv} instance from another {</span><span class="s3">@link </span><span class="s2">AbstractCsv} object</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $class     the class to be instantiated</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $open_mode the file open mode flag</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">static</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">newInstance</span><span class="s1">(</span><span class="s6">$class</span><span class="s0">, </span><span class="s6">$open_mode</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s6">$csv </span><span class="s1">= </span><span class="s0">new </span><span class="s6">$class</span><span class="s1">(</span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">path</span><span class="s0">, </span><span class="s6">$open_mode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">delimiter </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">delimiter</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">enclosure </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">enclosure</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">escape </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">escape</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">encodingFrom </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">encodingFrom</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">input_bom </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">input_bom</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">output_bom </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">output_bom</span><span class="s0">;</span>
+        <span class="s6">$csv</span><span class="s1">-&gt;</span><span class="s4">newline </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">newline</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s6">$csv</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return a new {</span><span class="s3">@link </span><span class="s2">Writer} instance from a {</span><span class="s3">@link </span><span class="s2">AbstractCsv} object</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $open_mode the file open mode flag</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Writer</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">newWriter</span><span class="s1">(</span><span class="s6">$open_mode </span><span class="s1">= </span><span class="s5">'r+'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">newInstance</span><span class="s1">(</span><span class="s4">Writer</span><span class="s1">::</span><span class="s0">class, </span><span class="s6">$open_mode</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Return a new {</span><span class="s3">@link </span><span class="s2">Reader} instance from a {</span><span class="s3">@link </span><span class="s2">AbstractCsv} object</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $open_mode the file open mode flag</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">Reader</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">newReader</span><span class="s1">(</span><span class="s6">$open_mode </span><span class="s1">= </span><span class="s5">'r+'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">newInstance</span><span class="s1">(</span><span class="s4">Reader</span><span class="s1">::</span><span class="s0">class, </span><span class="s6">$open_mode</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the inner SplFileObject</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">SplFileObject</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">getIterator</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s6">$iterator </span><span class="s1">= </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">path</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s6">$iterator </span><span class="s0">instanceof </span><span class="s4">SplFileObject</span><span class="s1">) {</span>
+            <span class="s6">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s4">SplFileObject</span><span class="s1">(</span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">getStreamFilterPath</span><span class="s1">()</span><span class="s0">, </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">open_mode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s6">$iterator</span><span class="s1">-&gt;</span><span class="s4">setCsvControl</span><span class="s1">(</span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">delimiter</span><span class="s0">, </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">enclosure</span><span class="s0">, </span><span class="s6">$this</span><span class="s1">-&gt;</span><span class="s4">escape</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s6">$iterator</span><span class="s1">-&gt;</span><span class="s4">setFlags</span><span class="s1">(</span><span class="s4">SplFileObject</span><span class="s1">::</span><span class="s4">READ_CSV </span><span class="s1">| </span><span class="s4">SplFileObject</span><span class="s1">::</span><span class="s4">READ_AHEAD </span><span class="s1">| </span><span class="s4">SplFileObject</span><span class="s1">::</span><span class="s4">SKIP_EMPTY</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s6">$iterator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

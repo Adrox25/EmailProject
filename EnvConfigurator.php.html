@@ -1,0 +1,194 @@
+<html>
+<head>
+<title>EnvConfigurator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+EnvConfigurator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Configurator</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Lock</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Recipe</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">EnvConfigurator </span><span class="s0">extends </span><span class="s3">AbstractConfigurator</span>
+<span class="s1">{</span>
+    <span class="s0">public function </span><span class="s3">configure</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s3">Lock </span><span class="s7">$lock</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s8">'Adding environment variable defaults'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configureEnvDist</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'force'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'root-dir'</span><span class="s1">).</span><span class="s8">'/.env.test'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurePhpUnit</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'force'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">unconfigure</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s3">Lock </span><span class="s7">$lock</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unconfigureEnvFiles</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unconfigurePhpUnit</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">configureEnvDist</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$update</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'.env.dist'</span><span class="s0">, </span><span class="s8">'.env'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'root-dir'</span><span class="s1">).</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$update </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isFileMarked</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$env</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$data </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$vars </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">evaluateValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'#' </span><span class="s1">=== </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s9">1</span><span class="s1">))) {</span>
+                    <span class="s7">$data </span><span class="s1">.= </span><span class="s8">'# '</span><span class="s1">.</span><span class="s7">$value</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">expandTargetDir</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpbrk</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">&quot; </span><span class="s0">\t\n</span><span class="s8">&amp;!</span><span class="s0">\&quot;</span><span class="s8">&quot;</span><span class="s1">)) {</span>
+                    <span class="s7">$value </span><span class="s1">= </span><span class="s8">'&quot;'</span><span class="s1">.</span><span class="s3">str_replace</span><span class="s1">([</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'&quot;'</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\t</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'</span><span class="s0">\\\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">&quot;'</span><span class="s0">, </span><span class="s8">'\t'</span><span class="s0">, </span><span class="s8">'\n'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">).</span><span class="s8">'&quot;'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$data </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s7">$key</span><span class="s8">=</span><span class="s7">$value</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$data </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">markData</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateData</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)) {</span>
+                <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s7">$data</span><span class="s0">, </span><span class="s3">FILE_APPEND</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">configurePhpUnit</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$update</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'phpunit.xml.dist'</span><span class="s0">, </span><span class="s8">'phpunit.xml'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$phpunit </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'root-dir'</span><span class="s1">).</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$update </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isFileXmlMarked</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$phpunit</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$data </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$vars </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">evaluateValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'#' </span><span class="s1">=== </span><span class="s7">$key</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s9">1</span><span class="s1">))) {</span>
+                        <span class="s7">$doc </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s7">$data </span><span class="s1">.= </span><span class="s8">'        '</span><span class="s1">.</span><span class="s7">$doc</span><span class="s1">-&gt;</span><span class="s3">saveXML</span><span class="s1">(</span><span class="s7">$doc</span><span class="s1">-&gt;</span><span class="s3">createComment</span><span class="s1">(</span><span class="s8">' '</span><span class="s1">.</span><span class="s7">$value</span><span class="s1">.</span><span class="s8">' '</span><span class="s1">)).</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">expandTargetDir</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$doc </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s7">$fragment </span><span class="s1">= </span><span class="s7">$doc</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'env'</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$fragment</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s7">$fragment</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'value'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$data </span><span class="s1">.= </span><span class="s8">'        '</span><span class="s1">.</span><span class="s3">str_replace</span><span class="s1">([</span><span class="s8">'&lt;'</span><span class="s0">, </span><span class="s8">'/&gt;'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'&lt;!-- '</span><span class="s0">, </span><span class="s8">' --&gt;'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$doc</span><span class="s1">-&gt;</span><span class="s3">saveXML</span><span class="s1">(</span><span class="s7">$fragment</span><span class="s1">)).</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">expandTargetDir</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$doc </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s7">$fragment </span><span class="s1">= </span><span class="s7">$doc</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'env'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$fragment</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$fragment</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'value'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$data </span><span class="s1">.= </span><span class="s8">'        '</span><span class="s1">.</span><span class="s7">$doc</span><span class="s1">-&gt;</span><span class="s3">saveXML</span><span class="s1">(</span><span class="s7">$fragment</span><span class="s1">).</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s7">$data </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">markXmlData</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">updateData</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)) {</span>
+                <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s0">, </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'{^(\s+&lt;/php&gt;)}m'</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">.</span><span class="s8">'$1'</span><span class="s0">, </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">unconfigureEnvFiles</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'.env'</span><span class="s0">, </span><span class="s8">'.env.dist'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'root-dir'</span><span class="s1">).</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$contents </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'{%s*###&gt; %s ###.*###&lt; %s ###%s+}s'</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$recipe</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$recipe</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">)</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$env</span><span class="s1">)</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s7">$count</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$count</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Removing environment variables from %s'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$env</span><span class="s0">, </span><span class="s7">$contents</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">unconfigurePhpUnit</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$vars</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'phpunit.xml.dist'</span><span class="s0">, </span><span class="s8">'phpunit.xml'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$phpunit </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'root-dir'</span><span class="s1">).</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$contents </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'{%s*\s+&lt;!-- ###\+ %s ### --&gt;.*&lt;!-- ###- %s ### --&gt;%s+}s'</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$recipe</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$recipe</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">)</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s1">)</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s7">$count</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$count</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Removing environment variables from %s'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$phpunit</span><span class="s0">, </span><span class="s7">$contents</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">evaluateValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'%generate(secret)%' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateRandomBytes</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'~^%generate\(secret,\s*([0-9]+)\)%$~'</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$matches</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateRandomBytes</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">generateRandomBytes</span><span class="s1">(</span><span class="s7">$length </span><span class="s1">= </span><span class="s9">16</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">bin2hex</span><span class="s1">(</span><span class="s3">random_bytes</span><span class="s1">(</span><span class="s7">$length</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<html>
+<head>
+<title>OutputFormatter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+OutputFormatter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Formatter class for console output.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Konstantin Kudryashov </span><span class="s6">&lt;ever.zet</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Roland Franssen </span><span class="s6">&lt;franssen.roland</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">OutputFormatter </span><span class="s0">implements </span><span class="s3">WrappableOutputFormatterInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$decorated</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$styles </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$styleStack</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Escapes &quot;&lt;&quot; special char in given text.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string Escaped text</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">escape</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$text</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$text </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/([^</span><span class="s0">\\\\</span><span class="s8">]?)&lt;/'</span><span class="s0">, </span><span class="s8">'$1</span><span class="s0">\\</span><span class="s8">&lt;'</span><span class="s0">, </span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">escapeTrailingBackslash</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Escapes trailing &quot;\&quot; in given text.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">escapeTrailingBackslash</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$text</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$text</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+            <span class="s7">$len </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$text </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$text</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$text </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$text </span><span class="s1">.= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$len </span><span class="s1">- \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$text</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Initializes console output formatter.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">OutputFormatterStyleInterface[] $styles Array of &quot;name =&gt; FormatterStyle&quot; instances</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$decorated </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, array </span><span class="s7">$styles </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decorated </span><span class="s1">= </span><span class="s7">$decorated</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s8">'error'</span><span class="s0">, new </span><span class="s3">OutputFormatterStyle</span><span class="s1">(</span><span class="s8">'white'</span><span class="s0">, </span><span class="s8">'red'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s8">'info'</span><span class="s0">, new </span><span class="s3">OutputFormatterStyle</span><span class="s1">(</span><span class="s8">'green'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s8">'comment'</span><span class="s0">, new </span><span class="s3">OutputFormatterStyle</span><span class="s1">(</span><span class="s8">'yellow'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s8">'question'</span><span class="s0">, new </span><span class="s3">OutputFormatterStyle</span><span class="s1">(</span><span class="s8">'black'</span><span class="s0">, </span><span class="s8">'cyan'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$styles </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$style</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStyle</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$style</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack </span><span class="s1">= </span><span class="s0">new </span><span class="s3">OutputFormatterStyleStack</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDecorated</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$decorated</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decorated </span><span class="s1">= </span><span class="s7">$decorated</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isDecorated</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decorated</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setStyle</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">OutputFormatterStyleInterface </span><span class="s7">$style</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)] = </span><span class="s7">$style</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasStyle</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStyle</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasStyle</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Undefined style: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">format</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatAndWrap</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">formatAndWrap</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$message</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$width</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$offset </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$output </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$tagRegex </span><span class="s1">= </span><span class="s8">'[a-z][^&lt;&gt;]*+'</span><span class="s0">;</span>
+        <span class="s7">$currentLineLength </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s3">preg_match_all</span><span class="s1">(</span><span class="s8">&quot;#&lt;((</span><span class="s7">$tagRegex</span><span class="s8">) | /(</span><span class="s7">$tagRegex</span><span class="s8">)?)&gt;#ix&quot;</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$matches</span><span class="s0">, </span><span class="s3">PREG_OFFSET_CAPTURE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$match</span><span class="s1">) {</span>
+            <span class="s7">$pos </span><span class="s1">= </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$text </span><span class="s1">= </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!= </span><span class="s7">$pos </span><span class="s1">&amp;&amp; </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">== </span><span class="s7">$message</span><span class="s1">[</span><span class="s7">$pos </span><span class="s1">- </span><span class="s9">1</span><span class="s1">]) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// add the text up to the next tag</span>
+            <span class="s7">$output </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applyCurrentStyle</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$offset</span><span class="s0">, </span><span class="s7">$pos </span><span class="s1">- </span><span class="s7">$offset</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$width</span><span class="s0">, </span><span class="s7">$currentLineLength</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$offset </span><span class="s1">= </span><span class="s7">$pos </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s2">// opening tag?</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$open </span><span class="s1">= </span><span class="s8">'/' </span><span class="s1">!= </span><span class="s7">$text</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) {</span>
+                <span class="s7">$tag </span><span class="s1">= </span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">1</span><span class="s1">][</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$tag </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">3</span><span class="s1">][</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) ? </span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">3</span><span class="s1">][</span><span class="s7">$i</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] : </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$open </span><span class="s1">&amp;&amp; !</span><span class="s7">$tag</span><span class="s1">) {</span>
+                <span class="s2">// &lt;/&gt;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack</span><span class="s1">-&gt;</span><span class="s3">pop</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$style </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createStyleFromString</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">)) {</span>
+                <span class="s7">$output </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applyCurrentStyle</span><span class="s1">(</span><span class="s7">$text</span><span class="s0">, </span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$width</span><span class="s0">, </span><span class="s7">$currentLineLength</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$open</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack</span><span class="s1">-&gt;</span><span class="s3">push</span><span class="s1">(</span><span class="s7">$style</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack</span><span class="s1">-&gt;</span><span class="s3">pop</span><span class="s1">(</span><span class="s7">$style</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$output </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applyCurrentStyle</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$offset</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$output</span><span class="s0">, </span><span class="s7">$width</span><span class="s0">, </span><span class="s7">$currentLineLength</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">strtr</span><span class="s1">(</span><span class="s7">$output</span><span class="s0">, </span><span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">&lt;' </span><span class="s1">=&gt; </span><span class="s8">'&lt;'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">&lt;'</span><span class="s0">, </span><span class="s8">'&lt;'</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">OutputFormatterStyleStack</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStyleStack</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Tries to create new style instance from string.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">createStyleFromString</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$string</span><span class="s1">): ?</span><span class="s3">OutputFormatterStyleInterface</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s7">$string</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styles</span><span class="s1">[</span><span class="s7">$string</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match_all</span><span class="s1">(</span><span class="s8">'/([^=]+)=([^;]+)(;|$)/'</span><span class="s0">, </span><span class="s7">$string</span><span class="s0">, </span><span class="s7">$matches</span><span class="s0">, </span><span class="s3">PREG_SET_ORDER</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$style </span><span class="s1">= </span><span class="s0">new </span><span class="s3">OutputFormatterStyle</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$matches </span><span class="s0">as </span><span class="s7">$match</span><span class="s1">) {</span>
+            <span class="s3">array_shift</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] = </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'fg' </span><span class="s1">== </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$style</span><span class="s1">-&gt;</span><span class="s3">setForeground</span><span class="s1">(</span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'bg' </span><span class="s1">== </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$style</span><span class="s1">-&gt;</span><span class="s3">setBackground</span><span class="s1">(</span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'href' </span><span class="s1">=== </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$style</span><span class="s1">-&gt;</span><span class="s3">setHref</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'options' </span><span class="s1">=== </span><span class="s7">$match</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s3">preg_match_all</span><span class="s1">(</span><span class="s8">'([^,;]+)'</span><span class="s0">, </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$match</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$options </span><span class="s1">= </span><span class="s3">array_shift</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$options </span><span class="s0">as </span><span class="s7">$option</span><span class="s1">) {</span>
+                    <span class="s7">$style</span><span class="s1">-&gt;</span><span class="s3">setOption</span><span class="s1">(</span><span class="s7">$option</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$style</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Applies current style from stack to text, if must be applied.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">applyCurrentStyle</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$text</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$current</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$width</span><span class="s0">, </span><span class="s3">int </span><span class="s1">&amp;</span><span class="s7">$currentLineLength</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$text</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$width</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">() ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack</span><span class="s1">-&gt;</span><span class="s3">getCurrent</span><span class="s1">()-&gt;</span><span class="s3">apply</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">) : </span><span class="s7">$text</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$currentLineLength </span><span class="s1">&amp;&amp; </span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$current</span><span class="s1">) {</span>
+            <span class="s7">$text </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$currentLineLength</span><span class="s1">) {</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$text</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$i </span><span class="s1">= </span><span class="s7">$width </span><span class="s1">- </span><span class="s7">$currentLineLength</span><span class="s1">).</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s7">$text </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$text</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$prefix </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'~(</span><span class="s0">\\</span><span class="s8">n)$~'</span><span class="s0">, </span><span class="s7">$text</span><span class="s0">, </span><span class="s7">$matches</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$text </span><span class="s1">= </span><span class="s7">$prefix</span><span class="s1">.</span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'~([^</span><span class="s0">\\</span><span class="s8">n]{'</span><span class="s1">.</span><span class="s7">$width</span><span class="s1">.</span><span class="s8">'})</span><span class="s0">\\ </span><span class="s8">*~'</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\$</span><span class="s8">1</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$text </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$text</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">).(</span><span class="s7">$matches</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$currentLineLength </span><span class="s1">&amp;&amp; </span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$current </span><span class="s1">&amp;&amp; </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">!== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$current</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+            <span class="s7">$text </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$text</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$lines </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$lines </span><span class="s0">as </span><span class="s7">$line</span><span class="s1">) {</span>
+            <span class="s7">$currentLineLength </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$width </span><span class="s1">&lt;= </span><span class="s7">$currentLineLength</span><span class="s1">) {</span>
+                <span class="s7">$currentLineLength </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$lines </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$line</span><span class="s1">) {</span>
+                <span class="s7">$lines</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">styleStack</span><span class="s1">-&gt;</span><span class="s3">getCurrent</span><span class="s1">()-&gt;</span><span class="s3">apply</span><span class="s1">(</span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$lines</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

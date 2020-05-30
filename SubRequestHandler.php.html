@@ -1,0 +1,116 @@
+<html>
+<head>
+<title>SubRequestHandler.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SubRequestHandler.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpCache</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">IpUtils</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">HttpKernelInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">SubRequestHandler</span>
+<span class="s1">{</span>
+    <span class="s0">public static function </span><span class="s3">handle</span><span class="s1">(</span><span class="s3">HttpKernelInterface </span><span class="s7">$kernel</span><span class="s0">, </span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$catch</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s2">// save global state related to trusted headers and proxies</span>
+        <span class="s7">$trustedProxies </span><span class="s1">= </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">getTrustedProxies</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$trustedHeaderSet </span><span class="s1">= </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">getTrustedHeaderSet</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// remove untrusted values</span>
+        <span class="s7">$remoteAddr </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'REMOTE_ADDR'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">IpUtils</span><span class="s1">::</span><span class="s3">checkIp</span><span class="s1">(</span><span class="s7">$remoteAddr</span><span class="s0">, </span><span class="s7">$trustedProxies</span><span class="s1">)) {</span>
+            <span class="s7">$trustedHeaders </span><span class="s1">= [</span>
+                <span class="s8">'FORWARDED' </span><span class="s1">=&gt; </span><span class="s7">$trustedHeaderSet </span><span class="s1">&amp; </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_FORWARDED</span><span class="s0">,</span>
+                <span class="s8">'X_FORWARDED_FOR' </span><span class="s1">=&gt; </span><span class="s7">$trustedHeaderSet </span><span class="s1">&amp; </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_X_FORWARDED_FOR</span><span class="s0">,</span>
+                <span class="s8">'X_FORWARDED_HOST' </span><span class="s1">=&gt; </span><span class="s7">$trustedHeaderSet </span><span class="s1">&amp; </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_X_FORWARDED_HOST</span><span class="s0">,</span>
+                <span class="s8">'X_FORWARDED_PROTO' </span><span class="s1">=&gt; </span><span class="s7">$trustedHeaderSet </span><span class="s1">&amp; </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_X_FORWARDED_PROTO</span><span class="s0">,</span>
+                <span class="s8">'X_FORWARDED_PORT' </span><span class="s1">=&gt; </span><span class="s7">$trustedHeaderSet </span><span class="s1">&amp; </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_X_FORWARDED_PORT</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$trustedHeaders</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$key</span><span class="s1">) {</span>
+                <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s8">'HTTP_'</span><span class="s1">.</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// compute trusted values, taking any trusted proxies into account</span>
+        <span class="s7">$trustedIps </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$trustedValues </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_reverse</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getClientIps</span><span class="s1">()) </span><span class="s0">as </span><span class="s7">$ip</span><span class="s1">) {</span>
+            <span class="s7">$trustedIps</span><span class="s1">[] = </span><span class="s7">$ip</span><span class="s0">;</span>
+            <span class="s7">$trustedValues</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'for=&quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$ip</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$ip </span><span class="s1">!== </span><span class="s7">$remoteAddr</span><span class="s1">) {</span>
+            <span class="s7">$trustedIps</span><span class="s1">[] = </span><span class="s7">$remoteAddr</span><span class="s0">;</span>
+            <span class="s7">$trustedValues</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'for=&quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$remoteAddr</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// set trusted values, reusing as much as possible the global trusted settings</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_FORWARDED </span><span class="s1">&amp; </span><span class="s7">$trustedHeaderSet</span><span class="s1">) {</span>
+            <span class="s7">$trustedValues</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] .= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">';host=&quot;%s&quot;;proto=%s'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getHttpHost</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'Forwarded'</span><span class="s0">, </span><span class="s7">$v </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$trustedValues</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'HTTP_FORWARDED'</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_X_FORWARDED_FOR </span><span class="s1">&amp; </span><span class="s7">$trustedHeaderSet</span><span class="s1">) {</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'X-Forwarded-For'</span><span class="s0">, </span><span class="s7">$v </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$trustedIps</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'HTTP_X_FORWARDED_FOR'</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!(</span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_FORWARDED </span><span class="s1">&amp; </span><span class="s7">$trustedHeaderSet</span><span class="s1">)) {</span>
+            <span class="s3">Request</span><span class="s1">::</span><span class="s3">setTrustedProxies</span><span class="s1">(</span><span class="s7">$trustedProxies</span><span class="s0">, </span><span class="s7">$trustedHeaderSet </span><span class="s1">| </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">HEADER_X_FORWARDED_FOR</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'X-Forwarded-For'</span><span class="s0">, </span><span class="s7">$v </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$trustedIps</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'HTTP_X_FORWARDED_FOR'</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// fix the client IP address by setting it to 127.0.0.1,</span>
+        <span class="s2">// which is the core responsibility of this method</span>
+        <span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s8">'REMOTE_ADDR'</span><span class="s0">, </span><span class="s8">'127.0.0.1'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// ensure 127.0.0.1 is set as trusted proxy</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">IpUtils</span><span class="s1">::</span><span class="s3">checkIp</span><span class="s1">(</span><span class="s8">'127.0.0.1'</span><span class="s0">, </span><span class="s7">$trustedProxies</span><span class="s1">)) {</span>
+            <span class="s3">Request</span><span class="s1">::</span><span class="s3">setTrustedProxies</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$trustedProxies</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'127.0.0.1'</span><span class="s1">])</span><span class="s0">, </span><span class="s3">Request</span><span class="s1">::</span><span class="s3">getTrustedHeaderSet</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">handle</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$catch</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s2">// restore global state</span>
+            <span class="s3">Request</span><span class="s1">::</span><span class="s3">setTrustedProxies</span><span class="s1">(</span><span class="s7">$trustedProxies</span><span class="s0">, </span><span class="s7">$trustedHeaderSet</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

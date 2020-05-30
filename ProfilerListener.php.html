@@ -1,0 +1,152 @@
+<html>
+<head>
+<title>ProfilerListener.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ProfilerListener.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">EventListener</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventSubscriberInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestMatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RequestStack</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ExceptionEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">ResponseEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Event</span><span class="s1">\</span><span class="s3">TerminateEvent</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">KernelEvents</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Profiler</span><span class="s1">\</span><span class="s3">Profiler</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* ProfilerListener collects data for the current request by listening to the kernel events.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ProfilerListener </span><span class="s0">implements </span><span class="s3">EventSubscriberInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$profiler</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$matcher</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$onlyException</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$onlyMasterRequests</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$exception</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$profiles</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$parents</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $onlyException      True if the profiler only collects data when an exception occurs, false otherwise</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $onlyMasterRequests True if the profiler only collects data when the request is a master request, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Profiler </span><span class="s7">$profiler</span><span class="s0">, </span><span class="s3">RequestStack </span><span class="s7">$requestStack</span><span class="s0">, </span><span class="s3">RequestMatcherInterface </span><span class="s7">$matcher </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$onlyException </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$onlyMasterRequests </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler </span><span class="s1">= </span><span class="s7">$profiler</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher </span><span class="s1">= </span><span class="s7">$matcher</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onlyException </span><span class="s1">= </span><span class="s7">$onlyException</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onlyMasterRequests </span><span class="s1">= </span><span class="s7">$onlyMasterRequests</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parents </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack </span><span class="s1">= </span><span class="s7">$requestStack</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Handles the onKernelException event.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">onKernelException</span><span class="s1">(</span><span class="s3">ExceptionEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onlyMasterRequests </span><span class="s1">&amp;&amp; !</span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isMasterRequest</span><span class="s1">()) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exception </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getThrowable</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Handles the onKernelResponse event.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">onKernelResponse</span><span class="s1">(</span><span class="s3">ResponseEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$master </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isMasterRequest</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onlyMasterRequests </span><span class="s1">&amp;&amp; !</span><span class="s7">$master</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">onlyException </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exception</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$request </span><span class="s1">= </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getRequest</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$exception </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exception</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exception </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher </span><span class="s1">&amp;&amp; !</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">matcher</span><span class="s1">-&gt;</span><span class="s3">matches</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$profile </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler</span><span class="s1">-&gt;</span><span class="s3">collect</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">getResponse</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$exception</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">] = </span><span class="s7">$profile</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parents</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">requestStack</span><span class="s1">-&gt;</span><span class="s3">getParentRequest</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">onKernelTerminate</span><span class="s1">(</span><span class="s3">TerminateEvent </span><span class="s7">$event</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// attach children to parents</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles </span><span class="s0">as </span><span class="s7">$request</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$parentRequest </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parents</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles</span><span class="s1">[</span><span class="s7">$parentRequest</span><span class="s1">])) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles</span><span class="s1">[</span><span class="s7">$parentRequest</span><span class="s1">]-&gt;</span><span class="s3">addChild</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// save profiles</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles </span><span class="s0">as </span><span class="s7">$request</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiler</span><span class="s1">-&gt;</span><span class="s3">saveProfile</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles</span><span class="s1">[</span><span class="s7">$request</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">profiles </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parents </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">SplObjectStorage</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">getSubscribedEvents</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">RESPONSE </span><span class="s1">=&gt; [</span><span class="s8">'onKernelResponse'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">100</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">EXCEPTION </span><span class="s1">=&gt; [</span><span class="s8">'onKernelException'</span><span class="s0">, </span><span class="s9">0</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s3">KernelEvents</span><span class="s1">::</span><span class="s3">TERMINATE </span><span class="s1">=&gt; [</span><span class="s8">'onKernelTerminate'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1024</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

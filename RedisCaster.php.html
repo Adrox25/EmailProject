@@ -1,0 +1,177 @@
+<html>
+<head>
+<title>RedisCaster.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RedisCaster.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Casts Redis class from ext-redis to array representation.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RedisCaster</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$serializer </span><span class="s1">= [</span>
+        <span class="s1">\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">SERIALIZER_NONE </span><span class="s1">=&gt; </span><span class="s8">'NONE'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">SERIALIZER_PHP </span><span class="s1">=&gt; </span><span class="s8">'PHP'</span><span class="s0">,</span>
+        <span class="s9">2 </span><span class="s1">=&gt; </span><span class="s8">'IGBINARY'</span><span class="s0">, </span><span class="s2">// Optional Redis::SERIALIZER_IGBINARY</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$mode </span><span class="s1">= [</span>
+        <span class="s1">\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">ATOMIC </span><span class="s1">=&gt; </span><span class="s8">'ATOMIC'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">MULTI </span><span class="s1">=&gt; </span><span class="s8">'MULTI'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">PIPELINE </span><span class="s1">=&gt; </span><span class="s8">'PIPELINE'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$compression </span><span class="s1">= [</span>
+        <span class="s9">0 </span><span class="s1">=&gt; </span><span class="s8">'NONE'</span><span class="s0">, </span><span class="s2">// Redis::COMPRESSION_NONE</span>
+        <span class="s9">1 </span><span class="s1">=&gt; </span><span class="s8">'LZF'</span><span class="s0">,  </span><span class="s2">// Redis::COMPRESSION_LZF</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$failover </span><span class="s1">= [</span>
+        <span class="s1">\</span><span class="s3">RedisCluster</span><span class="s1">::</span><span class="s3">FAILOVER_NONE </span><span class="s1">=&gt; </span><span class="s8">'NONE'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">RedisCluster</span><span class="s1">::</span><span class="s3">FAILOVER_ERROR </span><span class="s1">=&gt; </span><span class="s8">'ERROR'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">RedisCluster</span><span class="s1">::</span><span class="s3">FAILOVER_DISTRIBUTE </span><span class="s1">=&gt; </span><span class="s8">'DISTRIBUTE'</span><span class="s0">,</span>
+        <span class="s1">\</span><span class="s3">RedisCluster</span><span class="s1">::</span><span class="s3">FAILOVER_DISTRIBUTE_SLAVES </span><span class="s1">=&gt; </span><span class="s8">'DISTRIBUTE_SLAVES'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">castRedis</span><span class="s1">(\</span><span class="s3">Redis </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$connected </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">isConnected</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$a </span><span class="s1">+ [</span>
+                <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'isConnected' </span><span class="s1">=&gt; </span><span class="s7">$connected</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$mode </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getMode</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a </span><span class="s1">+ [</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'isConnected' </span><span class="s1">=&gt; </span><span class="s7">$connected</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'host' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'port' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getPort</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'auth' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getAuth</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'mode' </span><span class="s1">=&gt; </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$mode</span><span class="s1">[</span><span class="s7">$mode</span><span class="s1">]) ? </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$mode</span><span class="s1">[</span><span class="s7">$mode</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$mode</span><span class="s1">) : </span><span class="s7">$mode</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'dbNum' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getDbNum</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'timeout' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getTimeout</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'lastError' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getLastError</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'persistentId' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getPersistentID</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'options' </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getRedisOptions</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castRedisArray</span><span class="s1">(\</span><span class="s3">RedisArray </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a </span><span class="s1">+ [</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'hosts' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">_hosts</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'function' </span><span class="s1">=&gt; </span><span class="s3">ClassStub</span><span class="s1">::</span><span class="s3">wrapCallable</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">_function</span><span class="s1">())</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'lastError' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getLastError</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'options' </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getRedisOptions</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castRedisCluster</span><span class="s1">(\</span><span class="s3">RedisCluster </span><span class="s7">$c</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">Caster</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s0">;</span>
+        <span class="s7">$failover </span><span class="s1">= </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">RedisCluster</span><span class="s1">::</span><span class="s3">OPT_SLAVE_FAILOVER</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$a </span><span class="s1">+= [</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'_masters' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">_masters</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'_redir' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">_redir</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'mode' </span><span class="s1">=&gt; </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getMode</span><span class="s1">() ? </span><span class="s8">'MULTI' </span><span class="s1">: </span><span class="s8">'ATOMIC'</span><span class="s0">, </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getMode</span><span class="s1">())</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'lastError' </span><span class="s1">=&gt; </span><span class="s7">$c</span><span class="s1">-&gt;</span><span class="s3">getLastError</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s7">$prefix</span><span class="s1">.</span><span class="s8">'options' </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getRedisOptions</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s1">[</span>
+                <span class="s8">'SLAVE_FAILOVER' </span><span class="s1">=&gt; </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$failover</span><span class="s1">[</span><span class="s7">$failover</span><span class="s1">]) ? </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$failover</span><span class="s1">[</span><span class="s7">$failover</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$failover</span><span class="s1">) : </span><span class="s7">$failover</span><span class="s0">,</span>
+            <span class="s1">])</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\Redis|\RedisArray|\RedisCluster $redis</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">getRedisOptions</span><span class="s1">(</span><span class="s7">$redis</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []): </span><span class="s3">EnumStub</span>
+    <span class="s1">{</span>
+        <span class="s7">$serializer </span><span class="s1">= </span><span class="s7">$redis</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">OPT_SERIALIZER</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$serializer</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$serializer </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$serializer</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">])) {</span>
+                    <span class="s7">$v </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$serializer</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$serializer</span><span class="s1">[</span><span class="s7">$serializer</span><span class="s1">])) {</span>
+            <span class="s7">$serializer </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$serializer</span><span class="s1">[</span><span class="s7">$serializer</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$serializer</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$compression </span><span class="s1">= \</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'Redis::OPT_COMPRESSION'</span><span class="s1">) ? </span><span class="s7">$redis</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">OPT_COMPRESSION</span><span class="s1">) : </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$compression</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$compression </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$compression</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">])) {</span>
+                    <span class="s7">$v </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$compression</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$compression</span><span class="s1">[</span><span class="s7">$compression</span><span class="s1">])) {</span>
+            <span class="s7">$compression </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$compression</span><span class="s1">[</span><span class="s7">$compression</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$compression</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$retry </span><span class="s1">= \</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'Redis::OPT_SCAN'</span><span class="s1">) ? </span><span class="s7">$redis</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">OPT_SCAN</span><span class="s1">) : </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$retry</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$retry </span><span class="s0">as </span><span class="s1">&amp;</span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$v </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s7">$v </span><span class="s1">? </span><span class="s8">'RETRY' </span><span class="s1">: </span><span class="s8">'NORETRY'</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$retry </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s7">$retry </span><span class="s1">? </span><span class="s8">'RETRY' </span><span class="s1">: </span><span class="s8">'NORETRY'</span><span class="s0">, </span><span class="s7">$retry</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$options </span><span class="s1">+= [</span>
+            <span class="s8">'TCP_KEEPALIVE' </span><span class="s1">=&gt; \</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'Redis::OPT_TCP_KEEPALIVE'</span><span class="s1">) ? </span><span class="s7">$redis</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">OPT_TCP_KEEPALIVE</span><span class="s1">) : </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'READ_TIMEOUT' </span><span class="s1">=&gt; </span><span class="s7">$redis</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">OPT_READ_TIMEOUT</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s8">'COMPRESSION' </span><span class="s1">=&gt; </span><span class="s7">$compression</span><span class="s0">,</span>
+            <span class="s8">'SERIALIZER' </span><span class="s1">=&gt; </span><span class="s7">$serializer</span><span class="s0">,</span>
+            <span class="s8">'PREFIX' </span><span class="s1">=&gt; </span><span class="s7">$redis</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(\</span><span class="s3">Redis</span><span class="s1">::</span><span class="s3">OPT_PREFIX</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s8">'SCAN' </span><span class="s1">=&gt; </span><span class="s7">$retry</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">EnumStub</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

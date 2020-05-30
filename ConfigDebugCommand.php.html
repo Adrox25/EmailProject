@@ -1,0 +1,181 @@
+<html>
+<head>
+<title>ConfigDebugCommand.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ConfigDebugCommand.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Style</span><span class="s1">\</span><span class="s3">SymfonyStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s1">\</span><span class="s3">ValidateEnvPlaceholdersPass</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* A console command for dumping available configuration reference.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Grégoire Pineau </span><span class="s6">&lt;lyrixx</span><span class="s4">@lyrixx.info&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ConfigDebugCommand </span><span class="s0">extends </span><span class="s3">AbstractConfigCommand</span>
+<span class="s1">{</span>
+    <span class="s0">protected static </span><span class="s7">$defaultName </span><span class="s1">= </span><span class="s8">'debug:config'</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">([</span>
+                <span class="s0">new </span><span class="s3">InputArgument</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s3">InputArgument</span><span class="s1">::</span><span class="s3">OPTIONAL</span><span class="s0">, </span><span class="s8">'The bundle name or the extension alias'</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s0">new </span><span class="s3">InputArgument</span><span class="s1">(</span><span class="s8">'path'</span><span class="s0">, </span><span class="s3">InputArgument</span><span class="s1">::</span><span class="s3">OPTIONAL</span><span class="s0">, </span><span class="s8">'The configuration option path'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">setDescription</span><span class="s1">(</span><span class="s8">'Dumps the current configuration for an extension'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setHelp</span><span class="s1">(</span><span class="s3">&lt;&lt;&lt;'EOF' 
+</span><span class="s8">The &lt;info&gt;%command.name%&lt;/info&gt; command dumps the current configuration for an 
+extension/bundle. 
+ 
+Either the extension alias or bundle name can be used: 
+ 
+  &lt;info&gt;php %command.full_name% framework&lt;/info&gt; 
+  &lt;info&gt;php %command.full_name% FrameworkBundle&lt;/info&gt; 
+ 
+For dumping a specific option, add its path as second argument: 
+ 
+  &lt;info&gt;php %command.full_name% framework serializer.enabled&lt;/info&gt; 
+</span>
+<span class="s3">EOF</span>
+            <span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$io </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SymfonyStyle</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$errorIo </span><span class="s1">= </span><span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">getErrorStyle</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$name </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s8">'name'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listBundles</span><span class="s1">(</span><span class="s7">$errorIo</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Provide the name of a bundle as the first argument of this command to dump its configuration. (e.g. &lt;comment&gt;debug:config FrameworkBundle&lt;/comment&gt;)'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'For dumping a specific option, add its path as the second argument of this command. (e.g. &lt;comment&gt;debug:config FrameworkBundle serializer&lt;/comment&gt; to dump the &lt;comment&gt;framework.serializer&lt;/comment&gt; configuration)'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$extension </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findExtension</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$container </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileContainer</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$extensionAlias </span><span class="s1">= </span><span class="s7">$extension</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$extensionConfig </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getCompilerPassConfig</span><span class="s1">()-&gt;</span><span class="s3">getPasses</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$pass</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$pass </span><span class="s0">instanceof </span><span class="s3">ValidateEnvPlaceholdersPass</span><span class="s1">) {</span>
+                <span class="s7">$extensionConfig </span><span class="s1">= </span><span class="s7">$pass</span><span class="s1">-&gt;</span><span class="s3">getExtensionConfig</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$extensionConfig</span><span class="s1">[</span><span class="s7">$extensionAlias</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The extension with alias &quot;%s&quot; does not have configuration.'</span><span class="s0">, </span><span class="s7">$extensionAlias</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$config </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">resolveEnvPlaceholders</span><span class="s1">(</span><span class="s7">$extensionConfig</span><span class="s1">[</span><span class="s7">$extensionAlias</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$path </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s8">'path'</span><span class="s1">)) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">title</span><span class="s1">(</span>
+                <span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Current configuration for %s'</span><span class="s0">, </span><span class="s1">(</span><span class="s7">$name </span><span class="s1">=== </span><span class="s7">$extensionAlias </span><span class="s1">? </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'extension with alias &quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$extensionAlias</span><span class="s1">) : </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)))</span>
+            <span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">([</span><span class="s7">$extensionAlias </span><span class="s1">=&gt; </span><span class="s7">$config</span><span class="s1">]</span><span class="s0">, </span><span class="s9">10</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$config </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getConfigForPath</span><span class="s1">(</span><span class="s7">$config</span><span class="s0">, </span><span class="s7">$path</span><span class="s0">, </span><span class="s7">$extensionAlias</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">LogicException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">error</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">())</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">title</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Current configuration for &quot;%s.%s&quot;'</span><span class="s0">, </span><span class="s7">$extensionAlias</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">dump</span><span class="s1">(</span><span class="s7">$config</span><span class="s0">, </span><span class="s9">10</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">compileContainer</span><span class="s1">(): </span><span class="s3">ContainerBuilder</span>
+    <span class="s1">{</span>
+        <span class="s7">$kernel </span><span class="s1">= </span><span class="s0">clone </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getApplication</span><span class="s1">()-&gt;</span><span class="s3">getKernel</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">boot</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$method </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionMethod</span><span class="s1">(</span><span class="s7">$kernel</span><span class="s0">, </span><span class="s8">'buildContainer'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$container </span><span class="s1">= </span><span class="s7">$method</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$kernel</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getCompiler</span><span class="s1">()-&gt;</span><span class="s3">compile</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Iterate over configuration until the last step of the given path.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">LogicException If the configuration does not exist</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getConfigForPath</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$config</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$alias</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$steps </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$steps </span><span class="s0">as </span><span class="s7">$step</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$step</span><span class="s0">, </span><span class="s7">$config</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unable to find configuration for &quot;%s.%s&quot;.'</span><span class="s0">, </span><span class="s7">$alias</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$config </span><span class="s1">= </span><span class="s7">$config</span><span class="s1">[</span><span class="s7">$step</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$config</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

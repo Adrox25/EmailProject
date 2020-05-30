@@ -1,0 +1,150 @@
+<html>
+<head>
+<title>ConsoleLogger.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ConsoleLogger.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Logger</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">AbstractLogger</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LogLevel</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">ConsoleOutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* PSR-3 compliant console logger.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Kévin Dunglas </span><span class="s6">&lt;dunglas</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://www.php-fig.org/psr/psr-3/</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ConsoleLogger </span><span class="s0">extends </span><span class="s3">AbstractLogger</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">INFO </span><span class="s1">= </span><span class="s7">'info'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">ERROR </span><span class="s1">= </span><span class="s7">'error'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$output</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$verbosityLevelMap </span><span class="s1">= [</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">EMERGENCY </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_NORMAL</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">ALERT </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_NORMAL</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_NORMAL</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">ERROR </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_NORMAL</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_NORMAL</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">NOTICE </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERBOSE</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">INFO </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERY_VERBOSE</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">DEBUG </span><span class="s1">=&gt; </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_DEBUG</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$formatLevelMap </span><span class="s1">= [</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">EMERGENCY </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ERROR</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">ALERT </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ERROR</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ERROR</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">ERROR </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">ERROR</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">INFO</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">NOTICE </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">INFO</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">INFO </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">INFO</span><span class="s0">,</span>
+        <span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">DEBUG </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">INFO</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$errored </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s8">$output</span><span class="s0">, array </span><span class="s8">$verbosityLevelMap </span><span class="s1">= []</span><span class="s0">, array </span><span class="s8">$formatLevelMap </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s1">= </span><span class="s8">$output</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">verbosityLevelMap </span><span class="s1">= </span><span class="s8">$verbosityLevelMap </span><span class="s1">+ </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">verbosityLevelMap</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">formatLevelMap </span><span class="s1">= </span><span class="s8">$formatLevelMap </span><span class="s1">+ </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">formatLevelMap</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">void</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">log</span><span class="s1">(</span><span class="s8">$level</span><span class="s0">, </span><span class="s8">$message</span><span class="s0">, array </span><span class="s8">$context </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">verbosityLevelMap</span><span class="s1">[</span><span class="s8">$level</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The log level &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s8">$level</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$output </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output</span><span class="s0">;</span>
+
+        <span class="s2">// Write to the error output if necessary and available</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">ERROR </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">formatLevelMap</span><span class="s1">[</span><span class="s8">$level</span><span class="s1">]) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">output </span><span class="s0">instanceof </span><span class="s3">ConsoleOutputInterface</span><span class="s1">) {</span>
+                <span class="s8">$output </span><span class="s1">= </span><span class="s8">$output</span><span class="s1">-&gt;</span><span class="s3">getErrorOutput</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">errored </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// the if condition check isn't necessary -- it's the same one that $output will do internally anyway.</span>
+        <span class="s2">// We only do it for efficiency here as the message formatting is relatively expensive.</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$output</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">() &gt;= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">verbosityLevelMap</span><span class="s1">[</span><span class="s8">$level</span><span class="s1">]) {</span>
+            <span class="s8">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'&lt;%1$s&gt;[%2$s] %3$s&lt;/%1$s&gt;'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">formatLevelMap</span><span class="s1">[</span><span class="s8">$level</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$level</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">interpolate</span><span class="s1">(</span><span class="s8">$message</span><span class="s0">, </span><span class="s8">$context</span><span class="s1">))</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">verbosityLevelMap</span><span class="s1">[</span><span class="s8">$level</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true when any messages have been logged at error levels.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasErrored</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">errored</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Interpolates context values into the message placeholders.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@author </span><span class="s4">PHP Framework Interoperability Group</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">interpolate</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$message</span><span class="s0">, array </span><span class="s8">$context</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$message</span><span class="s0">, </span><span class="s7">'{'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s8">$message</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$replacements </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$context </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$val</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$val </span><span class="s1">|| </span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s8">$val</span><span class="s1">) || (\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s8">$val</span><span class="s1">) &amp;&amp; </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s8">$val</span><span class="s0">, </span><span class="s7">'__toString'</span><span class="s1">))) {</span>
+                <span class="s8">$replacements</span><span class="s1">[</span><span class="s7">&quot;{</span><span class="s1">{</span><span class="s8">$key</span><span class="s1">}</span><span class="s7">}&quot;</span><span class="s1">] = </span><span class="s8">$val</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$val </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DateTimeInterface</span><span class="s1">) {</span>
+                <span class="s8">$replacements</span><span class="s1">[</span><span class="s7">&quot;{</span><span class="s1">{</span><span class="s8">$key</span><span class="s1">}</span><span class="s7">}&quot;</span><span class="s1">] = </span><span class="s8">$val</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(\</span><span class="s3">DateTime</span><span class="s1">::</span><span class="s3">RFC3339</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s8">$val</span><span class="s1">)) {</span>
+                <span class="s8">$replacements</span><span class="s1">[</span><span class="s7">&quot;{</span><span class="s1">{</span><span class="s8">$key</span><span class="s1">}</span><span class="s7">}&quot;</span><span class="s1">] = </span><span class="s7">'[object '</span><span class="s1">.\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s8">$val</span><span class="s1">).</span><span class="s7">']'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$replacements</span><span class="s1">[</span><span class="s7">&quot;{</span><span class="s1">{</span><span class="s8">$key</span><span class="s1">}</span><span class="s7">}&quot;</span><span class="s1">] = </span><span class="s7">'['</span><span class="s1">.\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s8">$val</span><span class="s1">).</span><span class="s7">']'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">strtr</span><span class="s1">(</span><span class="s8">$message</span><span class="s0">, </span><span class="s8">$replacements</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

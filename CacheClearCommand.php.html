@@ -1,0 +1,234 @@
+<html>
+<head>
+<title>CacheClearCommand.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CacheClearCommand.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Command</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputOption</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Style</span><span class="s1">\</span><span class="s3">SymfonyStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">IOException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s1">\</span><span class="s3">Filesystem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s1">\</span><span class="s3">Finder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">CacheClearer</span><span class="s1">\</span><span class="s3">CacheClearerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">RebootableInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Clear and Warmup the cache.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Francis Besset </span><span class="s6">&lt;francis.besset</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CacheClearCommand </span><span class="s0">extends </span><span class="s3">Command</span>
+<span class="s1">{</span>
+    <span class="s0">protected static </span><span class="s7">$defaultName </span><span class="s1">= </span><span class="s8">'cache:clear'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$cacheClearer</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$filesystem</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">CacheClearerInterface </span><span class="s7">$cacheClearer</span><span class="s0">, </span><span class="s3">Filesystem </span><span class="s7">$filesystem </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearer </span><span class="s1">= </span><span class="s7">$cacheClearer</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filesystem </span><span class="s1">= </span><span class="s7">$filesystem </span><span class="s1">?: </span><span class="s0">new </span><span class="s3">Filesystem</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">([</span>
+                <span class="s0">new </span><span class="s3">InputOption</span><span class="s1">(</span><span class="s8">'no-warmup'</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_NONE</span><span class="s0">, </span><span class="s8">'Do not warm up the cache'</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s0">new </span><span class="s3">InputOption</span><span class="s1">(</span><span class="s8">'no-optional-warmers'</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_NONE</span><span class="s0">, </span><span class="s8">'Skip optional cache warmers (faster)'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">setDescription</span><span class="s1">(</span><span class="s8">'Clears the cache'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setHelp</span><span class="s1">(</span><span class="s3">&lt;&lt;&lt;'EOF' 
+</span><span class="s8">The &lt;info&gt;%command.name%&lt;/info&gt; command clears the application cache for a given environment 
+and debug mode: 
+ 
+  &lt;info&gt;php %command.full_name% --env=dev&lt;/info&gt; 
+  &lt;info&gt;php %command.full_name% --env=prod --no-debug&lt;/info&gt;</span>
+<span class="s3">EOF</span>
+            <span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$fs </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filesystem</span><span class="s0">;</span>
+        <span class="s7">$io </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SymfonyStyle</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$kernel </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getApplication</span><span class="s1">()-&gt;</span><span class="s3">getKernel</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$realCacheDir </span><span class="s1">= </span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">getParameter</span><span class="s1">(</span><span class="s8">'kernel.cache_dir'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s2">// the old cache dir name must not be longer than the real one to avoid exceeding</span>
+        <span class="s2">// the maximum length of a directory or file path within it (esp. Windows MAX_PATH)</span>
+        <span class="s7">$oldCacheDir </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">).(</span><span class="s8">'~' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">) ? </span><span class="s8">'+' </span><span class="s1">: </span><span class="s8">'~'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$oldCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_writable</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unable to write in the &quot;%s&quot; directory.'</span><span class="s0">, </span><span class="s7">$realCacheDir</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Clearing the cache for the &lt;info&gt;%s&lt;/info&gt; environment with debug &lt;info&gt;%s&lt;/info&gt;'</span><span class="s0">, </span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">getEnvironment</span><span class="s1">()</span><span class="s0">, </span><span class="s3">var_export</span><span class="s1">(</span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">isDebug</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cacheClearer</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// The current event dispatcher is stale, let's not use it anymore</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getApplication</span><span class="s1">()-&gt;</span><span class="s3">setDispatcher</span><span class="s1">(</span><span class="s0">new </span><span class="s3">EventDispatcher</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$containerFile </span><span class="s1">= (</span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionObject</span><span class="s1">(</span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()))-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$containerDir </span><span class="s1">= </span><span class="s3">basename</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$containerFile</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s2">// the warmup cache dir name must have the same length as the real one</span>
+        <span class="s2">// to avoid the many problems in serialized resources files</span>
+        <span class="s7">$warmupDir </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">).(</span><span class="s8">'_' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">) ? </span><span class="s8">'-' </span><span class="s1">: </span><span class="s8">'_'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">() &amp;&amp; </span><span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">)) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Clearing outdated warmup directory...'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'REQUEST_TIME'</span><span class="s1">] &lt;= </span><span class="s3">filemtime</span><span class="s1">(</span><span class="s7">$containerFile</span><span class="s1">) &amp;&amp; </span><span class="s3">filemtime</span><span class="s1">(</span><span class="s7">$containerFile</span><span class="s1">) &lt;= </span><span class="s3">time</span><span class="s1">()) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+                <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Cache is fresh.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'no-warmup'</span><span class="s1">) &amp;&amp; !</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'no-optional-warmers'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+                    <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Warming up optional cache...'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$warmer </span><span class="s1">= </span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'cache_warmer'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s2">// non optional warmers already ran during container compilation</span>
+                <span class="s7">$warmer</span><span class="s1">-&gt;</span><span class="s3">enableOnlyOptionalWarmers</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$warmer</span><span class="s1">-&gt;</span><span class="s3">warmUp</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'no-warmup'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+                    <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Warming up cache...'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">warmup</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s0">, </span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s1">!</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'no-optional-warmers'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">exists</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">.</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$containerDir</span><span class="s1">)) {</span>
+                <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s1">.</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$containerDir</span><span class="s0">, </span><span class="s7">$warmupDir</span><span class="s1">.</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$containerDir</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">touch</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">.</span><span class="s8">'/'</span><span class="s1">.</span><span class="s7">$containerDir</span><span class="s1">.</span><span class="s8">'.legacy'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'/' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">&amp;&amp; </span><span class="s7">$mounts </span><span class="s1">= @</span><span class="s3">file</span><span class="s1">(</span><span class="s8">'/proc/mounts'</span><span class="s1">)) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$mounts </span><span class="s0">as </span><span class="s7">$mount</span><span class="s1">) {</span>
+                    <span class="s7">$mount </span><span class="s1">= \</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s3">explode</span><span class="s1">(</span><span class="s8">' '</span><span class="s0">, </span><span class="s7">$mount</span><span class="s1">)</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">3</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$mount</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'vboxsf'</span><span class="s0">, </span><span class="s8">'nfs'</span><span class="s1">])) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$mount </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">' '</span><span class="s0">, </span><span class="s7">$mount</span><span class="s1">).</span><span class="s8">'/'</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s7">$mount</span><span class="s1">)) {</span>
+                        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">note</span><span class="s1">(</span><span class="s8">'For better performances, you should move the cache and log directories to a non-shared folder of the VM.'</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$oldCacheDir </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$oldCacheDir</span><span class="s1">) {</span>
+                <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s7">$oldCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$realCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">rename</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s0">, </span><span class="s7">$realCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+                <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Removing old cache directory...'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$fs</span><span class="s1">-&gt;</span><span class="s3">remove</span><span class="s1">(</span><span class="s7">$oldCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">IOException </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+                    <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">warning</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">())</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">isVerbose</span><span class="s1">()) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">comment</span><span class="s1">(</span><span class="s8">'Finished'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">success</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Cache for the &quot;%s&quot; environment (debug=%s) was successfully cleared.'</span><span class="s0">, </span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">getEnvironment</span><span class="s1">()</span><span class="s0">, </span><span class="s3">var_export</span><span class="s1">(</span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">isDebug</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">warmup</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$warmupDir</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$realCacheDir</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$enableOptionalWarmers </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// create a temporary kernel</span>
+        <span class="s7">$kernel </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getApplication</span><span class="s1">()-&gt;</span><span class="s3">getKernel</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$kernel </span><span class="s0">instanceof </span><span class="s3">RebootableInterface</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'Calling &quot;cache:clear&quot; with a kernel that does not implement &quot;Symfony\Component\HttpKernel\RebootableInterface&quot; is not supported.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">reboot</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// warmup temporary dir</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$enableOptionalWarmers</span><span class="s1">) {</span>
+            <span class="s7">$warmer </span><span class="s1">= </span><span class="s7">$kernel</span><span class="s1">-&gt;</span><span class="s3">getContainer</span><span class="s1">()-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'cache_warmer'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s2">// non optional warmers already ran during container compilation</span>
+            <span class="s7">$warmer</span><span class="s1">-&gt;</span><span class="s3">enableOnlyOptionalWarmers</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$warmer</span><span class="s1">-&gt;</span><span class="s3">warmUp</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// fix references to cached files with the real cache directory name</span>
+        <span class="s7">$search </span><span class="s1">= [</span><span class="s7">$warmupDir</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\\\</span><span class="s8">'</span><span class="s0">, </span><span class="s7">$warmupDir</span><span class="s1">)]</span><span class="s0">;</span>
+        <span class="s7">$replace </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">'/'</span><span class="s0">, </span><span class="s7">$realCacheDir</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">Finder</span><span class="s1">::</span><span class="s3">create</span><span class="s1">()-&gt;</span><span class="s3">files</span><span class="s1">()-&gt;</span><span class="s3">in</span><span class="s1">(</span><span class="s7">$warmupDir</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s7">$content </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">$search</span><span class="s0">, </span><span class="s7">$replace</span><span class="s0">, </span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$count</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$count</span><span class="s1">) {</span>
+                <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$content</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

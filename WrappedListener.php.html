@@ -1,0 +1,152 @@
+<html>
+<head>
+<title>WrappedListener.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+WrappedListener.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">Debug</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">StoppableEventInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s1">\</span><span class="s3">Stopwatch</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s1">\</span><span class="s3">ClassStub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">final class </span><span class="s3">WrappedListener</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$listener</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$optimizedListener</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$called</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$stoppedPropagation</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$stopwatch</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$pretty</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$stub</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$priority</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$hasClassStub</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$listener</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">Stopwatch </span><span class="s7">$stopwatch</span><span class="s0">, </span><span class="s3">EventDispatcherInterface </span><span class="s7">$dispatcher </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listener </span><span class="s1">= </span><span class="s7">$listener</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimizedListener </span><span class="s1">= </span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">? </span><span class="s7">$listener </span><span class="s1">: (\</span><span class="s3">is_callable</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">) ? \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">fromCallable</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">) : </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch </span><span class="s1">= </span><span class="s7">$stopwatch</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher </span><span class="s1">= </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">called </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stoppedPropagation </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= \</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]) : </span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">.</span><span class="s9">'::'</span><span class="s1">.</span><span class="s7">$listener</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$listener </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionFunction</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s9">'{closure}'</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s9">'closure'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$class </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getClosureScopeClass</span><span class="s1">()) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">.</span><span class="s9">'::'</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$listener</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">.</span><span class="s9">'::__invoke'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$name</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$hasClassStub</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$hasClassStub </span><span class="s1">= </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ClassStub</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getWrappedListener</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listener</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">wasCalled</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">called</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">stoppedPropagation</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stoppedPropagation</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPretty</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getInfo</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$eventName</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stub</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stub </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$hasClassStub </span><span class="s1">? </span><span class="s0">new </span><span class="s3">ClassStub</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty</span><span class="s1">.</span><span class="s9">'()'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listener</span><span class="s1">) : </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty</span><span class="s1">.</span><span class="s9">'()'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s9">'event' </span><span class="s1">=&gt; </span><span class="s7">$eventName</span><span class="s0">,</span>
+            <span class="s9">'priority' </span><span class="s1">=&gt; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">priority </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">priority </span><span class="s1">: (</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listener</span><span class="s1">) : </span><span class="s3">null</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s9">'pretty' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pretty</span><span class="s0">,</span>
+            <span class="s9">'stub' </span><span class="s1">=&gt; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stub</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__invoke</span><span class="s1">(</span><span class="s3">object </span><span class="s7">$event</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s3">EventDispatcherInterface </span><span class="s7">$dispatcher</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s7">$dispatcher </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">dispatcher </span><span class="s1">?: </span><span class="s7">$dispatcher</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">called </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">priority </span><span class="s1">= </span><span class="s7">$dispatcher</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listener</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$e </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stopwatch</span><span class="s1">-&gt;</span><span class="s3">start</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s9">'event_listener'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">optimizedListener </span><span class="s1">?? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">listener</span><span class="s1">)(</span><span class="s7">$event</span><span class="s0">, </span><span class="s7">$eventName</span><span class="s0">, </span><span class="s7">$dispatcher</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">isStarted</span><span class="s1">()) {</span>
+            <span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">stop</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$event </span><span class="s0">instanceof </span><span class="s3">StoppableEventInterface </span><span class="s1">&amp;&amp; </span><span class="s7">$event</span><span class="s1">-&gt;</span><span class="s3">isPropagationStopped</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stoppedPropagation </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

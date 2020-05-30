@@ -1,0 +1,193 @@
+<html>
+<head>
+<title>AcceptHeader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AcceptHeader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+
+<span class="s2">// Help opcache.preload discover always-needed symbols</span>
+<span class="s3">class_exists</span><span class="s1">(</span><span class="s3">AcceptHeaderItem</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Represents an Accept-* header.</span>
+ <span class="s4">*</span>
+ <span class="s4">* An accept header is compound with a list of items,</span>
+ <span class="s4">* sorted by descending quality.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jean-François Simon </span><span class="s6">&lt;contact</span><span class="s4">@jfsimon.fr&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">AcceptHeader</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">AcceptHeaderItem[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$items </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$sorted </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">AcceptHeaderItem[] $items</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$items</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$items </span><span class="s0">as </span><span class="s7">$item</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$item</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Builds an AcceptHeader instance from a string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">self</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">fromString</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$headerValue</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$index </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+
+        <span class="s7">$parts </span><span class="s1">= </span><span class="s3">HeaderUtils</span><span class="s1">::</span><span class="s3">split</span><span class="s1">(</span><span class="s7">$headerValue </span><span class="s1">?? </span><span class="s9">''</span><span class="s0">, </span><span class="s9">',;='</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">self</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$subParts</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(&amp;</span><span class="s7">$index</span><span class="s1">) {</span>
+            <span class="s7">$part </span><span class="s1">= </span><span class="s3">array_shift</span><span class="s1">(</span><span class="s7">$subParts</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$attributes </span><span class="s1">= </span><span class="s3">HeaderUtils</span><span class="s1">::</span><span class="s3">combine</span><span class="s1">(</span><span class="s7">$subParts</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$item </span><span class="s1">= </span><span class="s0">new </span><span class="s3">AcceptHeaderItem</span><span class="s1">(</span><span class="s7">$part</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">setIndex</span><span class="s1">(</span><span class="s7">$index</span><span class="s1">++)</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$item</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$parts</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns header value's string representation.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__toString</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">implode</span><span class="s1">(</span><span class="s9">','</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Tests if header has given value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">has</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns given value's item, if exists.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">AcceptHeaderItem|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">] ?? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'/'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)[</span><span class="s8">0</span><span class="s1">].</span><span class="s9">'/*'</span><span class="s1">] ?? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s9">'*/*'</span><span class="s1">] ?? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s9">'*'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds an item.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">add</span><span class="s1">(</span><span class="s3">AcceptHeaderItem </span><span class="s7">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">[</span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">()] = </span><span class="s7">$item</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns all items.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">AcceptHeaderItem[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">all</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sort</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Filters items on their value using given regex.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">self</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">filter</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$pattern</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">self</span><span class="s1">(</span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s0">, function </span><span class="s1">(</span><span class="s3">AcceptHeaderItem </span><span class="s7">$item</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$pattern</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s0">, </span><span class="s7">$item</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns first item.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">AcceptHeaderItem|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">first</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sort</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">) ? </span><span class="s3">reset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sorts items by descending quality.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">sort</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted</span><span class="s1">) {</span>
+            <span class="s3">uasort</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">items</span><span class="s0">, function </span><span class="s1">(</span><span class="s3">AcceptHeaderItem </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">AcceptHeaderItem </span><span class="s7">$b</span><span class="s1">) {</span>
+                <span class="s7">$qA </span><span class="s1">= </span><span class="s7">$a</span><span class="s1">-&gt;</span><span class="s3">getQuality</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$qB </span><span class="s1">= </span><span class="s7">$b</span><span class="s1">-&gt;</span><span class="s3">getQuality</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$qA </span><span class="s1">=== </span><span class="s7">$qB</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$a</span><span class="s1">-&gt;</span><span class="s3">getIndex</span><span class="s1">() &gt; </span><span class="s7">$b</span><span class="s1">-&gt;</span><span class="s3">getIndex</span><span class="s1">() ? </span><span class="s8">1 </span><span class="s1">: -</span><span class="s8">1</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$qA </span><span class="s1">&gt; </span><span class="s7">$qB </span><span class="s1">? -</span><span class="s8">1 </span><span class="s1">: </span><span class="s8">1</span><span class="s0">;</span>
+            <span class="s1">})</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sorted </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

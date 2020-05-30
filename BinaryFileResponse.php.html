@@ -1,0 +1,379 @@
+<html>
+<head>
+<title>BinaryFileResponse.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+BinaryFileResponse.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">File</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">FileException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">File</span><span class="s1">\</span><span class="s3">File</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* BinaryFileResponse represents an HTTP response delivering a file.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Niklas Fiekas </span><span class="s6">&lt;niklas.fiekas</span><span class="s4">@tu-clausthal.de&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">stealth35 </span><span class="s6">&lt;stealth35-php</span><span class="s4">@live.fr&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Igor Wiedler </span><span class="s6">&lt;igor</span><span class="s4">@wiedler.ch&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jordan Alliot </span><span class="s6">&lt;jordan.alliot</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Sergey Linnik </span><span class="s6">&lt;linniksa</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">BinaryFileResponse </span><span class="s0">extends </span><span class="s3">Response</span>
+<span class="s1">{</span>
+    <span class="s0">protected static </span><span class="s7">$trustXSendfileTypeHeader </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">File</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s7">$file</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$offset </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$maxlen </span><span class="s1">= -</span><span class="s8">1</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$deleteFileAfterSend </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\SplFileInfo|string $file               The file to stream</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int                 $status             The response status code</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array               $headers            An array of response headers</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                $public             Files are public by default</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null         $contentDisposition The type of Content-Disposition to set automatically with the filename</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                $autoEtag           Whether the ETag header should be automatically set</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                $autoLastModified   Whether the Last-Modified header should be automatically set</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s8">200</span><span class="s0">, array </span><span class="s7">$headers </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$public </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$contentDisposition </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$autoEtag </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$autoLastModified </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$contentDisposition</span><span class="s0">, </span><span class="s7">$autoEtag</span><span class="s0">, </span><span class="s7">$autoLastModified</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$public</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\SplFileInfo|string $file               The file to stream</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int                 $status             The response status code</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array               $headers            An array of response headers</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                $public             Files are public by default</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null         $contentDisposition The type of Content-Disposition to set automatically with the filename</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                $autoEtag           Whether the ETag header should be automatically set</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool                $autoLastModified   Whether the Last-Modified header should be automatically set</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">static</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">create</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$status </span><span class="s1">= </span><span class="s8">200</span><span class="s0">, array </span><span class="s7">$headers </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$public </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$contentDisposition </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$autoEtag </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$autoLastModified </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return new static</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$status</span><span class="s0">, </span><span class="s7">$headers</span><span class="s0">, </span><span class="s7">$public</span><span class="s0">, </span><span class="s7">$contentDisposition</span><span class="s0">, </span><span class="s7">$autoEtag</span><span class="s0">, </span><span class="s7">$autoLastModified</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the file to stream.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\SplFileInfo|string $file The file to stream</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">FileException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$contentDisposition </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$autoEtag </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$autoLastModified </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$file </span><span class="s0">instanceof </span><span class="s3">File</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$file </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">SplFileInfo</span><span class="s1">) {</span>
+                <span class="s7">$file </span><span class="s1">= </span><span class="s0">new </span><span class="s3">File</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$file </span><span class="s1">= </span><span class="s0">new </span><span class="s3">File</span><span class="s1">((string) </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$file</span><span class="s1">-&gt;</span><span class="s3">isReadable</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">FileException</span><span class="s1">(</span><span class="s9">'File must be readable.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file </span><span class="s1">= </span><span class="s7">$file</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$autoEtag</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setAutoEtag</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$autoLastModified</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setAutoLastModified</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$contentDisposition</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setContentDisposition</span><span class="s1">(</span><span class="s7">$contentDisposition</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">File The file to stream</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getFile</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Automatically sets the Last-Modified header according the file modification date.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAutoLastModified</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setLastModified</span><span class="s1">(\</span><span class="s3">DateTime</span><span class="s1">::</span><span class="s3">createFromFormat</span><span class="s1">(</span><span class="s9">'U'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getMTime</span><span class="s1">()))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Automatically sets the ETag header according to the checksum of the file.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAutoEtag</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setEtag</span><span class="s1">(</span><span class="s3">base64_encode</span><span class="s1">(</span><span class="s3">hash_file</span><span class="s1">(</span><span class="s9">'sha256'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Content-Disposition header with the given filename.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $disposition      ResponseHeaderBag::DISPOSITION_INLINE or ResponseHeaderBag::DISPOSITION_ATTACHMENT</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $filename         Optionally use this UTF-8 encoded filename instead of the real name of the file</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $filenameFallback A fallback filename, containing only ASCII characters. Defaults to an automatically encoded filename</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setContentDisposition</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$disposition</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$filename </span><span class="s1">= </span><span class="s9">''</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$filenameFallback </span><span class="s1">= </span><span class="s9">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$filename</span><span class="s1">) {</span>
+            <span class="s7">$filename </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getFilename</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$filenameFallback </span><span class="s1">&amp;&amp; (!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'/^[\x20-\x7e]*$/'</span><span class="s0">, </span><span class="s7">$filename</span><span class="s1">) || </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$filename</span><span class="s0">, </span><span class="s9">'%'</span><span class="s1">))) {</span>
+            <span class="s7">$encoding </span><span class="s1">= </span><span class="s3">mb_detect_encoding</span><span class="s1">(</span><span class="s7">$filename</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) ?: </span><span class="s9">'8bit'</span><span class="s0">;</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$filenameLength </span><span class="s1">= </span><span class="s3">mb_strlen</span><span class="s1">(</span><span class="s7">$filename</span><span class="s0">, </span><span class="s7">$encoding</span><span class="s1">)</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$filenameLength</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+                <span class="s7">$char </span><span class="s1">= </span><span class="s3">mb_substr</span><span class="s1">(</span><span class="s7">$filename</span><span class="s0">, </span><span class="s7">$i</span><span class="s0">, </span><span class="s8">1</span><span class="s0">, </span><span class="s7">$encoding</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">'%' </span><span class="s1">=== </span><span class="s7">$char </span><span class="s1">|| \</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$char</span><span class="s1">) &lt; </span><span class="s8">32 </span><span class="s1">|| \</span><span class="s3">ord</span><span class="s1">(</span><span class="s7">$char</span><span class="s1">) &gt; </span><span class="s8">126</span><span class="s1">) {</span>
+                    <span class="s7">$filenameFallback </span><span class="s1">.= </span><span class="s9">'_'</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$filenameFallback </span><span class="s1">.= </span><span class="s7">$char</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$dispositionHeader </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">makeDisposition</span><span class="s1">(</span><span class="s7">$disposition</span><span class="s0">, </span><span class="s7">$filename</span><span class="s0">, </span><span class="s7">$filenameFallback</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Disposition'</span><span class="s0">, </span><span class="s7">$dispositionHeader</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">prepare</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Type'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getMimeType</span><span class="s1">() ?: </span><span class="s9">'application/octet-stream'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">'HTTP/1.0' </span><span class="s1">!== </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">server</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'SERVER_PROTOCOL'</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setProtocolVersion</span><span class="s1">(</span><span class="s9">'1.1'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ensureIEOverSSLCompatibility</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxlen </span><span class="s1">= -</span><span class="s8">1</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$fileSize </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getSize</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s0">, </span><span class="s7">$fileSize</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Accept-Ranges'</span><span class="s1">)) {</span>
+            <span class="s2">// Only accept ranges on safe HTTP methods</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Accept-Ranges'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">isMethodSafe</span><span class="s1">() ? </span><span class="s9">'bytes' </span><span class="s1">: </span><span class="s9">'none'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$trustXSendfileTypeHeader </span><span class="s1">&amp;&amp; </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'X-Sendfile-Type'</span><span class="s1">)) {</span>
+            <span class="s2">// Use X-Sendfile, do not send any content.</span>
+            <span class="s7">$type </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'X-Sendfile-Type'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getRealPath</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s2">// Fall back to scheme://path for stream wrapped locations.</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$path</span><span class="s1">) {</span>
+                <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'x-accel-redirect' </span><span class="s1">=== </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$type</span><span class="s1">)) {</span>
+                <span class="s2">// Do X-Accel-Mapping substitutions.</span>
+                <span class="s2">// @link https://www.nginx.com/resources/wiki/start/topics/examples/x-accel/#x-accel-redirect</span>
+                <span class="s7">$parts </span><span class="s1">= </span><span class="s3">HeaderUtils</span><span class="s1">::</span><span class="s3">split</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'X-Accel-Mapping'</span><span class="s0">, </span><span class="s9">''</span><span class="s1">)</span><span class="s0">, </span><span class="s9">',='</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$parts </span><span class="s0">as </span><span class="s7">$part</span><span class="s1">) {</span>
+                    <span class="s0">list</span><span class="s1">(</span><span class="s7">$pathPrefix</span><span class="s0">, </span><span class="s7">$location</span><span class="s1">) = </span><span class="s7">$part</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$pathPrefix</span><span class="s1">)) === </span><span class="s7">$pathPrefix</span><span class="s1">) {</span>
+                        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$location</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$pathPrefix</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s2">// Only set X-Accel-Redirect header if a valid URI can be produced</span>
+                        <span class="s2">// as nginx does not serve arbitrary file paths.</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxlen </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxlen </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'Range'</span><span class="s1">)) {</span>
+            <span class="s2">// Process the range headers.</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s9">'If-Range'</span><span class="s1">) || </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasValidIfRangeHeader</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'If-Range'</span><span class="s1">))) {</span>
+                <span class="s7">$range </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">'Range'</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">list</span><span class="s1">(</span><span class="s7">$start</span><span class="s0">, </span><span class="s7">$end</span><span class="s1">) = </span><span class="s3">explode</span><span class="s1">(</span><span class="s9">'-'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$range</span><span class="s0">, </span><span class="s8">6</span><span class="s1">)</span><span class="s0">, </span><span class="s8">2</span><span class="s1">) + [</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+
+                <span class="s7">$end </span><span class="s1">= (</span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$end</span><span class="s1">) ? </span><span class="s7">$fileSize </span><span class="s1">- </span><span class="s8">1 </span><span class="s1">: (int) </span><span class="s7">$end</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$start</span><span class="s1">) {</span>
+                    <span class="s7">$start </span><span class="s1">= </span><span class="s7">$fileSize </span><span class="s1">- </span><span class="s7">$end</span><span class="s0">;</span>
+                    <span class="s7">$end </span><span class="s1">= </span><span class="s7">$fileSize </span><span class="s1">- </span><span class="s8">1</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$start </span><span class="s1">= (int) </span><span class="s7">$start</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$start </span><span class="s1">&lt;= </span><span class="s7">$end</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$start </span><span class="s1">&lt; </span><span class="s8">0 </span><span class="s1">|| </span><span class="s7">$end </span><span class="s1">&gt; </span><span class="s7">$fileSize </span><span class="s1">- </span><span class="s8">1</span><span class="s1">) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s8">416</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Range'</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'bytes */%s'</span><span class="s0">, </span><span class="s7">$fileSize</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">!== </span><span class="s7">$start </span><span class="s1">|| </span><span class="s7">$end </span><span class="s1">!== </span><span class="s7">$fileSize </span><span class="s1">- </span><span class="s8">1</span><span class="s1">) {</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxlen </span><span class="s1">= </span><span class="s7">$end </span><span class="s1">&lt; </span><span class="s7">$fileSize </span><span class="s1">? </span><span class="s7">$end </span><span class="s1">- </span><span class="s7">$start </span><span class="s1">+ </span><span class="s8">1 </span><span class="s1">: -</span><span class="s8">1</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">= </span><span class="s7">$start</span><span class="s0">;</span>
+
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s8">206</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Range'</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'bytes %s-%s/%s'</span><span class="s0">, </span><span class="s7">$start</span><span class="s0">, </span><span class="s7">$end</span><span class="s0">, </span><span class="s7">$fileSize</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">headers</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s9">'Content-Length'</span><span class="s0">, </span><span class="s7">$end </span><span class="s1">- </span><span class="s7">$start </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">hasValidIfRangeHeader</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$header</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getEtag</span><span class="s1">() === </span><span class="s7">$header</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$lastModified </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getLastModified</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$lastModified</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s9">'D, d M Y H:i:s'</span><span class="s1">).</span><span class="s9">' GMT' </span><span class="s1">=== </span><span class="s7">$header</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sends the file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sendContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isSuccessful</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">sendContent</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxlen</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$out </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s9">'php://output'</span><span class="s0">, </span><span class="s9">'wb'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$file </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">()</span><span class="s0">, </span><span class="s9">'rb'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s3">stream_copy_to_stream</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$out</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">maxlen</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">offset</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$out</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deleteFileAfterSend </span><span class="s1">&amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">())) {</span>
+            <span class="s3">unlink</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s1">-&gt;</span><span class="s3">getPathname</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException when the content is not null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setContent</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$content</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$content</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s9">'The content cannot be set on a BinaryFileResponse instance.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getContent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Trust X-Sendfile-Type header.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">trustXSendfileTypeHeader</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s7">$trustXSendfileTypeHeader </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* If this is set to true, the file will be unlinked after the request is sent</span>
+     <span class="s4">* Note: If the X-Sendfile header is used, the deleteFileAfterSend setting will not be used.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteFileAfterSend</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$shouldDelete </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deleteFileAfterSend </span><span class="s1">= </span><span class="s7">$shouldDelete</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

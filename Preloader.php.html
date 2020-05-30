@@ -1,0 +1,125 @@
+<html>
+<head>
+<title>Preloader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Preloader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Preloader</span>
+<span class="s1">{</span>
+    <span class="s0">public static function </span><span class="s3">preload</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$classes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$t</span><span class="s0">, </span><span class="s7">$m</span><span class="s0">, </span><span class="s7">$f</span><span class="s0">, </span><span class="s7">$l</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">error_reporting</span><span class="s1">() &amp; </span><span class="s7">$t</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">__FILE__ </span><span class="s1">!== </span><span class="s7">$f</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">(</span><span class="s7">$m</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$t</span><span class="s0">, </span><span class="s7">$f</span><span class="s0">, </span><span class="s7">$l</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">ReflectionException</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s7">$prev </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$preloaded </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">while </span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">!== </span><span class="s7">$classes</span><span class="s1">) {</span>
+                <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$classes</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$classes </span><span class="s0">as </span><span class="s7">$c</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$preloaded</span><span class="s1">[</span><span class="s7">$c</span><span class="s1">])) {</span>
+                        <span class="s3">self</span><span class="s1">::</span><span class="s3">doPreload</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s7">$preloaded</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s7">$classes </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s3">get_declared_classes</span><span class="s1">()</span><span class="s0">, </span><span class="s3">get_declared_interfaces</span><span class="s1">()</span><span class="s0">, </span><span class="s3">get_declared_traits</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">doPreload</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$class</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$preloaded</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$preloaded</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]) || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s1">[</span><span class="s9">'self'</span><span class="s0">, </span><span class="s9">'static'</span><span class="s0">, </span><span class="s9">'parent'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$preloaded</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isInternal</span><span class="s1">()) {</span>
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getConstants</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getDefaultProperties</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&gt;= </span><span class="s8">70400</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">(\</span><span class="s3">ReflectionProperty</span><span class="s1">::</span><span class="s3">IS_PUBLIC</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$p</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">((</span><span class="s7">$t </span><span class="s1">= </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">getType</span><span class="s1">()) &amp;&amp; !</span><span class="s7">$t</span><span class="s1">-&gt;</span><span class="s3">isBuiltin</span><span class="s1">()) {</span>
+                        <span class="s3">self</span><span class="s1">::</span><span class="s3">doPreload</span><span class="s1">(</span><span class="s7">$t</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$preloaded</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">(\</span><span class="s3">ReflectionMethod</span><span class="s1">::</span><span class="s3">IS_PUBLIC</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$m</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$m</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$p</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">isDefaultValueAvailable</span><span class="s1">() &amp;&amp; </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">isDefaultValueConstant</span><span class="s1">()) {</span>
+                        <span class="s7">$c </span><span class="s1">= </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">getDefaultValueConstantName</span><span class="s1">()</span><span class="s0">;</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s9">'::'</span><span class="s1">)) {</span>
+                            <span class="s3">self</span><span class="s1">::</span><span class="s3">doPreload</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$preloaded</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">if </span><span class="s1">((</span><span class="s7">$t </span><span class="s1">= </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">getType</span><span class="s1">()) &amp;&amp; !</span><span class="s7">$t</span><span class="s1">-&gt;</span><span class="s3">isBuiltin</span><span class="s1">()) {</span>
+                        <span class="s3">self</span><span class="s1">::</span><span class="s3">doPreload</span><span class="s1">(</span><span class="s7">$t</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$preloaded</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">((</span><span class="s7">$t </span><span class="s1">= </span><span class="s7">$m</span><span class="s1">-&gt;</span><span class="s3">getReturnType</span><span class="s1">()) &amp;&amp; !</span><span class="s7">$t</span><span class="s1">-&gt;</span><span class="s3">isBuiltin</span><span class="s1">()) {</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s3">doPreload</span><span class="s1">(</span><span class="s7">$t</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$preloaded</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">ReflectionException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s2">// ignore missing classes</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

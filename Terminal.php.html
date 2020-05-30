@@ -1,0 +1,193 @@
+<html>
+<head>
+<title>Terminal.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #9876aa;}
+.s5 { color: #629755; font-style: italic;}
+.s6 { color: #629755; font-weight: bold; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Terminal.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s0">;</span>
+<hr class="ls0"><span class="s0">class </span><span class="s3">Terminal</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s4">$width</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s4">$height</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s4">$stty</span><span class="s0">;</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* Gets the terminal width.</span>
+     <span class="s5">*</span>
+     <span class="s5">* </span><span class="s6">@return </span><span class="s5">int</span>
+     <span class="s5">*/</span>
+    <span class="s0">public function </span><span class="s3">getWidth</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s4">$width </span><span class="s1">= </span><span class="s3">getenv</span><span class="s1">(</span><span class="s7">'COLUMNS'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s4">$width</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s3">trim</span><span class="s1">(</span><span class="s4">$width</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$width</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">initDimensions</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$width </span><span class="s1">?: </span><span class="s8">80</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* Gets the terminal height.</span>
+     <span class="s5">*</span>
+     <span class="s5">* </span><span class="s6">@return </span><span class="s5">int</span>
+     <span class="s5">*/</span>
+    <span class="s0">public function </span><span class="s3">getHeight</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s4">$height </span><span class="s1">= </span><span class="s3">getenv</span><span class="s1">(</span><span class="s7">'LINES'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s4">$height</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">(int) </span><span class="s3">trim</span><span class="s1">(</span><span class="s4">$height</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$height</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">initDimensions</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$height </span><span class="s1">?: </span><span class="s8">50</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* </span><span class="s6">@internal</span>
+     <span class="s5">*</span>
+     <span class="s5">* </span><span class="s6">@return </span><span class="s5">bool</span>
+     <span class="s5">*/</span>
+    <span class="s0">public static function </span><span class="s3">hasSttyAvailable</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$stty</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$stty</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">exec</span><span class="s1">(</span><span class="s7">'stty 2&gt;&amp;1'</span><span class="s0">, </span><span class="s4">$output</span><span class="s0">, </span><span class="s4">$exitcode</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s4">$stty </span><span class="s1">= </span><span class="s8">0 </span><span class="s1">=== </span><span class="s4">$exitcode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">initDimensions</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(\d+)x(\d+)(?: \((\d+)x(\d+)\))?$/'</span><span class="s0">, </span><span class="s3">trim</span><span class="s1">(</span><span class="s3">getenv</span><span class="s1">(</span><span class="s7">'ANSICON'</span><span class="s1">))</span><span class="s0">, </span><span class="s4">$matches</span><span class="s1">)) {</span>
+                <span class="s2">// extract [w, H] from &quot;wxh (WxH)&quot;</span>
+                <span class="s2">// or [w, h] from &quot;wxh&quot;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$width </span><span class="s1">= (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$height </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">4</span><span class="s1">]) ? (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">4</span><span class="s1">] : (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s3">self</span><span class="s1">::</span><span class="s3">hasVt100Support</span><span class="s1">() &amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">hasSttyAvailable</span><span class="s1">()) {</span>
+                <span class="s2">// only use stty on Windows if the terminal does not support vt100 (e.g. Windows 7 + git-bash)</span>
+                <span class="s2">// testing for stty in a Windows 10 vt100-enabled console will implicitly disable vt100 support on STDOUT</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s3">initDimensionsUsingStty</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s4">$dimensions </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getConsoleMode</span><span class="s1">()) {</span>
+                <span class="s2">// extract [w, h] from &quot;wxh&quot;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$width </span><span class="s1">= (int) </span><span class="s4">$dimensions</span><span class="s1">[</span><span class="s8">0</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$height </span><span class="s1">= (int) </span><span class="s4">$dimensions</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">initDimensionsUsingStty</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* Returns whether STDOUT has vt100 support (some Windows 10+ configurations).</span>
+     <span class="s5">*/</span>
+    <span class="s0">private static function </span><span class="s3">hasVt100Support</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s7">'sapi_windows_vt100_support'</span><span class="s1">) &amp;&amp; </span><span class="s3">sapi_windows_vt100_support</span><span class="s1">(</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">'php://stdout'</span><span class="s0">, </span><span class="s7">'w'</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* Initializes dimensions using the output of an stty columns line.</span>
+     <span class="s5">*/</span>
+    <span class="s0">private static function </span><span class="s3">initDimensionsUsingStty</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$sttyString </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getSttyColumns</span><span class="s1">()) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/rows.(\d+);.columns.(\d+);/i'</span><span class="s0">, </span><span class="s4">$sttyString</span><span class="s0">, </span><span class="s4">$matches</span><span class="s1">)) {</span>
+                <span class="s2">// extract [w, h] from &quot;rows h; columns w;&quot;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$width </span><span class="s1">= (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$height </span><span class="s1">= (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/;.(\d+).rows;.(\d+).columns/i'</span><span class="s0">, </span><span class="s4">$sttyString</span><span class="s0">, </span><span class="s4">$matches</span><span class="s1">)) {</span>
+                <span class="s2">// extract [w, h] from &quot;; h rows; w columns&quot;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$width </span><span class="s1">= (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s4">$height </span><span class="s1">= (int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* Runs and parses mode CON if it's available, suppressing any error output.</span>
+     <span class="s5">*</span>
+     <span class="s5">* </span><span class="s6">@return </span><span class="s5">int[]|null An array composed of the width and the height or null if it could not be parsed</span>
+     <span class="s5">*/</span>
+    <span class="s0">private static function </span><span class="s3">getConsoleMode</span><span class="s1">(): ?</span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s4">$info </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">readFromProcess</span><span class="s1">(</span><span class="s7">'mode CON'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$info </span><span class="s1">|| !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/--------+\r?\n.+?(\d+)\r?\n.+?(\d+)\r?\n/'</span><span class="s0">, </span><span class="s4">$info</span><span class="s0">, </span><span class="s4">$matches</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[(int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">2</span><span class="s1">]</span><span class="s0">, </span><span class="s1">(int) </span><span class="s4">$matches</span><span class="s1">[</span><span class="s8">1</span><span class="s1">]]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s5">/**</span>
+     <span class="s5">* Runs and parses stty -a if it's available, suppressing any error output.</span>
+     <span class="s5">*/</span>
+    <span class="s0">private static function </span><span class="s3">getSttyColumns</span><span class="s1">(): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">readFromProcess</span><span class="s1">(</span><span class="s7">'stty -a | grep columns'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">readFromProcess</span><span class="s1">(</span><span class="s3">string </span><span class="s4">$command</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s7">'proc_open'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$descriptorspec </span><span class="s1">= [</span>
+            <span class="s8">1 </span><span class="s1">=&gt; [</span><span class="s7">'pipe'</span><span class="s0">, </span><span class="s7">'w'</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">2 </span><span class="s1">=&gt; [</span><span class="s7">'pipe'</span><span class="s0">, </span><span class="s7">'w'</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s4">$process </span><span class="s1">= </span><span class="s3">proc_open</span><span class="s1">(</span><span class="s4">$command</span><span class="s0">, </span><span class="s4">$descriptorspec</span><span class="s0">, </span><span class="s4">$pipes</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'suppress_errors' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s4">$process</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$info </span><span class="s1">= </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s4">$pipes</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s3">fclose</span><span class="s1">(</span><span class="s4">$pipes</span><span class="s1">[</span><span class="s8">1</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s3">fclose</span><span class="s1">(</span><span class="s4">$pipes</span><span class="s1">[</span><span class="s8">2</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s3">proc_close</span><span class="s1">(</span><span class="s4">$process</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s4">$info</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

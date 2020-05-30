@@ -1,0 +1,556 @@
+<html>
+<head>
+<title>XmlDescriptor.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+XmlDescriptor.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Descriptor</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Alias</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">IteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ServiceClosureArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ServiceLocatorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">EventDispatcher</span><span class="s1">\</span><span class="s3">EventDispatcherInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Route</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCollection</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Jean-François Simon </span><span class="s6">&lt;jeanfrancois.simon</span><span class="s4">@sensiolabs.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">XmlDescriptor </span><span class="s0">extends </span><span class="s3">Descriptor</span>
+<span class="s1">{</span>
+    <span class="s0">protected function </span><span class="s3">describeRouteCollection</span><span class="s1">(</span><span class="s3">RouteCollection </span><span class="s7">$routes</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRouteCollectionDocument</span><span class="s1">(</span><span class="s7">$routes</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeRoute</span><span class="s1">(</span><span class="s3">Route </span><span class="s7">$route</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRouteDocument</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">] : </span><span class="s3">null</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerParameters</span><span class="s1">(</span><span class="s3">ParameterBag </span><span class="s7">$parameters</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerParametersDocument</span><span class="s1">(</span><span class="s7">$parameters</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerTags</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$builder</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerTagsDocument</span><span class="s1">(</span><span class="s7">$builder</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_hidden'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_hidden'</span><span class="s1">]))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerService</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">ContainerBuilder </span><span class="s7">$builder </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'An &quot;id&quot; option must be provided.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerServiceDocument</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$builder</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_arguments'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_arguments'</span><span class="s1">]))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerServices</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$builder</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerServicesDocument</span><span class="s1">(</span><span class="s7">$builder</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'tag'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'tag'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_hidden'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_hidden'</span><span class="s1">]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_arguments'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_arguments'</span><span class="s1">]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'filter'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'filter'</span><span class="s1">] : </span><span class="s3">null</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerDefinition</span><span class="s1">(</span><span class="s3">Definition </span><span class="s7">$definition</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s7">$definition</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'omit_tags'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'omit_tags'</span><span class="s1">]</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_arguments'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'show_arguments'</span><span class="s1">]))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerAlias</span><span class="s1">(</span><span class="s3">Alias </span><span class="s7">$alias</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">ContainerBuilder </span><span class="s7">$builder </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerAliasDocument</span><span class="s1">(</span><span class="s7">$alias</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'id'</span><span class="s1">] : </span><span class="s3">null</span><span class="s1">)-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$builder</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">((string) </span><span class="s7">$alias</span><span class="s1">)</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$alias</span><span class="s1">)-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeEventDispatcherListeners</span><span class="s1">(</span><span class="s3">EventDispatcherInterface </span><span class="s7">$eventDispatcher</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getEventDispatcherListenersDocument</span><span class="s1">(</span><span class="s7">$eventDispatcher</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'event'</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'event'</span><span class="s1">] : </span><span class="s3">null</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeCallable</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCallableDocument</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerParameter</span><span class="s1">(</span><span class="s7">$parameter</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">writeDocument</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerParameterDocument</span><span class="s1">(</span><span class="s7">$parameter</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">describeContainerEnvVars</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$envs</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'Using the XML format to debug environment variables is not supported.'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">writeDocument</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s7">$dom</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">formatOutput </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">write</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">saveXML</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getRouteCollectionDocument</span><span class="s1">(</span><span class="s3">RouteCollection </span><span class="s7">$routes</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$routesXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'routes'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s7">$routeXML </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRouteDocument</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$routesXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$routesXML</span><span class="s1">-&gt;</span><span class="s3">ownerDocument</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getRouteDocument</span><span class="s1">(</span><span class="s3">Route </span><span class="s7">$route</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$routeXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'route'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$pathXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'path'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$pathXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'regex'</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getRegex</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$pathXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$hostXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'host'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$hostXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'regex'</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getHostRegex</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$hostXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$scheme</span><span class="s1">) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$schemeXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'scheme'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$schemeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$scheme</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$method</span><span class="s1">) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$methodXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'method'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$methodXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$method</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$defaultsXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'defaults'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$attribute </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$defaultsXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$defaultXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'default'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$defaultXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'key'</span><span class="s0">, </span><span class="s7">$attribute</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$defaultXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$originRequirements </span><span class="s1">= </span><span class="s7">$requirements </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getRequirements</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$requirements</span><span class="s1">[</span><span class="s8">'_scheme'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$requirements</span><span class="s1">[</span><span class="s8">'_method'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$requirements</span><span class="s1">) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$requirementsXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'requirements'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$originRequirements </span><span class="s0">as </span><span class="s7">$attribute </span><span class="s1">=&gt; </span><span class="s7">$pattern</span><span class="s1">) {</span>
+                <span class="s7">$requirementsXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$requirementXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'requirement'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$requirementXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'key'</span><span class="s0">, </span><span class="s7">$attribute</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$requirementXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$pattern</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">()) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$optionsXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'options'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getOptions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$optionsXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$optionXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'option'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$optionXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'key'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$optionXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()) {</span>
+            <span class="s7">$routeXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$conditionXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'condition'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$conditionXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerParametersDocument</span><span class="s1">(</span><span class="s3">ParameterBag </span><span class="s7">$parameters</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$parametersXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'parameters'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sortParameters</span><span class="s1">(</span><span class="s7">$parameters</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s7">$parametersXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$parameterXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'parameter'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$parameterXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'key'</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$parameterXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatParameter</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerTagsDocument</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$builder</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$showHidden </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$containerXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'container'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">findDefinitionsByTag</span><span class="s1">(</span><span class="s7">$builder</span><span class="s0">, </span><span class="s7">$showHidden</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$tag </span><span class="s1">=&gt; </span><span class="s7">$definitions</span><span class="s1">) {</span>
+            <span class="s7">$containerXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$tagXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'tag'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$tagXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$tag</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definitions </span><span class="s0">as </span><span class="s7">$serviceId </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">) {</span>
+                <span class="s7">$definitionXML </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s7">$definition</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$tagXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$definitionXML</span><span class="s1">-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerServiceDocument</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">ContainerBuilder </span><span class="s7">$builder </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$showArguments </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$service </span><span class="s0">instanceof </span><span class="s3">Alias</span><span class="s1">) {</span>
+            <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerAliasDocument</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$builder</span><span class="s1">) {</span>
+                <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">((string) </span><span class="s7">$service</span><span class="s1">)</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$service</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$showArguments</span><span class="s1">)-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$service </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+            <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$showArguments</span><span class="s1">)-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$serviceXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'service'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'id'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$service</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerServicesDocument</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$builder</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$tag </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$showHidden </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$showArguments </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, callable </span><span class="s7">$filter </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$containerXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'container'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$serviceIds </span><span class="s1">= </span><span class="s7">$tag</span>
+            <span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sortTaggedServicesByPriority</span><span class="s1">(</span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">findTaggedServiceIds</span><span class="s1">(</span><span class="s7">$tag</span><span class="s1">))</span>
+            <span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sortServiceIds</span><span class="s1">(</span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">getServiceIds</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$filter</span><span class="s1">) {</span>
+            <span class="s7">$serviceIds </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$serviceIds</span><span class="s0">, </span><span class="s7">$filter</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$serviceIds </span><span class="s0">as </span><span class="s7">$serviceId</span><span class="s1">) {</span>
+            <span class="s7">$service </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveServiceDefinition</span><span class="s1">(</span><span class="s7">$builder</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$showHidden </span><span class="s0">xor </span><span class="s8">'.' </span><span class="s1">=== (</span><span class="s7">$serviceId</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$serviceXML </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerServiceDocument</span><span class="s1">(</span><span class="s7">$service</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$showArguments</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$containerXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$containerXML</span><span class="s1">-&gt;</span><span class="s3">ownerDocument</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s3">Definition </span><span class="s7">$definition</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$id </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$omitTags </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$showArguments </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$serviceXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'definition'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'id'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$classDescription </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getClassDescription</span><span class="s1">((string) </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">())) {</span>
+            <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$descriptionXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'description'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s7">$descriptionXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createCDATASection</span><span class="s1">(</span><span class="s7">$classDescription</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$factory </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">()) {</span>
+            <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$factoryXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'factory'</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+                    <span class="s7">$factoryXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'service'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Factory is not describable.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$factoryXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$factoryXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'method'</span><span class="s0">, </span><span class="s7">$factory</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$factoryXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'function'</span><span class="s0">, </span><span class="s7">$factory</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'public'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">() &amp;&amp; !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'synthetic'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isSynthetic</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'lazy'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'shared'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'abstract'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'autowired'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAutowired</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'autoconfigured'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAutoconfigured</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'file'</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$calls </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$calls</span><span class="s1">) &gt; </span><span class="s9">0</span><span class="s1">) {</span>
+            <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$callsXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'calls'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$calls </span><span class="s0">as </span><span class="s7">$callData</span><span class="s1">) {</span>
+                <span class="s7">$callsXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$callXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'call'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$callXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'method'</span><span class="s0">, </span><span class="s7">$callData</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$callData</span><span class="s1">[</span><span class="s9">2</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                    <span class="s7">$callXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'returns-clone'</span><span class="s0">, </span><span class="s8">'true'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$showArguments</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentNodes</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$dom</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$node</span><span class="s1">) {</span>
+                <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$omitTags</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$tags </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">sortTagsByPriority</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getTags</span><span class="s1">())) {</span>
+                <span class="s7">$serviceXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$tagsXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'tags'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tags </span><span class="s0">as </span><span class="s7">$tagName </span><span class="s1">=&gt; </span><span class="s7">$tagData</span><span class="s1">) {</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tagData </span><span class="s0">as </span><span class="s7">$parameters</span><span class="s1">) {</span>
+                        <span class="s7">$tagsXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$tagXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'tag'</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s7">$tagXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$tagName</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$parameters </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                            <span class="s7">$tagXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$parameterXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'parameter'</span><span class="s1">))</span><span class="s0">;</span>
+                            <span class="s7">$parameterXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s7">$parameterXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatParameter</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\DOMNode[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getArgumentNodes</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$arguments</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DOMDocument </span><span class="s7">$dom</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$nodes </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$arguments </span><span class="s0">as </span><span class="s7">$argumentKey </span><span class="s1">=&gt; </span><span class="s7">$argument</span><span class="s1">) {</span>
+            <span class="s7">$argumentXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'argument'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$argumentKey</span><span class="s1">)) {</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'key'</span><span class="s0">, </span><span class="s7">$argumentKey</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">ServiceClosureArgument</span><span class="s1">) {</span>
+                <span class="s7">$argument </span><span class="s1">= </span><span class="s7">$argument</span><span class="s1">-&gt;</span><span class="s3">getValues</span><span class="s1">()[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s8">'service'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'id'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">IteratorArgument </span><span class="s1">|| </span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">ServiceLocatorArgument</span><span class="s1">) {</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">IteratorArgument </span><span class="s1">? </span><span class="s8">'iterator' </span><span class="s1">: </span><span class="s8">'service_locator'</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentNodes</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">-&gt;</span><span class="s3">getValues</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$dom</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$childArgumentXML</span><span class="s1">) {</span>
+                    <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$childArgumentXML</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$argument </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerDefinitionDocument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)) {</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s8">'collection'</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentNodes</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$dom</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$childArgumentXML</span><span class="s1">) {</span>
+                    <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$childArgumentXML</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$argumentXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$nodes</span><span class="s1">[] = </span><span class="s7">$argumentXML</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$nodes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerAliasDocument</span><span class="s1">(</span><span class="s3">Alias </span><span class="s7">$alias</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$id </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$aliasXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'alias'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s7">$aliasXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'id'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$aliasXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'service'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s7">$alias</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$aliasXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'public'</span><span class="s0">, </span><span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">() &amp;&amp; !</span><span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">() ? </span><span class="s8">'true' </span><span class="s1">: </span><span class="s8">'false'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getContainerParameterDocument</span><span class="s1">(</span><span class="s7">$parameter</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= []): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$parameterXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'parameter'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'parameter'</span><span class="s1">])) {</span>
+            <span class="s7">$parameterXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'key'</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'parameter'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$parameterXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">formatParameter</span><span class="s1">(</span><span class="s7">$parameter</span><span class="s1">)))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getEventDispatcherListenersDocument</span><span class="s1">(</span><span class="s3">EventDispatcherInterface </span><span class="s7">$eventDispatcher</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$event </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$eventDispatcherXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'event-dispatcher'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s7">$registeredListeners </span><span class="s1">= </span><span class="s7">$eventDispatcher</span><span class="s1">-&gt;</span><span class="s3">getListeners</span><span class="s1">(</span><span class="s7">$event</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$event</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">appendEventListenerDocument</span><span class="s1">(</span><span class="s7">$eventDispatcher</span><span class="s0">, </span><span class="s7">$event</span><span class="s0">, </span><span class="s7">$eventDispatcherXML</span><span class="s0">, </span><span class="s7">$registeredListeners</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s3">ksort</span><span class="s1">(</span><span class="s7">$registeredListeners</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$registeredListeners </span><span class="s0">as </span><span class="s7">$eventListened </span><span class="s1">=&gt; </span><span class="s7">$eventListeners</span><span class="s1">) {</span>
+                <span class="s7">$eventDispatcherXML</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$eventXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'event'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$eventXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$eventListened</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">appendEventListenerDocument</span><span class="s1">(</span><span class="s7">$eventDispatcher</span><span class="s0">, </span><span class="s7">$eventListened</span><span class="s0">, </span><span class="s7">$eventXML</span><span class="s0">, </span><span class="s7">$eventListeners</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">appendEventListenerDocument</span><span class="s1">(</span><span class="s3">EventDispatcherInterface </span><span class="s7">$eventDispatcher</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$event</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DOMElement </span><span class="s7">$element</span><span class="s0">, array </span><span class="s7">$eventListeners</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$eventListeners </span><span class="s0">as </span><span class="s7">$listener</span><span class="s1">) {</span>
+            <span class="s7">$callableXML </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCallableDocument</span><span class="s1">(</span><span class="s7">$listener</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'priority'</span><span class="s0">, </span><span class="s7">$eventDispatcher</span><span class="s1">-&gt;</span><span class="s3">getListenerPriority</span><span class="s1">(</span><span class="s7">$event</span><span class="s0">, </span><span class="s7">$listener</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s7">$element</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$element</span><span class="s1">-&gt;</span><span class="s3">ownerDocument</span><span class="s1">-&gt;</span><span class="s3">importNode</span><span class="s1">(</span><span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">childNodes</span><span class="s1">-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getCallableDocument</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">(</span><span class="s8">'1.0'</span><span class="s0">, </span><span class="s8">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">appendChild</span><span class="s1">(</span><span class="s7">$callableXML </span><span class="s1">= </span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">createElement</span><span class="s1">(</span><span class="s8">'callable'</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">)) {</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s8">'function'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])) {</span>
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'parent::'</span><span class="s1">)) {</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'static'</span><span class="s0">, </span><span class="s8">'true'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s9">8</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'static'</span><span class="s0">, </span><span class="s8">'true'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'parent'</span><span class="s0">, </span><span class="s8">'true'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">)) {</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s8">'function'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, </span><span class="s8">'::'</span><span class="s1">)) {</span>
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$callableParts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'::'</span><span class="s0">, </span><span class="s7">$callable</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$callableParts</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s7">$callableParts</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'static'</span><span class="s0">, </span><span class="s8">'true'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$callable </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure</span><span class="s1">) {</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s8">'closure'</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionFunction</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s8">'{closure}'</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$class </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getClosureScopeClass</span><span class="s1">()) {</span>
+                <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'class'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getClosureThis</span><span class="s1">()) {</span>
+                    <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'static'</span><span class="s0">, </span><span class="s8">'true'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$callable</span><span class="s0">, </span><span class="s8">'__invoke'</span><span class="s1">)) {</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'type'</span><span class="s0">, </span><span class="s8">'object'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$callableXML</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s8">'name'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$callable</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Callable is not describable.'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<html>
+<head>
+<title>Controls.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #629755; font-style: italic;}
+.s3 { color: #629755; font-weight: bold; font-style: italic;}
+.s4 { color: #a9b7c6;}
+.s5 { color: #9876aa;}
+.s6 { color: #6a8759;}
+.s7 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Controls.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span><hr class="ls0"><span class="s2">/**</span>
+<span class="s2">* This file is part of the League.csv library</span>
+<span class="s2">*</span>
+<span class="s2">* </span><span class="s3">@license </span><span class="s2">http://opensource.org/licenses/MIT</span>
+<span class="s2">* </span><span class="s3">@link </span><span class="s2">https://github.com/thephpleague/csv/</span>
+<span class="s2">* </span><span class="s3">@version </span><span class="s2">8.0.0</span>
+<span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+<span class="s2">*</span>
+<span class="s2">* For the full copyright and license information, please view the LICENSE</span>
+<span class="s2">* file that was distributed with this source code.</span>
+<span class="s2">*/</span>
+<span class="s0">namespace </span><span class="s4">League</span><span class="s1">\</span><span class="s4">Csv</span><span class="s1">\</span><span class="s4">Config</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s4">CallbackFilterIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">LimitIterator</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s4">SplFileObject</span><span class="s0">;</span>
+<hr class="ls0"><span class="s2">/**</span>
+ <span class="s2">*  A trait to configure and check CSV file and content</span>
+ <span class="s2">*</span>
+ <span class="s2">* </span><span class="s3">@package </span><span class="s2">League.csv</span>
+ <span class="s2">* </span><span class="s3">@since  </span><span class="s2">6.0.0</span>
+ <span class="s2">*</span>
+ <span class="s2">*/</span>
+<span class="s0">trait </span><span class="s4">Controls</span>
+<span class="s1">{</span>
+    <span class="s2">/**</span>
+     <span class="s2">* the field delimiter (one character only)</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$delimiter </span><span class="s1">= </span><span class="s6">','</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* the field enclosure character (one character only)</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$enclosure </span><span class="s1">= </span><span class="s6">'&quot;'</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* the field escape character (one character only)</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$escape </span><span class="s1">= </span><span class="s6">'</span><span class="s0">\\</span><span class="s6">'</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* newline character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@var </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected </span><span class="s5">$newline </span><span class="s1">= </span><span class="s6">&quot;</span><span class="s0">\n</span><span class="s6">&quot;</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Sets the field delimiter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $delimiter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If $delimiter is not a single character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">setDelimiter</span><span class="s1">(</span><span class="s5">$delimiter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">isValidCsvControls</span><span class="s1">(</span><span class="s5">$delimiter</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s6">'The delimiter must be a single character'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">delimiter </span><span class="s1">= </span><span class="s5">$delimiter</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Tell whether the submitted string is a valid CSV Control character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $str The submitted string</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">bool</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">isValidCsvControls</span><span class="s1">(</span><span class="s5">$str</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">1 </span><span class="s1">== </span><span class="s4">mb_strlen</span><span class="s1">(</span><span class="s5">$str</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the current field delimiter</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">getDelimiter</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">delimiter</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Detect Delimiters occurences in the CSV</span>
+     <span class="s2">*</span>
+     <span class="s2">* Returns a associative array where each key represents</span>
+     <span class="s2">* a valid delimiter and each value the number of occurences</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string[] $delimiters the delimiters to consider</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int      $nb_rows    Detection is made using $nb_rows of the CSV</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">array</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">fetchDelimitersOccurrence</span><span class="s1">(</span><span class="s0">array </span><span class="s5">$delimiters</span><span class="s0">, </span><span class="s5">$nb_rows </span><span class="s1">= </span><span class="s7">1</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$nb_rows </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">validateInteger</span><span class="s1">(</span><span class="s5">$nb_rows</span><span class="s0">, </span><span class="s7">1</span><span class="s0">, </span><span class="s6">'The number of rows to consider must be a valid positive integer'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s5">$filterRow </span><span class="s1">= </span><span class="s0">function </span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s4">is_array</span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) &amp;&amp; </span><span class="s4">count</span><span class="s1">(</span><span class="s5">$row</span><span class="s1">) &gt; </span><span class="s7">1</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+        <span class="s5">$delimiters </span><span class="s1">= </span><span class="s4">array_unique</span><span class="s1">(</span><span class="s4">array_filter</span><span class="s1">(</span><span class="s5">$delimiters</span><span class="s0">, </span><span class="s1">[</span><span class="s5">$this</span><span class="s0">, </span><span class="s6">'isValidCsvControls'</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s5">$csv </span><span class="s1">= </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">getIterator</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s5">$res </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s5">$delimiters </span><span class="s0">as </span><span class="s5">$delim</span><span class="s1">) {</span>
+            <span class="s5">$csv</span><span class="s1">-&gt;</span><span class="s4">setCsvControl</span><span class="s1">(</span><span class="s5">$delim</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">enclosure</span><span class="s0">, </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">escape</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s5">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s4">CallbackFilterIterator</span><span class="s1">(</span><span class="s0">new </span><span class="s4">LimitIterator</span><span class="s1">(</span><span class="s5">$csv</span><span class="s0">, </span><span class="s7">0</span><span class="s0">, </span><span class="s5">$nb_rows</span><span class="s1">)</span><span class="s0">, </span><span class="s5">$filterRow</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s5">$res</span><span class="s1">[</span><span class="s5">$delim</span><span class="s1">] = </span><span class="s4">count</span><span class="s1">(</span><span class="s4">iterator_to_array</span><span class="s1">(</span><span class="s5">$iterator</span><span class="s0">, </span><span class="s4">false</span><span class="s1">)</span><span class="s0">, </span><span class="s4">COUNT_RECURSIVE</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s4">arsort</span><span class="s1">(</span><span class="s5">$res</span><span class="s0">, </span><span class="s4">SORT_NUMERIC</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$res</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Validate an integer</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int    $int</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">int    $minValue</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $errorMessage</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If the value is invalid</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">int</span>
+     <span class="s2">*/</span>
+    <span class="s0">protected function </span><span class="s4">validateInteger</span><span class="s1">(</span><span class="s5">$int</span><span class="s0">, </span><span class="s5">$minValue</span><span class="s0">, </span><span class="s5">$errorMessage</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">false </span><span class="s1">=== (</span><span class="s5">$int </span><span class="s1">= </span><span class="s4">filter_var</span><span class="s1">(</span><span class="s5">$int</span><span class="s0">, </span><span class="s4">FILTER_VALIDATE_INT</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'options' </span><span class="s1">=&gt; [</span><span class="s6">'min_range' </span><span class="s1">=&gt; </span><span class="s5">$minValue</span><span class="s1">]]))) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s5">$errorMessage</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">return </span><span class="s5">$int</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the CSV Iterator</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">SplFileObject</span>
+     <span class="s2">*/</span>
+    <span class="s0">abstract public function </span><span class="s4">getIterator</span><span class="s1">()</span><span class="s0">;</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Sets the field enclosure</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $enclosure</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If $enclosure is not a single character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">setEnclosure</span><span class="s1">(</span><span class="s5">$enclosure</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">isValidCsvControls</span><span class="s1">(</span><span class="s5">$enclosure</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s6">'The enclosure must be a single character'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">enclosure </span><span class="s1">= </span><span class="s5">$enclosure</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the current field enclosure</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">getEnclosure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">enclosure</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Sets the field escape character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $escape</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@throws </span><span class="s2">InvalidArgumentException If $escape is not a single character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">$this</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">setEscape</span><span class="s1">(</span><span class="s5">$escape</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">isValidCsvControls</span><span class="s1">(</span><span class="s5">$escape</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s4">InvalidArgumentException</span><span class="s1">(</span><span class="s6">'The escape character must be a single character'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">escape </span><span class="s1">= </span><span class="s5">$escape</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the current field escape character</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">getEscape</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">escape</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Sets the newline sequence characters</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@param </span><span class="s2">string $newline</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">static</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">setNewline</span><span class="s1">(</span><span class="s5">$newline</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">newline </span><span class="s1">= (string) </span><span class="s5">$newline</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s5">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s2">/**</span>
+     <span class="s2">* Returns the current newline sequence characters</span>
+     <span class="s2">*</span>
+     <span class="s2">* </span><span class="s3">@return </span><span class="s2">string</span>
+     <span class="s2">*/</span>
+    <span class="s0">public function </span><span class="s4">getNewline</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s5">$this</span><span class="s1">-&gt;</span><span class="s4">newline</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

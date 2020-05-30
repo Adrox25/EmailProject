@@ -1,0 +1,753 @@
+<html>
+<head>
+<title>XmlFileLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+XmlFileLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Util</span><span class="s1">\</span><span class="s3">XmlUtils</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Alias</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">BoundArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">IteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ServiceLocatorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">TaggedIteratorArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ChildDefinition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Extension</span><span class="s1">\</span><span class="s3">ExtensionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s1">\</span><span class="s3">Expression</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* XmlFileLoader loads XML files service definitions.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">XmlFileLoader </span><span class="s0">extends </span><span class="s3">FileLoader</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">NS </span><span class="s1">= </span><span class="s7">'http://symfony.com/schema/dic/services'</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s8">$autoRegisterAliasesForSinglyImplementedInterfaces </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s8">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$path </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">locator</span><span class="s1">-&gt;</span><span class="s3">locate</span><span class="s1">(</span><span class="s8">$resource</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$xml </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseFileToDOM</span><span class="s1">(</span><span class="s8">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">fileExists</span><span class="s1">(</span><span class="s8">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$defaults </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getServiceDefaults</span><span class="s1">(</span><span class="s8">$xml</span><span class="s0">, </span><span class="s8">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// anonymous services</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">processAnonymousServices</span><span class="s1">(</span><span class="s8">$xml</span><span class="s0">, </span><span class="s8">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// imports</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseImports</span><span class="s1">(</span><span class="s8">$xml</span><span class="s0">, </span><span class="s8">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// parameters</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseParameters</span><span class="s1">(</span><span class="s8">$xml</span><span class="s0">, </span><span class="s8">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// extensions</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loadFromExtensions</span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// services</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinitions</span><span class="s1">(</span><span class="s8">$xml</span><span class="s0">, </span><span class="s8">$path</span><span class="s0">, </span><span class="s8">$defaults</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">registerAliasesForSinglyImplementedInterfaces</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">supports</span><span class="s1">(</span><span class="s8">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$resource</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$type </span><span class="s1">&amp;&amp; </span><span class="s7">'xml' </span><span class="s1">=== </span><span class="s3">pathinfo</span><span class="s1">(</span><span class="s8">$resource</span><span class="s0">, </span><span class="s3">PATHINFO_EXTENSION</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">'xml' </span><span class="s1">=== </span><span class="s8">$type</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseParameters</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$xml</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$parameters </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">-&gt;</span><span class="s3">documentElement</span><span class="s0">, </span><span class="s7">'parameters'</span><span class="s1">)) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getParameterBag</span><span class="s1">()-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$parameters</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'parameter'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseImports</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$xml</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$xpath </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMXPath</span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">registerNamespace</span><span class="s1">(</span><span class="s7">'container'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$imports </span><span class="s1">= </span><span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">(</span><span class="s7">'//container:imports/container:import'</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$defaultDirectory </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$imports </span><span class="s0">as </span><span class="s8">$import</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setCurrentDir</span><span class="s1">(</span><span class="s8">$defaultDirectory</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">import</span><span class="s1">(</span><span class="s8">$import</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'resource'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$import</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'type'</span><span class="s1">)) ?: </span><span class="s3">null</span><span class="s0">, </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$import</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'ignore-errors'</span><span class="s1">)) ?: </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseDefinitions</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$xml</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s0">, array </span><span class="s8">$defaults</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$xpath </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMXPath</span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">registerNamespace</span><span class="s1">(</span><span class="s7">'container'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$services </span><span class="s1">= </span><span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">(</span><span class="s7">'//container:services/container:service|//container:services/container:prototype'</span><span class="s1">)) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setCurrentDir</span><span class="s1">(\</span><span class="s3">dirname</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s8">$instanceof </span><span class="s1">= </span><span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">(</span><span class="s7">'//container:services/container:instanceof'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$instanceof </span><span class="s0">as </span><span class="s8">$service</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">((string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s1">[]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$services </span><span class="s0">as </span><span class="s8">$service</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$definition </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$defaults</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'prototype' </span><span class="s1">=== </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">tagName</span><span class="s1">) {</span>
+                    <span class="s8">$excludes </span><span class="s1">= </span><span class="s3">array_column</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'exclude'</span><span class="s1">)</span><span class="s0">, </span><span class="s7">'nodeValue'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'exclude'</span><span class="s1">)) {</span>
+                        <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$excludes</span><span class="s1">) &gt; </span><span class="s9">0</span><span class="s1">) {</span>
+                            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s7">'You cannot use both the attribute &quot;exclude&quot; and &lt;exclude&gt; tags at the same time.'</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s8">$excludes </span><span class="s1">= [</span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'exclude'</span><span class="s1">)]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">registerClasses</span><span class="s1">(</span><span class="s8">$definition</span><span class="s0">, </span><span class="s1">(string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'namespace'</span><span class="s1">)</span><span class="s0">, </span><span class="s1">(string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'resource'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$excludes</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">((string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$definition</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Get service defaults.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getServiceDefaults</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$xml</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$xpath </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMXPath</span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">registerNamespace</span><span class="s1">(</span><span class="s7">'container'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$defaultsNode </span><span class="s1">= </span><span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">(</span><span class="s7">'//container:services/container:defaults'</span><span class="s1">)-&gt;</span><span class="s3">item</span><span class="s1">(</span><span class="s9">0</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$bindings </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s0">, </span><span class="s7">'bind'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$argument </span><span class="s1">=&gt; </span><span class="s8">$value</span><span class="s1">) {</span>
+            <span class="s8">$bindings</span><span class="s1">[</span><span class="s8">$argument</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">BoundArgument</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">BoundArgument</span><span class="s1">::</span><span class="s3">DEFAULTS_BINDING</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$defaults </span><span class="s1">= [</span>
+            <span class="s7">'tags' </span><span class="s1">=&gt; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s0">, </span><span class="s7">'tag'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s7">'bind' </span><span class="s1">=&gt; </span><span class="s8">$bindings</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'tags'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$tag</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'name'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The tag name for tag &quot;&lt;defaults&gt;&quot; in &quot;%s&quot; must be a non-empty string.'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'autowire'</span><span class="s1">)) {</span>
+            <span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'autowire'</span><span class="s1">] = </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'autowire'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'public'</span><span class="s1">)) {</span>
+            <span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'public'</span><span class="s1">] = </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'public'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'autoconfigure'</span><span class="s1">)) {</span>
+            <span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'autoconfigure'</span><span class="s1">] = </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$defaultsNode</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'autoconfigure'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$defaults</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses an individual Definition.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseDefinition</span><span class="s1">(\</span><span class="s3">DOMElement </span><span class="s8">$service</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s0">, array </span><span class="s8">$defaults</span><span class="s1">): ?</span><span class="s3">Definition</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$alias </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'alias'</span><span class="s1">)) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">validateAlias</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setAlias</span><span class="s1">((string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$alias </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Alias</span><span class="s1">(</span><span class="s8">$alias</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$publicAttr </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'public'</span><span class="s1">)) {</span>
+                <span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$publicAttr</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'public'</span><span class="s1">])) {</span>
+                <span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'public'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$deprecated </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'deprecated'</span><span class="s1">)) {</span>
+                <span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s8">$deprecated</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">nodeValue </span><span class="s1">?: </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof</span><span class="s1">) {</span>
+            <span class="s8">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ChildDefinition</span><span class="s1">(</span><span class="s7">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$parent </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'parent'</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The service &quot;%s&quot; cannot use the &quot;parent&quot; option in the same file where &quot;instanceof&quot; configuration is defined as using both is not supported. Move your child definitions to a separate file.'</span><span class="s0">, </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$defaults </span><span class="s0">as </span><span class="s8">$k </span><span class="s1">=&gt; </span><span class="s8">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'tags' </span><span class="s1">=== </span><span class="s8">$k</span><span class="s1">) {</span>
+                    <span class="s2">// since tags are never inherited from parents, there is no confusion</span>
+                    <span class="s2">// thus we can safely add them as defaults to ChildDefinition</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'bind' </span><span class="s1">=== </span><span class="s8">$k</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'bind'</span><span class="s1">]) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Bound values on service &quot;%s&quot; cannot be inherited from &quot;defaults&quot; when a &quot;parent&quot; is set. Move your child definitions to a separate file.'</span><span class="s0">, </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s8">$k</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Attribute &quot;%s&quot; on service &quot;%s&quot; cannot be inherited from &quot;defaults&quot; when a &quot;parent&quot; is set. Move your child definitions to a separate file or define this attribute explicitly.'</span><span class="s0">, </span><span class="s8">$k</span><span class="s0">, </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ChildDefinition</span><span class="s1">(</span><span class="s8">$parent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Definition</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'public'</span><span class="s1">])) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'public'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'autowire'</span><span class="s1">])) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'autowire'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'autoconfigure'</span><span class="s1">])) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutoconfigured</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'autoconfigure'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setChanges</span><span class="s1">([])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s7">'class'</span><span class="s0">, </span><span class="s7">'public'</span><span class="s0">, </span><span class="s7">'shared'</span><span class="s0">, </span><span class="s7">'synthetic'</span><span class="s0">, </span><span class="s7">'abstract'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$value </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+                <span class="s8">$method </span><span class="s1">= </span><span class="s7">'set'</span><span class="s1">.</span><span class="s8">$key</span><span class="s0">;</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s8">$method</span><span class="s1">(</span><span class="s8">$value </span><span class="s1">= </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$value </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'lazy'</span><span class="s1">)) {</span>
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setLazy</span><span class="s1">((bool) </span><span class="s8">$value </span><span class="s1">= </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s7">'proxy'</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'interface' </span><span class="s1">=&gt; </span><span class="s8">$value</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$value </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'autowire'</span><span class="s1">)) {</span>
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$value </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'autoconfigure'</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$definition </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setAutoconfigured</span><span class="s1">(</span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$value </span><span class="s1">= </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The service &quot;%s&quot; cannot have a &quot;parent&quot; and also have &quot;autoconfigure&quot;. Try setting autoconfigure=&quot;false&quot; for the service.'</span><span class="s0">, </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$files </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'file'</span><span class="s1">)) {</span>
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setFile</span><span class="s1">(</span><span class="s8">$files</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$deprecated </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'deprecated'</span><span class="s1">)) {</span>
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s8">$deprecated</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">nodeValue </span><span class="s1">?: </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'argument'</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$definition </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setProperties</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'property'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$factories </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'factory'</span><span class="s1">)) {</span>
+            <span class="s8">$factory </span><span class="s1">= </span><span class="s8">$factories</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$function </span><span class="s1">= </span><span class="s8">$factory</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'function'</span><span class="s1">)) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$childService </span><span class="s1">= </span><span class="s8">$factory</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'service'</span><span class="s1">)) {</span>
+                    <span class="s8">$class </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s8">$childService</span><span class="s0">, </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$class </span><span class="s1">= </span><span class="s8">$factory</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'class'</span><span class="s1">) ? </span><span class="s8">$factory</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'class'</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">([</span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$factory</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'method'</span><span class="s1">) ?: </span><span class="s7">'__invoke'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$configurators </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'configurator'</span><span class="s1">)) {</span>
+            <span class="s8">$configurator </span><span class="s1">= </span><span class="s8">$configurators</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$function </span><span class="s1">= </span><span class="s8">$configurator</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'function'</span><span class="s1">)) {</span>
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setConfigurator</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$childService </span><span class="s1">= </span><span class="s8">$configurator</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'service'</span><span class="s1">)) {</span>
+                    <span class="s8">$class </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s8">$childService</span><span class="s0">, </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$class </span><span class="s1">= </span><span class="s8">$configurator</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'class'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setConfigurator</span><span class="s1">([</span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$configurator</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'method'</span><span class="s1">) ?: </span><span class="s7">'__invoke'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'call'</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$call</span><span class="s1">) {</span>
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">addMethodCall</span><span class="s1">(</span><span class="s8">$call</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'method'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$call</span><span class="s0">, </span><span class="s7">'argument'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$call</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'returns-clone'</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$tags </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'tag'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'tags'</span><span class="s1">])) {</span>
+            <span class="s8">$tags </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s8">$tags</span><span class="s0">, </span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'tags'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tags </span><span class="s0">as </span><span class="s8">$tag</span><span class="s1">) {</span>
+            <span class="s8">$parameters </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tag</span><span class="s1">-&gt;</span><span class="s3">attributes </span><span class="s0">as </span><span class="s8">$name </span><span class="s1">=&gt; </span><span class="s8">$node</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'name' </span><span class="s1">=== </span><span class="s8">$name</span><span class="s1">) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s7">'-'</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s7">'_'</span><span class="s1">) &amp;&amp; !\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">$normalizedName </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'-'</span><span class="s0">, </span><span class="s7">'_'</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$parameters</span><span class="s1">)) {</span>
+                    <span class="s8">$parameters</span><span class="s1">[</span><span class="s8">$normalizedName</span><span class="s1">] = </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s2">// keep not normalized key</span>
+                <span class="s8">$parameters</span><span class="s1">[</span><span class="s8">$name</span><span class="s1">] = </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'name'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The tag name for service &quot;%s&quot; in &quot;%s&quot; must be a non-empty string.'</span><span class="s0">, </span><span class="s1">(string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">addTag</span><span class="s1">(</span><span class="s8">$tag</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'name'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$parameters</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$bindings </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$service</span><span class="s0">, </span><span class="s7">'bind'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$bindingType </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isLoadingInstanceof </span><span class="s1">? </span><span class="s3">BoundArgument</span><span class="s1">::</span><span class="s3">INSTANCEOF_BINDING </span><span class="s1">: </span><span class="s3">BoundArgument</span><span class="s1">::</span><span class="s3">SERVICE_BINDING</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$bindings </span><span class="s0">as </span><span class="s8">$argument </span><span class="s1">=&gt; </span><span class="s8">$value</span><span class="s1">) {</span>
+            <span class="s8">$bindings</span><span class="s1">[</span><span class="s8">$argument</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">BoundArgument</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s8">$bindingType</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'bind'</span><span class="s1">])) {</span>
+            <span class="s2">// deep clone, to avoid multiple process of the same instance in the passes</span>
+            <span class="s8">$bindings </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s8">$defaults</span><span class="s1">[</span><span class="s7">'bind'</span><span class="s1">]))</span><span class="s0">, </span><span class="s8">$bindings</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$bindings</span><span class="s1">) {</span>
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setBindings</span><span class="s1">(</span><span class="s8">$bindings</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$decorates </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'decorates'</span><span class="s1">)) {</span>
+            <span class="s8">$decorationOnInvalid </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'decoration-on-invalid'</span><span class="s1">) ?: </span><span class="s7">'exception'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'exception' </span><span class="s1">=== </span><span class="s8">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'ignore' </span><span class="s1">=== </span><span class="s8">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'null' </span><span class="s1">=== </span><span class="s8">$decorationOnInvalid</span><span class="s1">) {</span>
+                <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">NULL_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Invalid value &quot;%s&quot; for attribute &quot;decoration-on-invalid&quot; on service &quot;%s&quot;. Did you mean &quot;exception&quot;, &quot;ignore&quot; or &quot;null&quot; in &quot;%s&quot;?'</span><span class="s0">, </span><span class="s8">$decorationOnInvalid</span><span class="s0">, </span><span class="s1">(string) </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$renameId </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'decoration-inner-name'</span><span class="s1">) ? </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'decoration-inner-name'</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s8">$priority </span><span class="s1">= </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'decoration-priority'</span><span class="s1">) ? </span><span class="s8">$service</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'decoration-priority'</span><span class="s1">) : </span><span class="s9">0</span><span class="s0">;</span>
+
+            <span class="s8">$definition</span><span class="s1">-&gt;</span><span class="s3">setDecoratedService</span><span class="s1">(</span><span class="s8">$decorates</span><span class="s0">, </span><span class="s8">$renameId</span><span class="s0">, </span><span class="s8">$priority</span><span class="s0">, </span><span class="s8">$invalidBehavior</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$definition</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a XML file to a \DOMDocument.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When loading of XML file returns error</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseFileToDOM</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$file</span><span class="s1">): \</span><span class="s3">DOMDocument</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s8">$dom </span><span class="s1">= </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">loadFile</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s1">[</span><span class="s8">$this</span><span class="s0">, </span><span class="s7">'validateSchema'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">InvalidArgumentException </span><span class="s8">$e</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Unable to parse file &quot;%s&quot;: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">())</span><span class="s0">, </span><span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">getCode</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$e</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">validateExtensions</span><span class="s1">(</span><span class="s8">$dom</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Processes anonymous services.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">processAnonymousServices</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$xml</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$definitions </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$count </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s8">$suffix </span><span class="s1">= </span><span class="s7">'~'</span><span class="s1">.</span><span class="s3">ContainerBuilder</span><span class="s1">::</span><span class="s3">hash</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$xpath </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMXPath</span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">registerNamespace</span><span class="s1">(</span><span class="s7">'container'</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// anonymous services as arguments/properties</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$nodes </span><span class="s1">= </span><span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">(</span><span class="s7">'//container:argument[@type=&quot;service&quot;][not(@id)]|//container:property[@type=&quot;service&quot;][not(@id)]|//container:bind[not(@id)]|//container:factory[not(@service)]|//container:configurator[not(@service)]'</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$nodes </span><span class="s0">as </span><span class="s8">$node</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$services </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$node</span><span class="s0">, </span><span class="s7">'service'</span><span class="s1">)) {</span>
+                    <span class="s2">// give it a unique name</span>
+                    <span class="s8">$id </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'.%d_%s'</span><span class="s0">, </span><span class="s1">++</span><span class="s8">$count</span><span class="s0">, </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/^.*</span><span class="s0">\\\\</span><span class="s7">/'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$services</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'class'</span><span class="s1">)).</span><span class="s8">$suffix</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s0">, </span><span class="s8">$id</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s7">'service'</span><span class="s0">, </span><span class="s8">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s8">$definitions</span><span class="s1">[</span><span class="s8">$id</span><span class="s1">] = [</span><span class="s8">$services</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$services</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s0">, </span><span class="s8">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s2">// anonymous services are always private</span>
+                    <span class="s2">// we could not use the constant false here, because of XML parsing</span>
+                    <span class="s8">$services</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s7">'public'</span><span class="s0">, </span><span class="s7">'false'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// anonymous services &quot;in the wild&quot;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$nodes </span><span class="s1">= </span><span class="s8">$xpath</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">(</span><span class="s7">'//container:services/container:service[not(@id)]'</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$nodes </span><span class="s0">as </span><span class="s8">$node</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Top-level services must have &quot;id&quot; attribute, none found in &quot;%s&quot; at line %d.'</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">getLineNo</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// resolve definitions</span>
+        <span class="s3">uksort</span><span class="s1">(</span><span class="s8">$definitions</span><span class="s0">, </span><span class="s7">'strnatcmp'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_reverse</span><span class="s1">(</span><span class="s8">$definitions</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$id </span><span class="s1">=&gt; </span><span class="s0">list</span><span class="s1">(</span><span class="s8">$domElement</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$definition </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseDefinition</span><span class="s1">(</span><span class="s8">$domElement</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s1">[])) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s8">$id</span><span class="s0">, </span><span class="s8">$definition</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getArgumentsAsPhp</span><span class="s1">(\</span><span class="s3">DOMElement </span><span class="s8">$node</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$name</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$isChildDefinition </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$arguments </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">(</span><span class="s8">$node</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$arg</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'name'</span><span class="s1">)) {</span>
+                <span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(</span><span class="s7">'key'</span><span class="s0">, </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'name'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// this is used by ChildDefinition to overwrite a specific</span>
+            <span class="s2">// argument of the parent definition</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'index'</span><span class="s1">)) {</span>
+                <span class="s8">$key </span><span class="s1">= (</span><span class="s8">$isChildDefinition </span><span class="s1">? </span><span class="s7">'index_' </span><span class="s1">: </span><span class="s7">''</span><span class="s1">).</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'index'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">hasAttribute</span><span class="s1">(</span><span class="s7">'key'</span><span class="s1">)) {</span>
+                <span class="s2">// Append an empty argument, then fetch its key to overwrite it later</span>
+                <span class="s8">$arguments</span><span class="s1">[] = </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s8">$keys </span><span class="s1">= </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s8">$arguments</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$key </span><span class="s1">= </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s8">$keys</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$key </span><span class="s1">= </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'key'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$onInvalid </span><span class="s1">= </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'on-invalid'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'ignore' </span><span class="s1">== </span><span class="s8">$onInvalid</span><span class="s1">) {</span>
+                <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'ignore_uninitialized' </span><span class="s1">== </span><span class="s8">$onInvalid</span><span class="s1">) {</span>
+                <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">IGNORE_ON_UNINITIALIZED_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'null' </span><span class="s1">== </span><span class="s8">$onInvalid</span><span class="s1">) {</span>
+                <span class="s8">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">NULL_ON_INVALID_REFERENCE</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">switch </span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'type'</span><span class="s1">)) {</span>
+                <span class="s0">case </span><span class="s7">'service'</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tag &quot;&lt;%s&gt;&quot; with type=&quot;service&quot; has no or empty &quot;id&quot; attribute in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$invalidBehavior</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'expression'</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">Expression</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The type=&quot;expression&quot; attribute cannot be used without the ExpressionLanguage component. Try running &quot;composer require symfony/expression-language&quot;.'</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Expression</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'collection'</span><span class="s1">:</span>
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$arg</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'iterator'</span><span class="s1">:</span>
+                    <span class="s8">$arg </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$arg</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">try </span><span class="s1">{</span>
+                        <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">IteratorArgument</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">InvalidArgumentException </span><span class="s8">$e</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tag &quot;&lt;%s&gt;&quot; with type=&quot;iterator&quot; only accepts collections of type=&quot;service&quot; references in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'service_locator'</span><span class="s1">:</span>
+                    <span class="s8">$arg </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getArgumentsAsPhp</span><span class="s1">(</span><span class="s8">$arg</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">try </span><span class="s1">{</span>
+                        <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ServiceLocatorArgument</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">InvalidArgumentException </span><span class="s8">$e</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tag &quot;&lt;%s&gt;&quot; with type=&quot;service_locator&quot; only accepts maps of type=&quot;service&quot; references in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'tagged'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s7">'tagged_iterator'</span><span class="s1">:</span>
+                <span class="s0">case </span><span class="s7">'tagged_locator'</span><span class="s1">:</span>
+                    <span class="s8">$type </span><span class="s1">= </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'type'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$forLocator </span><span class="s1">= </span><span class="s7">'tagged_locator' </span><span class="s1">=== </span><span class="s8">$type</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'tag'</span><span class="s1">)) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tag &quot;&lt;%s&gt;&quot; with type=&quot;%s&quot; has no or empty &quot;tag&quot; attribute in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$type</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TaggedIteratorArgument</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'tag'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'index-by'</span><span class="s1">) ?: </span><span class="s3">null</span><span class="s0">, </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'default-index-method'</span><span class="s1">) ?: </span><span class="s3">null</span><span class="s0">, </span><span class="s8">$forLocator</span><span class="s0">, </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'default-priority-method'</span><span class="s1">) ?: </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$forLocator</span><span class="s1">) {</span>
+                        <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ServiceLocatorArgument</span><span class="s1">(</span><span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'binary'</span><span class="s1">:</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$value </span><span class="s1">= </span><span class="s3">base64_decode</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)) {</span>
+                        <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tag &quot;&lt;%s&gt;&quot; with type=&quot;binary&quot; is not a valid base64 encoded string.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'string'</span><span class="s1">:</span>
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s7">'constant'</span><span class="s1">:</span>
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = \</span><span class="s3">constant</span><span class="s1">(</span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">default</span><span class="s1">:</span>
+                    <span class="s8">$arguments</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s8">$arg</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$arguments</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Get child elements by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\DOMElement[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getChildren</span><span class="s1">(\</span><span class="s3">DOMNode </span><span class="s8">$node</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$name</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$children </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">childNodes </span><span class="s0">as </span><span class="s8">$child</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$child </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DOMElement </span><span class="s1">&amp;&amp; </span><span class="s8">$child</span><span class="s1">-&gt;</span><span class="s3">localName </span><span class="s1">=== </span><span class="s8">$name </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS </span><span class="s1">=== </span><span class="s8">$child</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s1">) {</span>
+                <span class="s8">$children</span><span class="s1">[] = </span><span class="s8">$child</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$children</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validates a documents XML schema.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException When extension references a non-existent XSD file</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">validateSchema</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$dom</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$schemaLocations </span><span class="s1">= [</span><span class="s7">'http://symfony.com/schema/dic/services' </span><span class="s1">=&gt; </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s7">'/'</span><span class="s0">, </span><span class="s3">__DIR__</span><span class="s1">.</span><span class="s7">'/schema/dic/services/services-1.0.xsd'</span><span class="s1">)]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$element </span><span class="s1">= </span><span class="s8">$dom</span><span class="s1">-&gt;</span><span class="s3">documentElement</span><span class="s1">-&gt;</span><span class="s3">getAttributeNS</span><span class="s1">(</span><span class="s7">'http://www.w3.org/2001/XMLSchema-instance'</span><span class="s0">, </span><span class="s7">'schemaLocation'</span><span class="s1">)) {</span>
+            <span class="s8">$items </span><span class="s1">= </span><span class="s3">preg_split</span><span class="s1">(</span><span class="s7">'/\s+/'</span><span class="s0">, </span><span class="s8">$element</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$nb </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$items</span><span class="s1">)</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$nb</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">+= </span><span class="s9">2</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasExtension</span><span class="s1">(</span><span class="s8">$items</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">((</span><span class="s8">$extension </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getExtension</span><span class="s1">(</span><span class="s8">$items</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$extension</span><span class="s1">-&gt;</span><span class="s3">getXsdValidationBasePath</span><span class="s1">()) {</span>
+                    <span class="s8">$ns </span><span class="s1">= </span><span class="s8">$extension</span><span class="s1">-&gt;</span><span class="s3">getNamespace</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s8">$path </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">([</span><span class="s8">$ns</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'http://'</span><span class="s0">, </span><span class="s7">'https://'</span><span class="s0">, </span><span class="s8">$ns</span><span class="s1">)]</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s7">'/'</span><span class="s0">, </span><span class="s8">$extension</span><span class="s1">-&gt;</span><span class="s3">getXsdValidationBasePath</span><span class="s1">()).</span><span class="s7">'/'</span><span class="s0">, </span><span class="s8">$items</span><span class="s1">[</span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s8">$path</span><span class="s1">)) {</span>
+                        <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Extension &quot;%s&quot; references a non-existent XSD file &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s8">$extension</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$path</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s8">$schemaLocations</span><span class="s1">[</span><span class="s8">$items</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]] = </span><span class="s8">$path</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$tmpfiles </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$imports </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$schemaLocations </span><span class="s0">as </span><span class="s8">$namespace </span><span class="s1">=&gt; </span><span class="s8">$location</span><span class="s1">) {</span>
+            <span class="s8">$parts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">'/'</span><span class="s0">, </span><span class="s8">$location</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$locationstart </span><span class="s1">= </span><span class="s7">'file:///'</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s8">$location</span><span class="s0">, </span><span class="s7">'phar://'</span><span class="s1">)) {</span>
+                <span class="s8">$tmpfile </span><span class="s1">= </span><span class="s3">tempnam</span><span class="s1">(</span><span class="s3">sys_get_temp_dir</span><span class="s1">()</span><span class="s0">, </span><span class="s7">'symfony'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$tmpfile</span><span class="s1">) {</span>
+                    <span class="s3">copy</span><span class="s1">(</span><span class="s8">$location</span><span class="s0">, </span><span class="s8">$tmpfile</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$tmpfiles</span><span class="s1">[] = </span><span class="s8">$tmpfile</span><span class="s0">;</span>
+                    <span class="s8">$parts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">'/'</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s7">'/'</span><span class="s0">, </span><span class="s8">$tmpfile</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s3">array_shift</span><span class="s1">(</span><span class="s8">$parts</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$locationstart </span><span class="s1">= </span><span class="s7">'phar:///'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s8">$drive </span><span class="s1">= </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== \</span><span class="s3">DIRECTORY_SEPARATOR </span><span class="s1">? </span><span class="s3">array_shift</span><span class="s1">(</span><span class="s8">$parts</span><span class="s1">).</span><span class="s7">'/' </span><span class="s1">: </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s8">$location </span><span class="s1">= </span><span class="s8">$locationstart</span><span class="s1">.</span><span class="s8">$drive</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s7">'/'</span><span class="s0">, </span><span class="s3">array_map</span><span class="s1">(</span><span class="s7">'rawurlencode'</span><span class="s0">, </span><span class="s8">$parts</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s8">$imports </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'  &lt;xsd:import namespace=&quot;%s&quot; schemaLocation=&quot;%s&quot; /&gt;'</span><span class="s1">.</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$location</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$source </span><span class="s1">= </span><span class="s3">&lt;&lt;&lt;EOF 
+</span><span class="s7">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot; ?&gt; 
+&lt;xsd:schema xmlns=&quot;http://symfony.com/schema&quot; 
+    xmlns:xsd=&quot;http://www.w3.org/2001/XMLSchema&quot; 
+    targetNamespace=&quot;http://symfony.com/schema&quot; 
+    elementFormDefault=&quot;qualified&quot;&gt; 
+ 
+    &lt;xsd:import namespace=&quot;http://www.w3.org/XML/1998/namespace&quot;/&gt; 
+</span><span class="s8">$imports</span>
+<span class="s7">&lt;/xsd:schema&gt;</span>
+<span class="s3">EOF</span>
+        <span class="s0">;</span>
+
+        <span class="s8">$disableEntities </span><span class="s1">= </span><span class="s3">libxml_disable_entity_loader</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$valid </span><span class="s1">= @</span><span class="s8">$dom</span><span class="s1">-&gt;</span><span class="s3">schemaValidateSource</span><span class="s1">(</span><span class="s8">$source</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">libxml_disable_entity_loader</span><span class="s1">(</span><span class="s8">$disableEntities</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tmpfiles </span><span class="s0">as </span><span class="s8">$tmpfile</span><span class="s1">) {</span>
+            <span class="s1">@</span><span class="s3">unlink</span><span class="s1">(</span><span class="s8">$tmpfile</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$valid</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">validateAlias</span><span class="s1">(\</span><span class="s3">DOMElement </span><span class="s8">$alias</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">attributes </span><span class="s0">as </span><span class="s8">$name </span><span class="s1">=&gt; </span><span class="s8">$node</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'alias'</span><span class="s0">, </span><span class="s7">'id'</span><span class="s0">, </span><span class="s7">'public'</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Invalid attribute &quot;%s&quot; defined for alias &quot;%s&quot; in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">childNodes </span><span class="s0">as </span><span class="s8">$child</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$child </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DOMElement </span><span class="s1">|| </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS </span><span class="s1">!== </span><span class="s8">$child</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$child</span><span class="s1">-&gt;</span><span class="s3">localName</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'deprecated'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Invalid child element &quot;%s&quot; defined for alias &quot;%s&quot; in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$child</span><span class="s1">-&gt;</span><span class="s3">localName</span><span class="s0">, </span><span class="s8">$alias</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(</span><span class="s7">'id'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validates an extension.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When no extension is found corresponding to a tag</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">validateExtensions</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$dom</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$dom</span><span class="s1">-&gt;</span><span class="s3">documentElement</span><span class="s1">-&gt;</span><span class="s3">childNodes </span><span class="s0">as </span><span class="s8">$node</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$node </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DOMElement </span><span class="s1">|| </span><span class="s7">'http://symfony.com/schema/dic/services' </span><span class="s1">=== </span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// can it be handled by an extension?</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">hasExtension</span><span class="s1">(</span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s1">)) {</span>
+                <span class="s8">$extensionNamespaces </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s3">ExtensionInterface </span><span class="s8">$ext</span><span class="s1">) { </span><span class="s0">return </span><span class="s8">$ext</span><span class="s1">-&gt;</span><span class="s3">getNamespace</span><span class="s1">()</span><span class="s0">; </span><span class="s1">}</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getExtensions</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'There is no extension able to load the configuration for &quot;%s&quot; (in &quot;%s&quot;). Looked for namespace &quot;%s&quot;, found &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">tagName</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s0">, </span><span class="s8">$extensionNamespaces </span><span class="s1">? </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">'&quot;, &quot;'</span><span class="s0">, </span><span class="s8">$extensionNamespaces</span><span class="s1">) : </span><span class="s7">'none'</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads from an extension.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">loadFromExtensions</span><span class="s1">(\</span><span class="s3">DOMDocument </span><span class="s8">$xml</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$xml</span><span class="s1">-&gt;</span><span class="s3">documentElement</span><span class="s1">-&gt;</span><span class="s3">childNodes </span><span class="s0">as </span><span class="s8">$node</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$node </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DOMElement </span><span class="s1">|| </span><span class="s3">self</span><span class="s1">::</span><span class="s3">NS </span><span class="s1">=== </span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$values </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">convertDomElementToArray</span><span class="s1">(</span><span class="s8">$node</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">)) {</span>
+                <span class="s8">$values </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">loadFromExtension</span><span class="s1">(</span><span class="s8">$node</span><span class="s1">-&gt;</span><span class="s3">namespaceURI</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Converts a \DOMElement object to a PHP array.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The following rules applies during the conversion:</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * Each tag is converted to a key value or an array</span>
+     <span class="s4">*    if there is more than one &quot;value&quot;</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * The content of a tag is set under a &quot;value&quot; key (</span><span class="s6">&lt;foo&gt;</span><span class="s4">bar</span><span class="s6">&lt;/foo&gt;</span><span class="s4">)</span>
+     <span class="s4">*    if the tag also has some nested tags</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * The attributes are converted to keys (</span><span class="s6">&lt;foo foo=&quot;bar&quot;/&gt;</span><span class="s4">)</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * The nested-tags are converted to keys (</span><span class="s6">&lt;foo&gt;&lt;foo&gt;</span><span class="s4">bar</span><span class="s6">&lt;/foo&gt;&lt;/foo&gt;</span><span class="s4">)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\DOMElement $element A \DOMElement instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">convertDomElementToArray</span><span class="s1">(\</span><span class="s3">DOMElement </span><span class="s8">$element</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">convertDomElementToArray</span><span class="s1">(</span><span class="s8">$element</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

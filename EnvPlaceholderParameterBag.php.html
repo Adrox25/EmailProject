@@ -1,0 +1,179 @@
+<html>
+<head>
+<title>EnvPlaceholderParameterBag.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+EnvPlaceholderParameterBag.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ParameterBag</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">EnvPlaceholderParameterBag </span><span class="s0">extends </span><span class="s3">ParameterBag</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$envPlaceholderUniquePrefix</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$envPlaceholders </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$unusedEnvPlaceholders </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$providedTypes </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$counter </span><span class="s1">= </span><span class="s8">0</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">get</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s9">'env('</span><span class="s1">) &amp;&amp; </span><span class="s9">')' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1</span><span class="s1">) &amp;&amp; </span><span class="s9">'env()' </span><span class="s1">!== </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$env </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s8">4</span><span class="s0">, </span><span class="s1">-</span><span class="s8">1</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">])) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$placeholder</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$placeholder</span><span class="s0">; </span><span class="s2">// return first result</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unusedEnvPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">])) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unusedEnvPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$placeholder</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s7">$placeholder</span><span class="s0">; </span><span class="s2">// return first result</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s9">'/^(?:\w*+:)*+\w++$/'</span><span class="s0">, </span><span class="s7">$env</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Invalid &quot;%s&quot; name: only &quot;word&quot; characters are allowed.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== (</span><span class="s7">$defaultValue </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) &amp;&amp; !\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$defaultValue</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The default value of an env() parameter must be a string or null, but &quot;%s&quot; given to &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$defaultValue</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$uniqueName </span><span class="s1">= </span><span class="s3">md5</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">.</span><span class="s9">'_'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$counter</span><span class="s1">++)</span><span class="s0">;</span>
+            <span class="s7">$placeholder </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'%s_%s_%s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getEnvPlaceholderUniquePrefix</span><span class="s1">()</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s9">':'</span><span class="s0">, </span><span class="s9">'_'</span><span class="s0">, </span><span class="s7">$env</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$uniqueName</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">][</span><span class="s7">$placeholder</span><span class="s1">] = </span><span class="s7">$placeholder</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">$placeholder</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the common env placeholder prefix for env vars created by this bag.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getEnvPlaceholderUniquePrefix</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholderUniquePrefix</span><span class="s1">) {</span>
+            <span class="s7">$reproducibleEntropy </span><span class="s1">= </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s3">array_walk_recursive</span><span class="s1">(</span><span class="s7">$reproducibleEntropy</span><span class="s0">, function </span><span class="s1">(&amp;</span><span class="s7">$v</span><span class="s1">) { </span><span class="s7">$v </span><span class="s1">= </span><span class="s3">null</span><span class="s0">; </span><span class="s1">})</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholderUniquePrefix </span><span class="s1">= </span><span class="s9">'env_'</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s3">md5</span><span class="s1">(</span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$reproducibleEntropy</span><span class="s1">))</span><span class="s0">, </span><span class="s1">-</span><span class="s8">16</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholderUniquePrefix</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the map of env vars used in the resolved parameter values to their placeholders.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string[][] A map of env var names to their placeholders</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getEnvPlaceholders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getUnusedEnvPlaceholders</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unusedEnvPlaceholders</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">clearUnusedEnvPlaceholders</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unusedEnvPlaceholders </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Merges the env placeholders of another EnvPlaceholderParameterBag.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">mergeEnvPlaceholders</span><span class="s1">(</span><span class="s3">self </span><span class="s7">$bag</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$newPlaceholders </span><span class="s1">= </span><span class="s7">$bag</span><span class="s1">-&gt;</span><span class="s3">getEnvPlaceholders</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders </span><span class="s1">+= </span><span class="s7">$newPlaceholders</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$newPlaceholders </span><span class="s0">as </span><span class="s7">$env </span><span class="s1">=&gt; </span><span class="s7">$placeholders</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">] += </span><span class="s7">$placeholders</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$newUnusedPlaceholders </span><span class="s1">= </span><span class="s7">$bag</span><span class="s1">-&gt;</span><span class="s3">getUnusedEnvPlaceholders</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unusedEnvPlaceholders </span><span class="s1">+= </span><span class="s7">$newUnusedPlaceholders</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$newUnusedPlaceholders </span><span class="s0">as </span><span class="s7">$env </span><span class="s1">=&gt; </span><span class="s7">$placeholders</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">unusedEnvPlaceholders</span><span class="s1">[</span><span class="s7">$env</span><span class="s1">] += </span><span class="s7">$placeholders</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Maps env prefixes to their corresponding PHP types.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setProvidedTypes</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$providedTypes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">providedTypes </span><span class="s1">= </span><span class="s7">$providedTypes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the PHP types corresponding to env() parameter prefixes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string[][]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getProvidedTypes</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">providedTypes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">resolve</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolved</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">resolve</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">envPlaceholders </span><span class="s0">as </span><span class="s7">$env </span><span class="s1">=&gt; </span><span class="s7">$placeholders</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s7">$name </span><span class="s1">= </span><span class="s9">&quot;env(</span><span class="s7">$env</span><span class="s9">)&quot;</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== (</span><span class="s7">$default </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parameters</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) &amp;&amp; !\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$default</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'The default value of env parameter &quot;%s&quot; must be a string or null, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s7">$env</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$default</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

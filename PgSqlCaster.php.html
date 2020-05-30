@@ -1,0 +1,181 @@
+<html>
+<head>
+<title>PgSqlCaster.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PgSqlCaster.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Casts pqsql resources to array representation.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">PgSqlCaster</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$paramCodes </span><span class="s1">= [</span>
+        <span class="s8">'server_encoding'</span><span class="s0">,</span>
+        <span class="s8">'client_encoding'</span><span class="s0">,</span>
+        <span class="s8">'is_superuser'</span><span class="s0">,</span>
+        <span class="s8">'session_authorization'</span><span class="s0">,</span>
+        <span class="s8">'DateStyle'</span><span class="s0">,</span>
+        <span class="s8">'TimeZone'</span><span class="s0">,</span>
+        <span class="s8">'IntervalStyle'</span><span class="s0">,</span>
+        <span class="s8">'integer_datetimes'</span><span class="s0">,</span>
+        <span class="s8">'application_name'</span><span class="s0">,</span>
+        <span class="s8">'standard_conforming_strings'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$transactionStatus </span><span class="s1">= [</span>
+        <span class="s3">PGSQL_TRANSACTION_IDLE </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_TRANSACTION_IDLE'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_TRANSACTION_ACTIVE </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_TRANSACTION_ACTIVE'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_TRANSACTION_INTRANS </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_TRANSACTION_INTRANS'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_TRANSACTION_INERROR </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_TRANSACTION_INERROR'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_TRANSACTION_UNKNOWN </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_TRANSACTION_UNKNOWN'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$resultStatus </span><span class="s1">= [</span>
+        <span class="s3">PGSQL_EMPTY_QUERY </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_EMPTY_QUERY'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_COMMAND_OK </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_COMMAND_OK'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_TUPLES_OK </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_TUPLES_OK'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_COPY_OUT </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_COPY_OUT'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_COPY_IN </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_COPY_IN'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_BAD_RESPONSE </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_BAD_RESPONSE'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_NONFATAL_ERROR </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_NONFATAL_ERROR'</span><span class="s0">,</span>
+        <span class="s3">PGSQL_FATAL_ERROR </span><span class="s1">=&gt; </span><span class="s8">'PGSQL_FATAL_ERROR'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$diagCodes </span><span class="s1">= [</span>
+        <span class="s8">'severity' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_SEVERITY</span><span class="s0">,</span>
+        <span class="s8">'sqlstate' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_SQLSTATE</span><span class="s0">,</span>
+        <span class="s8">'message' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_MESSAGE_PRIMARY</span><span class="s0">,</span>
+        <span class="s8">'detail' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_MESSAGE_DETAIL</span><span class="s0">,</span>
+        <span class="s8">'hint' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_MESSAGE_HINT</span><span class="s0">,</span>
+        <span class="s8">'statement position' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_STATEMENT_POSITION</span><span class="s0">,</span>
+        <span class="s8">'internal position' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_INTERNAL_POSITION</span><span class="s0">,</span>
+        <span class="s8">'internal query' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_INTERNAL_QUERY</span><span class="s0">,</span>
+        <span class="s8">'context' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_CONTEXT</span><span class="s0">,</span>
+        <span class="s8">'file' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_SOURCE_FILE</span><span class="s0">,</span>
+        <span class="s8">'line' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_SOURCE_LINE</span><span class="s0">,</span>
+        <span class="s8">'function' </span><span class="s1">=&gt; </span><span class="s3">PGSQL_DIAG_SOURCE_FUNCTION</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">public static function </span><span class="s3">castLargeObject</span><span class="s1">(</span><span class="s7">$lo</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'seek position'</span><span class="s1">] = </span><span class="s3">pg_lo_tell</span><span class="s1">(</span><span class="s7">$lo</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castLink</span><span class="s1">(</span><span class="s7">$link</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">] = </span><span class="s3">pg_connection_status</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">PGSQL_CONNECTION_OK </span><span class="s1">=== </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">] ? </span><span class="s8">'PGSQL_CONNECTION_OK' </span><span class="s1">: </span><span class="s8">'PGSQL_CONNECTION_BAD'</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'busy'</span><span class="s1">] = </span><span class="s3">pg_connection_busy</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'transaction'</span><span class="s1">] = </span><span class="s3">pg_transaction_status</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$transactionStatus</span><span class="s1">[</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'transaction'</span><span class="s1">]])) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s8">'transaction'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$transactionStatus</span><span class="s1">[</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'transaction'</span><span class="s1">]]</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'transaction'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'pid'</span><span class="s1">] = </span><span class="s3">pg_get_pid</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'last error'</span><span class="s1">] = </span><span class="s3">pg_last_error</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'last notice'</span><span class="s1">] = </span><span class="s3">pg_last_notice</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'host'</span><span class="s1">] = </span><span class="s3">pg_host</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'port'</span><span class="s1">] = </span><span class="s3">pg_port</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'dbname'</span><span class="s1">] = </span><span class="s3">pg_dbname</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'options'</span><span class="s1">] = </span><span class="s3">pg_options</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'version'</span><span class="s1">] = </span><span class="s3">pg_version</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$paramCodes </span><span class="s0">as </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$s </span><span class="s1">= </span><span class="s3">pg_parameter_status</span><span class="s1">(</span><span class="s7">$link</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)) {</span>
+                <span class="s7">$a</span><span class="s1">[</span><span class="s8">'param'</span><span class="s1">][</span><span class="s7">$v</span><span class="s1">] = </span><span class="s7">$s</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'param'</span><span class="s1">][</span><span class="s8">'client_encoding'</span><span class="s1">] = </span><span class="s3">pg_client_encoding</span><span class="s1">(</span><span class="s7">$link</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'param'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">EnumStub</span><span class="s1">(</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'param'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castResult</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, array </span><span class="s7">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s7">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isNested</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'num rows'</span><span class="s1">] = </span><span class="s3">pg_num_rows</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">] = </span><span class="s3">pg_result_status</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$resultStatus</span><span class="s1">[</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">]])) {</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">ConstStub</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$resultStatus</span><span class="s1">[</span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">]]</span><span class="s0">, </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'status'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'command-completion tag'</span><span class="s1">] = </span><span class="s3">pg_result_status</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s3">PGSQL_STATUS_STRING</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(-</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$a</span><span class="s1">[</span><span class="s8">'num rows'</span><span class="s1">]) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$diagCodes </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$a</span><span class="s1">[</span><span class="s8">'error'</span><span class="s1">][</span><span class="s7">$k</span><span class="s1">] = </span><span class="s3">pg_result_error_field</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'affected rows'</span><span class="s1">] = </span><span class="s3">pg_affected_rows</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$a</span><span class="s1">[</span><span class="s8">'last OID'</span><span class="s1">] = </span><span class="s3">pg_last_oid</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$fields </span><span class="s1">= </span><span class="s3">pg_num_fields</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$fields</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s7">$field </span><span class="s1">= [</span>
+                <span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s3">pg_field_name</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s8">'table' </span><span class="s1">=&gt; </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s (OID: %s)'</span><span class="s0">, </span><span class="s3">pg_field_table</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s3">pg_field_table</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">,</span>
+                <span class="s8">'type' </span><span class="s1">=&gt; </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s (OID: %s)'</span><span class="s0">, </span><span class="s3">pg_field_type</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">, </span><span class="s3">pg_field_type_oid</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">))</span><span class="s0">,</span>
+                <span class="s8">'nullable' </span><span class="s1">=&gt; (bool) </span><span class="s3">pg_field_is_null</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s8">'storage' </span><span class="s1">=&gt; </span><span class="s3">pg_field_size</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">).</span><span class="s8">' bytes'</span><span class="s0">,</span>
+                <span class="s8">'display' </span><span class="s1">=&gt; </span><span class="s3">pg_field_prtlen</span><span class="s1">(</span><span class="s7">$result</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">).</span><span class="s8">' chars'</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">' (OID: )' </span><span class="s1">=== </span><span class="s7">$field</span><span class="s1">[</span><span class="s8">'table'</span><span class="s1">]) {</span>
+                <span class="s7">$field</span><span class="s1">[</span><span class="s8">'table'</span><span class="s1">] = </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'-1 bytes' </span><span class="s1">=== </span><span class="s7">$field</span><span class="s1">[</span><span class="s8">'storage'</span><span class="s1">]) {</span>
+                <span class="s7">$field</span><span class="s1">[</span><span class="s8">'storage'</span><span class="s1">] = </span><span class="s8">'variable size'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'1 bytes' </span><span class="s1">=== </span><span class="s7">$field</span><span class="s1">[</span><span class="s8">'storage'</span><span class="s1">]) {</span>
+                <span class="s7">$field</span><span class="s1">[</span><span class="s8">'storage'</span><span class="s1">] = </span><span class="s8">'1 byte'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'1 chars' </span><span class="s1">=== </span><span class="s7">$field</span><span class="s1">[</span><span class="s8">'display'</span><span class="s1">]) {</span>
+                <span class="s7">$field</span><span class="s1">[</span><span class="s8">'display'</span><span class="s1">] = </span><span class="s8">'1 char'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$a</span><span class="s1">[</span><span class="s8">'fields'</span><span class="s1">][] = </span><span class="s0">new </span><span class="s3">EnumStub</span><span class="s1">(</span><span class="s7">$field</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

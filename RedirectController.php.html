@@ -1,0 +1,204 @@
+<html>
+<head>
+<title>RedirectController.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+RedirectController.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Controller</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">RedirectResponse</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Request</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Response</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">HttpException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Generator</span><span class="s1">\</span><span class="s3">UrlGeneratorInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Redirects a request to another URL.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">RedirectController</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$router</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$httpPort</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$httpsPort</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">UrlGeneratorInterface </span><span class="s7">$router </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$httpPort </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$httpsPort </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">router </span><span class="s1">= </span><span class="s7">$router</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">httpPort </span><span class="s1">= </span><span class="s7">$httpPort</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">httpsPort </span><span class="s1">= </span><span class="s7">$httpsPort</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Redirects to another route with the given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The response status code is 302 if the permanent parameter is false (default),</span>
+     <span class="s4">* and 301 if the redirection is permanent.</span>
+     <span class="s4">*</span>
+     <span class="s4">* In case the route name is empty, the status code will be 404 when permanent is false</span>
+     <span class="s4">* and 410 otherwise.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string     $route             The route name to redirect to</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool       $permanent         Whether the redirection is permanent</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool|array $ignoreAttributes  Whether to ignore attributes or an array of attributes to ignore</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool       $keepRequestMethod Whether redirect action should keep HTTP request method</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">HttpException In case the route name is empty</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">redirectAction</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$route</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$permanent </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$ignoreAttributes </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$keepRequestMethod </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$keepQueryParams </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">== </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">HttpException</span><span class="s1">(</span><span class="s7">$permanent </span><span class="s1">? </span><span class="s9">410 </span><span class="s1">: </span><span class="s9">404</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$attributes </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$ignoreAttributes </span><span class="s1">|| \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$ignoreAttributes</span><span class="s1">)) {</span>
+            <span class="s7">$attributes </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_route_params'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$attributes </span><span class="s1">= </span><span class="s7">$keepQueryParams </span><span class="s1">? </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">query</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">) : </span><span class="s7">$attributes</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'route'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'permanent'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'ignoreAttributes'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'keepRequestMethod'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s1">[</span><span class="s8">'keepQueryParams'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$ignoreAttributes</span><span class="s1">) {</span>
+                <span class="s7">$attributes </span><span class="s1">= </span><span class="s3">array_diff_key</span><span class="s1">(</span><span class="s7">$attributes</span><span class="s0">, </span><span class="s3">array_flip</span><span class="s1">(</span><span class="s7">$ignoreAttributes</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$keepRequestMethod</span><span class="s1">) {</span>
+            <span class="s7">$statusCode </span><span class="s1">= </span><span class="s7">$permanent </span><span class="s1">? </span><span class="s9">308 </span><span class="s1">: </span><span class="s9">307</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$statusCode </span><span class="s1">= </span><span class="s7">$permanent </span><span class="s1">? </span><span class="s9">301 </span><span class="s1">: </span><span class="s9">302</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return new </span><span class="s3">RedirectResponse</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">router</span><span class="s1">-&gt;</span><span class="s3">generate</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$attributes</span><span class="s0">, </span><span class="s3">UrlGeneratorInterface</span><span class="s1">::</span><span class="s3">ABSOLUTE_URL</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$statusCode</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Redirects to a URL.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The response status code is 302 if the permanent parameter is false (default),</span>
+     <span class="s4">* and 301 if the redirection is permanent.</span>
+     <span class="s4">*</span>
+     <span class="s4">* In case the path is empty, the status code will be 404 when permanent is false</span>
+     <span class="s4">* and 410 otherwise.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string      $path              The absolute path or URL to redirect to</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool        $permanent         Whether the redirect is permanent or not</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $scheme            The URL scheme (null to keep the current one)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null    $httpPort          The HTTP port (null to keep the current one for the same scheme or the default configured port)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null    $httpsPort         The HTTPS port (null to keep the current one for the same scheme or the default configured port)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool        $keepRequestMethod Whether redirect action should keep HTTP request method</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">HttpException In case the path is empty</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">urlRedirectAction</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$permanent </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$scheme </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$httpPort </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$httpsPort </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$keepRequestMethod </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">== </span><span class="s7">$path</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">HttpException</span><span class="s1">(</span><span class="s7">$permanent </span><span class="s1">? </span><span class="s9">410 </span><span class="s1">: </span><span class="s9">404</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$keepRequestMethod</span><span class="s1">) {</span>
+            <span class="s7">$statusCode </span><span class="s1">= </span><span class="s7">$permanent </span><span class="s1">? </span><span class="s9">308 </span><span class="s1">: </span><span class="s9">307</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$statusCode </span><span class="s1">= </span><span class="s7">$permanent </span><span class="s1">? </span><span class="s9">301 </span><span class="s1">: </span><span class="s9">302</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// redirect if the path is a full URL</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">parse_url</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s3">PHP_URL_SCHEME</span><span class="s1">)) {</span>
+            <span class="s0">return new </span><span class="s3">RedirectResponse</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s7">$statusCode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$scheme</span><span class="s1">) {</span>
+            <span class="s7">$scheme </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$qs </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getQueryString</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$qs</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'?'</span><span class="s1">)) {</span>
+                <span class="s7">$qs </span><span class="s1">= </span><span class="s8">'?'</span><span class="s1">.</span><span class="s7">$qs</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$qs </span><span class="s1">= </span><span class="s8">'&amp;'</span><span class="s1">.</span><span class="s7">$qs</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$port </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'http' </span><span class="s1">=== </span><span class="s7">$scheme</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$httpPort</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'http' </span><span class="s1">=== </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">()) {</span>
+                    <span class="s7">$httpPort </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPort</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$httpPort </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">httpPort</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$httpPort </span><span class="s1">&amp;&amp; </span><span class="s9">80 </span><span class="s1">!= </span><span class="s7">$httpPort</span><span class="s1">) {</span>
+                <span class="s7">$port </span><span class="s1">= </span><span class="s8">&quot;:</span><span class="s7">$httpPort</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'https' </span><span class="s1">=== </span><span class="s7">$scheme</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$httpsPort</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'https' </span><span class="s1">=== </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getScheme</span><span class="s1">()) {</span>
+                    <span class="s7">$httpsPort </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getPort</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$httpsPort </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">httpsPort</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$httpsPort </span><span class="s1">&amp;&amp; </span><span class="s9">443 </span><span class="s1">!= </span><span class="s7">$httpsPort</span><span class="s1">) {</span>
+                <span class="s7">$port </span><span class="s1">= </span><span class="s8">&quot;:</span><span class="s7">$httpsPort</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$url </span><span class="s1">= </span><span class="s7">$scheme</span><span class="s1">.</span><span class="s8">'://'</span><span class="s1">.</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">().</span><span class="s7">$port</span><span class="s1">.</span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">getBaseUrl</span><span class="s1">().</span><span class="s7">$path</span><span class="s1">.</span><span class="s7">$qs</span><span class="s0">;</span>
+
+        <span class="s0">return new </span><span class="s3">RedirectResponse</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$statusCode</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__invoke</span><span class="s1">(</span><span class="s3">Request </span><span class="s7">$request</span><span class="s1">): </span><span class="s3">Response</span>
+    <span class="s1">{</span>
+        <span class="s7">$p </span><span class="s1">= </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_route_params'</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'route'</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'path'</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Ambiguous redirection settings, use the &quot;path&quot; or &quot;route&quot; parameter, not both: &quot;%s&quot; and &quot;%s&quot; found respectively in &quot;%s&quot; routing configuration.'</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'route'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_route'</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">redirectAction</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'route'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'permanent'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'ignoreAttributes'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'keepRequestMethod'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'keepQueryParams'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">'path'</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">urlRedirectAction</span><span class="s1">(</span><span class="s7">$request</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'permanent'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'scheme'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'httpPort'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'httpsPort'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$p</span><span class="s1">[</span><span class="s8">'keepRequestMethod'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The parameter &quot;path&quot; or &quot;route&quot; is required to configure the redirect action in &quot;%s&quot; routing configuration.'</span><span class="s0">, </span><span class="s7">$request</span><span class="s1">-&gt;</span><span class="s3">attributes</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'_route'</span><span class="s1">)))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

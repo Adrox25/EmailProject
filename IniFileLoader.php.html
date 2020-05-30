@@ -1,0 +1,122 @@
+<html>
+<head>
+<title>IniFileLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+IniFileLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Util</span><span class="s1">\</span><span class="s3">XmlUtils</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* IniFileLoader loads parameters from INI files.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">IniFileLoader </span><span class="s0">extends </span><span class="s3">FileLoader</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">load</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">locator</span><span class="s1">-&gt;</span><span class="s3">locate</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">fileExists</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// first pass to catch parsing errors</span>
+        <span class="s7">$result </span><span class="s1">= </span><span class="s3">parse_ini_file</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$result </span><span class="s1">|| [] === </span><span class="s7">$result</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The &quot;%s&quot; file is not valid.'</span><span class="s0">, </span><span class="s7">$resource</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// real raw parsing</span>
+        <span class="s7">$result </span><span class="s1">= </span><span class="s3">parse_ini_file</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s3">INI_SCANNER_RAW</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">[</span><span class="s8">'parameters'</span><span class="s1">]) &amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">[</span><span class="s8">'parameters'</span><span class="s1">])) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$result</span><span class="s1">[</span><span class="s8">'parameters'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setParameter</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">phpize</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">supports</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$type </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$resource</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$type </span><span class="s1">&amp;&amp; </span><span class="s8">'ini' </span><span class="s1">=== </span><span class="s3">pathinfo</span><span class="s1">(</span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">PATHINFO_EXTENSION</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">'ini' </span><span class="s1">=== </span><span class="s7">$type</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Note that the following features are not supported:</span>
+     <span class="s4">*  * strings with escaped quotes are not supported &quot;foo\&quot;bar&quot;;</span>
+     <span class="s4">*  * string concatenation (&quot;foo&quot; &quot;bar&quot;).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">phpize</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// trim on the right as comments removal keep whitespaces</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s1">!== </span><span class="s7">$v </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s8">'&quot;&quot;' </span><span class="s1">=== </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">) ? </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">) : </span><span class="s7">$v</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$lowercaseValue </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s1">\</span><span class="s3">defined</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s1">\</span><span class="s3">constant</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">'yes' </span><span class="s1">=== </span><span class="s7">$lowercaseValue </span><span class="s1">|| </span><span class="s8">'on' </span><span class="s1">=== </span><span class="s7">$lowercaseValue</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">'no' </span><span class="s1">=== </span><span class="s7">$lowercaseValue </span><span class="s1">|| </span><span class="s8">'off' </span><span class="s1">=== </span><span class="s7">$lowercaseValue </span><span class="s1">|| </span><span class="s8">'none' </span><span class="s1">=== </span><span class="s7">$lowercaseValue</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s0">case isset</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) &amp;&amp; (</span>
+                <span class="s1">(</span><span class="s8">&quot;'&quot; </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s8">&quot;'&quot; </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) - </span><span class="s9">1</span><span class="s1">]) ||</span>
+                <span class="s1">(</span><span class="s8">'&quot;' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s8">'&quot;' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) - </span><span class="s9">1</span><span class="s1">])</span>
+            <span class="s1">):</span>
+                <span class="s2">// quoted string</span>
+                <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">XmlUtils</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

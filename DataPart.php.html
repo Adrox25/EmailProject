@@ -1,0 +1,186 @@
+<html>
+<head>
+<title>DataPart.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DataPart.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Header</span><span class="s1">\</span><span class="s3">Headers</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">MimeTypes</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DataPart </span><span class="s0">extends </span><span class="s3">TextPart</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$mimeTypes</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$filename</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$mediaType</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cid</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$handle</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource|string $body</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$body</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$filename </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$contentType </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$encoding </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$contentType</span><span class="s1">) {</span>
+            <span class="s7">$contentType </span><span class="s1">= </span><span class="s8">'application/octet-stream'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">list</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mediaType</span><span class="s0">, </span><span class="s7">$subtype</span><span class="s1">) = </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'/'</span><span class="s0">, </span><span class="s7">$contentType</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$body</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$subtype</span><span class="s0">, </span><span class="s7">$encoding</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filename </span><span class="s1">= </span><span class="s7">$filename</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setName</span><span class="s1">(</span><span class="s7">$filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setDisposition</span><span class="s1">(</span><span class="s8">'attachment'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">fromPath</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$contentType </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s2">// FIXME: if file is not readable, exception?</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$contentType</span><span class="s1">) {</span>
+            <span class="s7">$ext </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'.'</span><span class="s1">) + </span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$mimeTypes</span><span class="s1">) {</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$mimeTypes </span><span class="s1">= </span><span class="s0">new </span><span class="s3">MimeTypes</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$contentType </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$mimeTypes</span><span class="s1">-&gt;</span><span class="s3">getMimeTypes</span><span class="s1">(</span><span class="s7">$ext</span><span class="s1">)[</span><span class="s9">0</span><span class="s1">] ?? </span><span class="s8">'application/octet-stream'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$handle </span><span class="s1">= @</span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$path</span><span class="s0">, </span><span class="s8">'r'</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unable to open path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$p </span><span class="s1">= </span><span class="s0">new </span><span class="s3">self</span><span class="s1">(</span><span class="s7">$handle</span><span class="s0">, </span><span class="s7">$name </span><span class="s1">?: </span><span class="s3">basename</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$contentType</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">handle </span><span class="s1">= </span><span class="s7">$handle</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$p</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">asInline</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setDisposition</span><span class="s1">(</span><span class="s8">'inline'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getContentId</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cid </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cid </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateContentId</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">hasContentId</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cid</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getMediaType</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mediaType</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getPreparedHeaders</span><span class="s1">(): </span><span class="s3">Headers</span>
+    <span class="s1">{</span>
+        <span class="s7">$headers </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getPreparedHeaders</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cid</span><span class="s1">) {</span>
+            <span class="s7">$headers</span><span class="s1">-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s8">'Id'</span><span class="s0">, </span><span class="s8">'Content-ID'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cid</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">) {</span>
+            <span class="s7">$headers</span><span class="s1">-&gt;</span><span class="s3">setHeaderParameter</span><span class="s1">(</span><span class="s8">'Content-Disposition'</span><span class="s0">, </span><span class="s8">'filename'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$headers</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">asDebugString</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$str </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">asDebugString</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">) {</span>
+            <span class="s7">$str </span><span class="s1">.= </span><span class="s8">' filename: '</span><span class="s1">.</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$str</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">generateContentId</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">bin2hex</span><span class="s1">(</span><span class="s3">random_bytes</span><span class="s1">(</span><span class="s9">16</span><span class="s1">)).</span><span class="s8">'@symfony'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__destruct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handle </span><span class="s1">&amp;&amp; \</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handle</span><span class="s1">)) {</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handle</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s2">// converts the body to a string</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__sleep</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_parent </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'body'</span><span class="s0">, </span><span class="s8">'charset'</span><span class="s0">, </span><span class="s8">'subtype'</span><span class="s0">, </span><span class="s8">'disposition'</span><span class="s0">, </span><span class="s8">'name'</span><span class="s0">, </span><span class="s8">'encoding'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s3">TextPart</span><span class="s1">::</span><span class="s0">class, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_parent</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getValue</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_headers </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s8">'_headers'</span><span class="s0">, </span><span class="s8">'_parent'</span><span class="s0">, </span><span class="s8">'filename'</span><span class="s0">, </span><span class="s8">'mediaType'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__wakeup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s3">AbstractPart</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'headers'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_headers</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_headers</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">([</span><span class="s8">'body'</span><span class="s0">, </span><span class="s8">'charset'</span><span class="s0">, </span><span class="s8">'subtype'</span><span class="s0">, </span><span class="s8">'disposition'</span><span class="s0">, </span><span class="s8">'name'</span><span class="s0">, </span><span class="s8">'encoding'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$name</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s3">TextPart</span><span class="s1">::</span><span class="s0">class, </span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_parent</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">_parent</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

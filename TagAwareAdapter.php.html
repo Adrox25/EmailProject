@@ -1,0 +1,450 @@
+<html>
+<head>
+<title>TagAwareAdapter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+TagAwareAdapter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItemInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">CacheItem</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">PruneableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">ResettableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">ContractsTrait</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">ProxyTrait</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Contracts</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">TagAwareCacheInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">TagAwareAdapter </span><span class="s0">implements </span><span class="s3">TagAwareAdapterInterface</span><span class="s0">, </span><span class="s3">TagAwareCacheInterface</span><span class="s0">, </span><span class="s3">PruneableInterface</span><span class="s0">, </span><span class="s3">ResettableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">TAGS_PREFIX </span><span class="s1">= </span><span class="s7">&quot;</span><span class="s0">\0</span><span class="s7">tags</span><span class="s0">\0</span><span class="s7">&quot;</span><span class="s0">;</span>
+
+    <span class="s0">use </span><span class="s3">ProxyTrait</span><span class="s0">;</span>
+    <span class="s0">use </span><span class="s3">ContractsTrait</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$deferred </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$createCacheItem</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$setCacheItemTags</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$getTagsByKey</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$invalidateTags</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$tags</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$knownTagVersions </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$knownTagVersionsTtl</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">AdapterInterface </span><span class="s8">$itemsPool</span><span class="s0">, </span><span class="s3">AdapterInterface </span><span class="s8">$tagsPool </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">float </span><span class="s8">$knownTagVersionsTtl </span><span class="s1">= </span><span class="s9">0.15</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s1">= </span><span class="s8">$itemsPool</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">tags </span><span class="s1">= </span><span class="s8">$tagsPool </span><span class="s1">?: </span><span class="s8">$itemsPool</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersionsTtl </span><span class="s1">= </span><span class="s8">$knownTagVersionsTtl</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">CacheItem </span><span class="s8">$protoItem</span><span class="s1">) {</span>
+                <span class="s8">$item </span><span class="s1">= </span><span class="s0">new </span><span class="s3">CacheItem</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">key </span><span class="s1">= </span><span class="s8">$key</span><span class="s0">;</span>
+                <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">value </span><span class="s1">= </span><span class="s8">$value</span><span class="s0">;</span>
+                <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">defaultLifetime </span><span class="s1">= </span><span class="s8">$protoItem</span><span class="s1">-&gt;</span><span class="s3">defaultLifetime</span><span class="s0">;</span>
+                <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">expiry </span><span class="s1">= </span><span class="s8">$protoItem</span><span class="s1">-&gt;</span><span class="s3">expiry</span><span class="s0">;</span>
+                <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">poolHash </span><span class="s1">= </span><span class="s8">$protoItem</span><span class="s1">-&gt;</span><span class="s3">poolHash</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s8">$item</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setCacheItemTags </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s3">CacheItem </span><span class="s8">$item</span><span class="s0">, </span><span class="s8">$key</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s8">$itemTags</span><span class="s1">) {</span>
+                <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">isTaggable </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">) {</span>
+                    <span class="s0">return </span><span class="s8">$item</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$tag </span><span class="s1">=&gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+                        <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">metadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_TAGS</span><span class="s1">][</span><span class="s8">$tag</span><span class="s1">] = </span><span class="s8">$tag</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">value </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">isHit </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s8">$item</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagsByKey </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s8">$deferred</span><span class="s1">) {</span>
+                <span class="s8">$tagsByKey </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$deferred </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$item</span><span class="s1">) {</span>
+                    <span class="s8">$tagsByKey</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">newMetadata</span><span class="s1">[</span><span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">METADATA_TAGS</span><span class="s1">] ?? []</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s8">$tagsByKey</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">invalidateTags </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span>
+            <span class="s0">static function </span><span class="s1">(</span><span class="s3">AdapterInterface </span><span class="s8">$tagsAdapter</span><span class="s0">, array </span><span class="s8">$tags</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tags </span><span class="s0">as </span><span class="s8">$v</span><span class="s1">) {</span>
+                    <span class="s8">$v</span><span class="s1">-&gt;</span><span class="s3">defaultLifetime </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                    <span class="s8">$v</span><span class="s1">-&gt;</span><span class="s3">expiry </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s8">$tagsAdapter</span><span class="s1">-&gt;</span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s8">$v</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s8">$tagsAdapter</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">,</span>
+            <span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s0">class</span>
+        <span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">invalidateTags</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$tags</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$ok </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s8">$tagsByKey </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$invalidatedTags </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tags </span><span class="s0">as </span><span class="s8">$tag</span><span class="s1">) {</span>
+            <span class="s3">CacheItem</span><span class="s1">::</span><span class="s3">validateKey</span><span class="s1">(</span><span class="s8">$tag</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$invalidatedTags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] = </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">) {</span>
+            <span class="s8">$items </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$items </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$item</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s8">$item</span><span class="s1">)) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s8">$ok </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$f </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagsByKey</span><span class="s0">;</span>
+            <span class="s8">$tagsByKey </span><span class="s1">= </span><span class="s8">$f</span><span class="s1">(</span><span class="s8">$items</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$tagVersions </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagVersions</span><span class="s1">(</span><span class="s8">$tagsByKey</span><span class="s0">, </span><span class="s8">$invalidatedTags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$f </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">createCacheItem</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tagsByKey </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$tags</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s8">$f</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">.</span><span class="s8">$key</span><span class="s0">, </span><span class="s3">array_intersect_key</span><span class="s1">(</span><span class="s8">$tagVersions</span><span class="s0">, </span><span class="s8">$tags</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$items</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$ok </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">() &amp;&amp; </span><span class="s8">$ok</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$invalidatedTags</span><span class="s1">) {</span>
+            <span class="s8">$f </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">invalidateTags</span><span class="s0">;</span>
+            <span class="s8">$ok </span><span class="s1">= </span><span class="s8">$f</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s0">, </span><span class="s8">$invalidatedTags</span><span class="s1">) &amp;&amp; </span><span class="s8">$ok</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ok</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasItem</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">hasItem</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$itemTags </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItem</span><span class="s1">(</span><span class="s0">static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">.</span><span class="s8">$key</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$itemTags</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$itemTags </span><span class="s1">= </span><span class="s8">$itemTags</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagVersions</span><span class="s1">([</span><span class="s8">$itemTags</span><span class="s1">]) </span><span class="s0">as </span><span class="s8">$tag </span><span class="s1">=&gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] !== </span><span class="s8">$version </span><span class="s1">&amp;&amp; </span><span class="s9">1 </span><span class="s1">!== </span><span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] - </span><span class="s8">$version</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getItem</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getItems</span><span class="s1">([</span><span class="s8">$key</span><span class="s1">]) </span><span class="s0">as </span><span class="s8">$item</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$item</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getItems</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$keys </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$tagKeys </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$keys </span><span class="s0">as </span><span class="s8">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$key </span><span class="s1">&amp;&amp; \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+                <span class="s8">$key </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">.</span><span class="s8">$key</span><span class="s0">;</span>
+                <span class="s8">$tagKeys</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$key</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s8">$items </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItems</span><span class="s1">(</span><span class="s8">$tagKeys </span><span class="s1">+ </span><span class="s8">$keys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">InvalidArgumentException </span><span class="s8">$e</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">getItems</span><span class="s1">(</span><span class="s8">$keys</span><span class="s1">)</span><span class="s0">; </span><span class="s2">// Should throw an exception</span>
+
+            <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">generateItems</span><span class="s1">(</span><span class="s8">$items</span><span class="s0">, </span><span class="s8">$tagKeys</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clear</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$prefix </span><span class="s1">= </span><span class="s7">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$prefix</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$item</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$prefix</span><span class="s1">)) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool </span><span class="s0">instanceof </span><span class="s3">AdapterInterface</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">(</span><span class="s8">$prefix</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">clear</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteItem</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deleteItems</span><span class="s1">([</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">deleteItems</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$keys</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$keys </span><span class="s0">as </span><span class="s8">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$key </span><span class="s1">&amp;&amp; \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+                <span class="s8">$keys</span><span class="s1">[] = </span><span class="s0">static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">.</span><span class="s8">$key</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">pool</span><span class="s1">-&gt;</span><span class="s3">deleteItems</span><span class="s1">(</span><span class="s8">$keys</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">save</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s8">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$item </span><span class="s0">instanceof </span><span class="s3">CacheItem</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">[</span><span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()] = </span><span class="s8">$item</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">saveDeferred</span><span class="s1">(</span><span class="s3">CacheItemInterface </span><span class="s8">$item</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$item </span><span class="s0">instanceof </span><span class="s3">CacheItem</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">deferred</span><span class="s1">[</span><span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">getKey</span><span class="s1">()] = </span><span class="s8">$item</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">commit</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">invalidateTags</span><span class="s1">([])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">BadMethodCallException</span><span class="s1">(</span><span class="s7">'Cannot serialize '</span><span class="s1">.</span><span class="s3">__CLASS__</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__wakeup</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">BadMethodCallException</span><span class="s1">(</span><span class="s7">'Cannot unserialize '</span><span class="s1">.</span><span class="s3">__CLASS__</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__destruct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">commit</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">generateItems</span><span class="s1">(</span><span class="s3">iterable </span><span class="s8">$items</span><span class="s0">, array </span><span class="s8">$tagKeys</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$bufferedItems </span><span class="s1">= </span><span class="s8">$itemTags </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$f </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setCacheItemTags</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$items </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$item</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$tagKeys</span><span class="s1">) {</span>
+                <span class="s0">yield </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$f</span><span class="s1">(</span><span class="s8">$item</span><span class="s0">, static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">.</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$itemTags</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$tagKeys</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                <span class="s8">$bufferedItems</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$item</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">unset</span><span class="s1">(</span><span class="s8">$tagKeys</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">isHit</span><span class="s1">()) {</span>
+                <span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$item</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">() ?: []</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$tagKeys</span><span class="s1">) {</span>
+                <span class="s8">$tagVersions </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getTagVersions</span><span class="s1">(</span><span class="s8">$itemTags</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$itemTags </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$tags</span><span class="s1">) {</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tags </span><span class="s0">as </span><span class="s8">$tag </span><span class="s1">=&gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] !== </span><span class="s8">$version </span><span class="s1">&amp;&amp; </span><span class="s9">1 </span><span class="s1">!== </span><span class="s8">$version </span><span class="s1">- </span><span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">]) {</span>
+                            <span class="s0">unset</span><span class="s1">(</span><span class="s8">$itemTags</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])</span><span class="s0">;</span>
+                            <span class="s0">continue </span><span class="s9">2</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s8">$tagVersions </span><span class="s1">= </span><span class="s8">$tagKeys </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$bufferedItems </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$item</span><span class="s1">) {</span>
+                    <span class="s0">yield </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$f</span><span class="s1">(</span><span class="s8">$item</span><span class="s0">, static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">.</span><span class="s8">$key</span><span class="s0">, </span><span class="s8">$itemTags</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s8">$bufferedItems </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getTagVersions</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$tagsByKey</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s8">$invalidatedTags </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s8">$tagVersions </span><span class="s1">= </span><span class="s8">$invalidatedTags</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tagsByKey </span><span class="s0">as </span><span class="s8">$tags</span><span class="s1">) {</span>
+            <span class="s8">$tagVersions </span><span class="s1">+= </span><span class="s8">$tags</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$tagVersions</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$fetchTagVersions </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">!== \</span><span class="s3">func_num_args</span><span class="s1">()) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tagsByKey </span><span class="s0">as </span><span class="s8">$tags</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tags </span><span class="s0">as </span><span class="s8">$tag </span><span class="s1">=&gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] &gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+                        <span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] = </span><span class="s8">$version</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$now </span><span class="s1">= </span><span class="s3">microtime</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$tags </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$tagVersions </span><span class="s0">as </span><span class="s8">$tag </span><span class="s1">=&gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+            <span class="s8">$tags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">.</span><span class="s0">static</span><span class="s1">::</span><span class="s3">TAGS_PREFIX</span><span class="s1">] = </span><span class="s8">$tag</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$fetchTagVersions </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">])) {</span>
+                <span class="s8">$fetchTagVersions </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s8">$version </span><span class="s1">-= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">((</span><span class="s9">0 </span><span class="s1">!== </span><span class="s8">$version </span><span class="s1">&amp;&amp; </span><span class="s9">1 </span><span class="s1">!== </span><span class="s8">$version</span><span class="s1">) || </span><span class="s8">$now </span><span class="s1">- </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] &gt;= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersionsTtl</span><span class="s1">) {</span>
+                <span class="s2">// reuse previously fetched tag versions up to the ttl, unless we are storing items or a potential miss arises</span>
+                <span class="s8">$fetchTagVersions </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">][</span><span class="s9">1</span><span class="s1">] += </span><span class="s8">$version</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$fetchTagVersions</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$tagVersions</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s1">-&gt;</span><span class="s3">getItems</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s8">$tags</span><span class="s1">)) </span><span class="s0">as </span><span class="s8">$tag </span><span class="s1">=&gt; </span><span class="s8">$version</span><span class="s1">) {</span>
+            <span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag </span><span class="s1">= </span><span class="s8">$tags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">]] = </span><span class="s8">$version</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">() ?: </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$invalidatedTags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">])) {</span>
+                <span class="s8">$invalidatedTags</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] = </span><span class="s8">$version</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(++</span><span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">knownTagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">] = [</span><span class="s8">$now</span><span class="s0">, </span><span class="s8">$tagVersions</span><span class="s1">[</span><span class="s8">$tag</span><span class="s1">]]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$tagVersions</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

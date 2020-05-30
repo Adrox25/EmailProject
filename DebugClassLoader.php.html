@@ -1,0 +1,1099 @@
+<html>
+<head>
+<title>DebugClassLoader.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DebugClassLoader.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Common</span><span class="s1">\</span><span class="s3">Persistence</span><span class="s1">\</span><span class="s3">Proxy </span><span class="s0">as </span><span class="s3">LegacyProxy</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">Persistence</span><span class="s1">\</span><span class="s3">Proxy</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">PHPUnit</span><span class="s1">\</span><span class="s3">Framework</span><span class="s1">\</span><span class="s3">MockObject</span><span class="s1">\</span><span class="s3">Matcher</span><span class="s1">\</span><span class="s3">StatelessInvocation</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">PHPUnit</span><span class="s1">\</span><span class="s3">Framework</span><span class="s1">\</span><span class="s3">MockObject</span><span class="s1">\</span><span class="s3">MockObject</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Prophecy</span><span class="s1">\</span><span class="s3">Prophecy</span><span class="s1">\</span><span class="s3">ProphecySubjectInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">ProxyManager</span><span class="s1">\</span><span class="s3">Proxy</span><span class="s1">\</span><span class="s3">ProxyInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Autoloader checking if the class is really defined in the file found.</span>
+ <span class="s4">*</span>
+ <span class="s4">* The ClassLoader will wrap all registered autoloaders</span>
+ <span class="s4">* and will throw an exception if a file is found but does</span>
+ <span class="s4">* not declare the class.</span>
+ <span class="s4">*</span>
+ <span class="s4">* It can also patch classes to turn docblocks into actual return types.</span>
+ <span class="s4">* This behavior is controlled by the SYMFONY_PATCH_TYPE_DECLARATIONS env var,</span>
+ <span class="s4">* which is a url-encoded array with the follow parameters:</span>
+ <span class="s4">*  - &quot;force&quot;: any value enables deprecation notices - can be any of:</span>
+ <span class="s4">*      - &quot;docblock&quot; to patch only docblock annotations</span>
+ <span class="s4">*      - &quot;object&quot; to turn union types to the &quot;object&quot; type when possible (not recommended)</span>
+ <span class="s4">*      - &quot;1&quot; to add all possible return types including magic methods</span>
+ <span class="s4">*      - &quot;0&quot; to add possible return types excluding magic methods</span>
+ <span class="s4">*  - &quot;php&quot;: the target version of PHP - e.g. &quot;7.1&quot; doesn't generate &quot;object&quot; types</span>
+ <span class="s4">*  - &quot;deprecations&quot;: &quot;1&quot; to trigger a deprecation notice when a child class misses a</span>
+ <span class="s4">*                    return type while the parent declares an &quot;@return&quot; annotation</span>
+ <span class="s4">*</span>
+ <span class="s4">* Note that patching doesn't care about any coding style so you'd better to run</span>
+ <span class="s4">* php-cs-fixer after, with rules &quot;phpdoc_trim_consecutive_blank_line_separation&quot;</span>
+ <span class="s4">* and &quot;no_superfluous_phpdoc_tags&quot; enabled typically.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Christophe Coevoet </span><span class="s6">&lt;stof</span><span class="s4">@notk.org&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Guilhem Niot </span><span class="s6">&lt;guilhem.niot</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DebugClassLoader</span>
+<span class="s1">{</span>
+    <span class="s0">private const </span><span class="s3">SPECIAL_RETURN_TYPES </span><span class="s1">= [</span>
+        <span class="s7">'mixed' </span><span class="s1">=&gt; </span><span class="s7">'mixed'</span><span class="s0">,</span>
+        <span class="s7">'void' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s7">'null' </span><span class="s1">=&gt; </span><span class="s7">'null'</span><span class="s0">,</span>
+        <span class="s7">'resource' </span><span class="s1">=&gt; </span><span class="s7">'resource'</span><span class="s0">,</span>
+        <span class="s7">'static' </span><span class="s1">=&gt; </span><span class="s7">'object'</span><span class="s0">,</span>
+        <span class="s7">'$this' </span><span class="s1">=&gt; </span><span class="s7">'object'</span><span class="s0">,</span>
+        <span class="s7">'boolean' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s7">'true' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s7">'false' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s7">'integer' </span><span class="s1">=&gt; </span><span class="s7">'int'</span><span class="s0">,</span>
+        <span class="s7">'array' </span><span class="s1">=&gt; </span><span class="s7">'array'</span><span class="s0">,</span>
+        <span class="s7">'bool' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s7">'callable' </span><span class="s1">=&gt; </span><span class="s7">'callable'</span><span class="s0">,</span>
+        <span class="s7">'float' </span><span class="s1">=&gt; </span><span class="s7">'float'</span><span class="s0">,</span>
+        <span class="s7">'int' </span><span class="s1">=&gt; </span><span class="s7">'int'</span><span class="s0">,</span>
+        <span class="s7">'iterable' </span><span class="s1">=&gt; </span><span class="s7">'iterable'</span><span class="s0">,</span>
+        <span class="s7">'object' </span><span class="s1">=&gt; </span><span class="s7">'object'</span><span class="s0">,</span>
+        <span class="s7">'string' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+        <span class="s7">'self' </span><span class="s1">=&gt; </span><span class="s7">'self'</span><span class="s0">,</span>
+        <span class="s7">'parent' </span><span class="s1">=&gt; </span><span class="s7">'parent'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private const </span><span class="s3">BUILTIN_RETURN_TYPES </span><span class="s1">= [</span>
+        <span class="s7">'void' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'array' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'bool' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'callable' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'float' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'int' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'iterable' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'object' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'string' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'self' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+        <span class="s7">'parent' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private const </span><span class="s3">MAGIC_METHODS </span><span class="s1">= [</span>
+        <span class="s7">'__set' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s7">'__isset' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s7">'__unset' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s7">'__sleep' </span><span class="s1">=&gt; </span><span class="s7">'array'</span><span class="s0">,</span>
+        <span class="s7">'__wakeup' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s7">'__toString' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+        <span class="s7">'__clone' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s7">'__debugInfo' </span><span class="s1">=&gt; </span><span class="s7">'array'</span><span class="s0">,</span>
+        <span class="s7">'__serialize' </span><span class="s1">=&gt; </span><span class="s7">'array'</span><span class="s0">,</span>
+        <span class="s7">'__unserialize' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private const </span><span class="s3">INTERNAL_TYPES </span><span class="s1">= [</span>
+        <span class="s7">'ArrayAccess' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'offsetExists' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'offsetSet' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+            <span class="s7">'offsetUnset' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'Countable' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'count' </span><span class="s1">=&gt; </span><span class="s7">'int'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'Iterator' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'next' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+            <span class="s7">'valid' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'rewind' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'IteratorAggregate' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'getIterator' </span><span class="s1">=&gt; </span><span class="s7">'\Traversable'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'OuterIterator' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'getInnerIterator' </span><span class="s1">=&gt; </span><span class="s7">'\Iterator'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'RecursiveIterator' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'hasChildren' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'SeekableIterator' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'seek' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'Serializable' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'serialize' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+            <span class="s7">'unserialize' </span><span class="s1">=&gt; </span><span class="s7">'void'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'SessionHandlerInterface' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'open' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'close' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'read' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+            <span class="s7">'write' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'destroy' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'gc' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'SessionIdInterface' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'create_sid' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'SessionUpdateTimestampHandlerInterface' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'validateId' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+            <span class="s7">'updateTimestamp' </span><span class="s1">=&gt; </span><span class="s7">'bool'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+        <span class="s7">'Throwable' </span><span class="s1">=&gt; [</span>
+            <span class="s7">'getMessage' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+            <span class="s7">'getCode' </span><span class="s1">=&gt; </span><span class="s7">'int'</span><span class="s0">,</span>
+            <span class="s7">'getFile' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+            <span class="s7">'getLine' </span><span class="s1">=&gt; </span><span class="s7">'int'</span><span class="s0">,</span>
+            <span class="s7">'getTrace' </span><span class="s1">=&gt; </span><span class="s7">'array'</span><span class="s0">,</span>
+            <span class="s7">'getPrevious' </span><span class="s1">=&gt; </span><span class="s7">'?\Throwable'</span><span class="s0">,</span>
+            <span class="s7">'getTraceAsString' </span><span class="s1">=&gt; </span><span class="s7">'string'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$classLoader</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$isFinder</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$loaded </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$patchTypes</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s8">$caseCheck</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$checkedClasses </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$final </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$finalMethods </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$deprecated </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$internal </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$internalMethods </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$annotatedParameters </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$darwinCache </span><span class="s1">= [</span><span class="s7">'/' </span><span class="s1">=&gt; [</span><span class="s7">'/'</span><span class="s0">, </span><span class="s1">[]]]</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$method </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$returnTypes </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$methodTraits </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s8">$fileOffsets </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s0">callable </span><span class="s8">$classLoader</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">classLoader </span><span class="s1">= </span><span class="s8">$classLoader</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isFinder </span><span class="s1">= \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$classLoader</span><span class="s1">) &amp;&amp; </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s8">$classLoader</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'findFile'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">parse_str</span><span class="s1">(</span><span class="s3">getenv</span><span class="s1">(</span><span class="s7">'SYMFONY_PATCH_TYPE_DECLARATIONS'</span><span class="s1">) ?: </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes </span><span class="s1">+= [</span>
+            <span class="s7">'force' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+            <span class="s7">'php' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+            <span class="s7">'deprecations' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck</span><span class="s1">)) {</span>
+            <span class="s8">$file </span><span class="s1">= </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s3">__FILE__</span><span class="s1">) ? </span><span class="s3">__FILE__ </span><span class="s1">: </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s3">realpath</span><span class="s1">(</span><span class="s7">'.'</span><span class="s1">)</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$i </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$dir </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$file </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$test </span><span class="s1">= </span><span class="s3">strtoupper</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">) === </span><span class="s8">$file </span><span class="s1">? </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">) : </span><span class="s3">strtoupper</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$test </span><span class="s1">= </span><span class="s3">realpath</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">.</span><span class="s8">$test</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$test </span><span class="s1">|| </span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s2">// filesystem is case sensitive</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$test</span><span class="s0">, </span><span class="s1">-\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)) === </span><span class="s8">$file</span><span class="s1">) {</span>
+                <span class="s2">// filesystem is case insensitive and realpath() normalizes the case of characters</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck </span><span class="s1">= </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s3">PHP_OS</span><span class="s0">, </span><span class="s7">'darwin'</span><span class="s1">)) {</span>
+                <span class="s2">// on MacOSX, HFS+ is case insensitive but realpath() doesn't normalize the case of characters</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck </span><span class="s1">= </span><span class="s9">2</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s2">// filesystem case checks failed, fallback to disabling them</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the wrapped class loader.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">callable The wrapped class loader</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getClassLoader</span><span class="s1">(): </span><span class="s0">callable</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">classLoader</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Wraps all autoloaders.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">enable</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s2">// Ensures we don't hit https://bugs.php.net/42098</span>
+        <span class="s3">class_exists</span><span class="s1">(</span><span class="s7">'Symfony\Component\ErrorHandler\ErrorHandler'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">class_exists</span><span class="s1">(</span><span class="s7">'Psr\Log\LogLevel'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$functions </span><span class="s1">= </span><span class="s3">spl_autoload_functions</span><span class="s1">())) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$functions </span><span class="s0">as </span><span class="s8">$function</span><span class="s1">) {</span>
+            <span class="s3">spl_autoload_unregister</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$functions </span><span class="s0">as </span><span class="s8">$function</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">) || !</span><span class="s8">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+                <span class="s8">$function </span><span class="s1">= [</span><span class="s0">new static</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">, </span><span class="s7">'loadClass'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s3">spl_autoload_register</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Disables the wrapping.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">disable</span><span class="s1">(): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$functions </span><span class="s1">= </span><span class="s3">spl_autoload_functions</span><span class="s1">())) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$functions </span><span class="s0">as </span><span class="s8">$function</span><span class="s1">) {</span>
+            <span class="s3">spl_autoload_unregister</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$functions </span><span class="s0">as </span><span class="s8">$function</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">) &amp;&amp; </span><span class="s8">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+                <span class="s8">$function </span><span class="s1">= </span><span class="s8">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">getClassLoader</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s3">spl_autoload_register</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">checkClasses</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$functions </span><span class="s1">= </span><span class="s3">spl_autoload_functions</span><span class="s1">())) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$loader </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$functions </span><span class="s0">as </span><span class="s8">$function</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$function</span><span class="s1">) &amp;&amp; </span><span class="s8">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+                <span class="s8">$loader </span><span class="s1">= </span><span class="s8">$function</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$loader</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">static </span><span class="s8">$offsets </span><span class="s1">= [</span>
+            <span class="s7">'get_declared_interfaces' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s7">'get_declared_traits' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s7">'get_declared_classes' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$offsets </span><span class="s0">as </span><span class="s8">$getSymbols </span><span class="s1">=&gt; </span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s8">$symbols </span><span class="s1">= </span><span class="s8">$getSymbols</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">)</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s3">MockObject</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span>
+                    <span class="s1">&amp;&amp; !</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s3">ProphecySubjectInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span>
+                    <span class="s1">&amp;&amp; !</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s3">Proxy</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span>
+                    <span class="s1">&amp;&amp; !</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s3">ProxyInterface</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span>
+                    <span class="s1">&amp;&amp; !</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s3">LegacyProxy</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)</span>
+                <span class="s1">) {</span>
+                    <span class="s8">$loader</span><span class="s1">-&gt;</span><span class="s3">checkClass</span><span class="s1">(</span><span class="s8">$symbols</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$offsets</span><span class="s1">[</span><span class="s8">$getSymbols</span><span class="s1">] = </span><span class="s8">$i</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">findFile</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$class</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isFinder </span><span class="s1">? (</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">classLoader</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">findFile</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">) ?: </span><span class="s3">null</span><span class="s1">) : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads the given class or interface.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">loadClass</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$class</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s8">$e </span><span class="s1">= </span><span class="s3">error_reporting</span><span class="s1">(</span><span class="s3">error_reporting</span><span class="s1">() | </span><span class="s3">E_PARSE </span><span class="s1">| </span><span class="s3">E_ERROR </span><span class="s1">| </span><span class="s3">E_CORE_ERROR </span><span class="s1">| </span><span class="s3">E_COMPILE_ERROR</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isFinder </span><span class="s1">&amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loaded</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">])) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">loaded</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s8">$file </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">classLoader</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">findFile</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">) ?: </span><span class="s7">''</span><span class="s1">) {</span>
+                    <span class="s2">// no-op</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s7">'opcache_is_script_cached'</span><span class="s1">) &amp;&amp; @</span><span class="s3">opcache_is_script_cached</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)) {</span>
+                    <span class="s0">include </span><span class="s8">$file</span><span class="s0">;</span>
+
+                    <span class="s0">return;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s0">include </span><span class="s8">$file</span><span class="s1">) {</span>
+                    <span class="s0">return;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">classLoader</span><span class="s1">)(</span><span class="s8">$class</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$file </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">error_reporting</span><span class="s1">(</span><span class="s8">$e</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">checkClass</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">checkClass</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$class</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s8">$exists </span><span class="s1">= </span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$file </span><span class="s1">|| </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$file </span><span class="s1">&amp;&amp; </span><span class="s8">$class </span><span class="s1">&amp;&amp; </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s8">$class</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s8">$class </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$exists</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$checkedClasses</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">])) {</span>
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$checkedClasses</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+            <span class="s8">$refl </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$file </span><span class="s1">&amp;&amp; </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">isInternal</span><span class="s1">()) {</span>
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+            <span class="s8">$name </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$name </span><span class="s1">!== </span><span class="s8">$class </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strcasecmp</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Case mismatch between loaded and declared class names: &quot;%s&quot; vs &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$deprecations </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">checkAnnotations</span><span class="s1">(</span><span class="s8">$refl</span><span class="s0">, </span><span class="s8">$name</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$deprecations </span><span class="s0">as </span><span class="s8">$message</span><span class="s1">) {</span>
+                <span class="s1">@</span><span class="s3">trigger_error</span><span class="s1">(</span><span class="s8">$message</span><span class="s0">, </span><span class="s3">E_USER_DEPRECATED</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$file</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$exists</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s7">'/'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Trying to autoload a class with an invalid name &quot;%s&quot;. Be careful that the namespace separator is &quot;\&quot; in PHP, not &quot;/&quot;.'</span><span class="s0">, </span><span class="s8">$class</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The autoloader expected class &quot;%s&quot; to be defined in file &quot;%s&quot;. The file was found but the class was not in it, the class name or namespace probably has a typo.'</span><span class="s0">, </span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck </span><span class="s1">&amp;&amp; </span><span class="s8">$message </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">checkCase</span><span class="s1">(</span><span class="s8">$refl</span><span class="s0">, </span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Case mismatch between class and real file names: &quot;%s&quot; vs &quot;%s&quot; in &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$message</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$message</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$message</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">checkAnnotations</span><span class="s1">(\</span><span class="s3">ReflectionClass </span><span class="s8">$refl</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$class</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span>
+            <span class="s7">'Symfony\Bridge\PhpUnit\Legacy\SymfonyTestsListenerForV7' </span><span class="s1">=== </span><span class="s8">$class</span>
+            <span class="s1">|| </span><span class="s7">'Symfony\Bridge\PhpUnit\Legacy\SymfonyTestsListenerForV6' </span><span class="s1">=== </span><span class="s8">$class</span>
+        <span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$deprecations </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s8">$className </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">[</span><span class="s9">15</span><span class="s1">]) &amp;&amp; </span><span class="s7">&quot;</span><span class="s0">\0</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s8">$class</span><span class="s1">[</span><span class="s9">15</span><span class="s1">] &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s7">&quot;class@anonymous</span><span class="s0">\x00</span><span class="s7">&quot;</span><span class="s1">) ? </span><span class="s3">get_parent_class</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">).</span><span class="s7">'@anonymous' </span><span class="s1">: </span><span class="s8">$class</span><span class="s0">;</span>
+
+        <span class="s2">// Don't trigger deprecations for classes in the same vendor</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$class </span><span class="s1">!== </span><span class="s8">$className</span><span class="s1">) {</span>
+            <span class="s8">$vendor </span><span class="s1">= </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^namespace ([^;</span><span class="s0">\\\\</span><span class="s7">\s]++)[;</span><span class="s0">\\\\</span><span class="s7">]/m'</span><span class="s0">, </span><span class="s1">@</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">())</span><span class="s0">, </span><span class="s8">$vendor</span><span class="s1">) ? </span><span class="s8">$vendor</span><span class="s1">[</span><span class="s9">1</span><span class="s1">].</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">: </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s8">$vendorLen </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$vendor</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">2 </span><span class="s1">&gt; </span><span class="s8">$vendorLen </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">+ (</span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">) ?: </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s7">'_'</span><span class="s1">))) {</span>
+            <span class="s8">$vendorLen </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+            <span class="s8">$vendor </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$vendor </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$vendorLen</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Detect annotations on the class</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$doc </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getDocComment</span><span class="s1">()) {</span>
+            <span class="s0">foreach </span><span class="s1">([</span><span class="s7">'final'</span><span class="s0">, </span><span class="s7">'deprecated'</span><span class="s0">, </span><span class="s7">'internal'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$annotation</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$annotation</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#\n\s+\* @'</span><span class="s1">.</span><span class="s8">$annotation</span><span class="s1">.</span><span class="s7">'(?:( .+?)\.?)?\r?\n\s+\*(?: @|/$|\r?\n)#s'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$notice</span><span class="s1">)) {</span>
+                    <span class="s3">self</span><span class="s1">::${</span><span class="s8">$annotation</span><span class="s1">}[</span><span class="s8">$class</span><span class="s1">] = </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$notice</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) ? </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#\.?\r?\n( \*)? *(?= |\r?\n|$)#'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$notice</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) : </span><span class="s7">''</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">isInterface</span><span class="s1">() &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$doc</span><span class="s0">, </span><span class="s7">'method'</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match_all</span><span class="s1">(</span><span class="s7">'#\n \* @method\s+(static\s+)?+([\w\|&amp;\[\]</span><span class="s0">\\</span><span class="s7">\]+\s+)?(\w+(?:\s*\([^\)]*\))?)+(.+?([[:punct:]]\s*)?)?(?=\r?\n \*(?: @|/$|\r?\n))#'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$notice</span><span class="s0">, </span><span class="s3">PREG_SET_ORDER</span><span class="s1">)) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$notice </span><span class="s0">as </span><span class="s8">$method</span><span class="s1">) {</span>
+                    <span class="s8">$static </span><span class="s1">= </span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$method</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] &amp;&amp; !</span><span class="s0">empty</span><span class="s1">(</span><span class="s8">$method</span><span class="s1">[</span><span class="s9">2</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s8">$name </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">[</span><span class="s9">3</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$description </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">[</span><span class="s9">4</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s7">'('</span><span class="s1">)) {</span>
+                        <span class="s8">$name </span><span class="s1">.= </span><span class="s7">'()'</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$description</span><span class="s1">) {</span>
+                        <span class="s8">$description </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$description</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$method</span><span class="s1">[</span><span class="s9">5</span><span class="s1">])) {</span>
+                            <span class="s8">$description </span><span class="s1">.= </span><span class="s7">'.'</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][] = [</span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$static</span><span class="s0">, </span><span class="s8">$description</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$parent </span><span class="s1">= </span><span class="s3">get_parent_class</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">) ?: </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s8">$parentAndOwnInterfaces </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getOwnInterfaces</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$parent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$parent</span><span class="s1">) {</span>
+            <span class="s8">$parentAndOwnInterfaces</span><span class="s1">[</span><span class="s8">$parent</span><span class="s1">] = </span><span class="s8">$parent</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$checkedClasses</span><span class="s1">[</span><span class="s8">$parent</span><span class="s1">])) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">checkClass</span><span class="s1">(</span><span class="s8">$parent</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$final</span><span class="s1">[</span><span class="s8">$parent</span><span class="s1">])) {</span>
+                <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s&quot; class is considered final%s. It may change without further notice as of its next major version. You should not extend it from &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$parent</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$final</span><span class="s1">[</span><span class="s8">$parent</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Detect if the parent is annotated</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$parentAndOwnInterfaces </span><span class="s1">+ </span><span class="s3">class_uses</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$use</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$checkedClasses</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">])) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">checkClass</span><span class="s1">(</span><span class="s8">$use</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$deprecated</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">]) &amp;&amp; </span><span class="s3">strncmp</span><span class="s1">(</span><span class="s8">$vendor</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s8">$use</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$vendorLen</span><span class="s1">) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$deprecated</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">])) {</span>
+                <span class="s8">$type </span><span class="s1">= </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s7">'class' </span><span class="s1">: (</span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s7">'interface' </span><span class="s1">: </span><span class="s7">'trait'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$verb </span><span class="s1">= </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">$use</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s7">'extends' </span><span class="s1">: (</span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$use</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s7">'implements' </span><span class="s1">: </span><span class="s7">'uses'</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s&quot; %s %s &quot;%s&quot; that is deprecated%s.'</span><span class="s0">, </span><span class="s8">$className</span><span class="s0">, </span><span class="s8">$type</span><span class="s0">, </span><span class="s8">$verb</span><span class="s0">, </span><span class="s8">$use</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$deprecated</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$internal</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">]) &amp;&amp; </span><span class="s3">strncmp</span><span class="s1">(</span><span class="s8">$vendor</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s8">$use</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$vendorLen</span><span class="s1">)) {</span>
+                <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s&quot; %s is considered internal%s. It may change without further notice. You should not use it from &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$use</span><span class="s0">, </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">$use</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s7">'class' </span><span class="s1">: (</span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$use</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s7">'interface' </span><span class="s1">: </span><span class="s7">'trait'</span><span class="s1">)</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$internal</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">])) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">()) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">])) {</span>
+                        <span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">]</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">isInterface</span><span class="s1">()) {</span>
+                    <span class="s8">$hasCall </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s7">'__call'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$hasStaticCall </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s7">'__callStatic'</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$method</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$method</span><span class="s1">) {</span>
+                        <span class="s0">list</span><span class="s1">(</span><span class="s8">$interface</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s8">$static</span><span class="s0">, </span><span class="s8">$description</span><span class="s1">) = </span><span class="s8">$method</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">$static </span><span class="s1">? </span><span class="s8">$hasStaticCall </span><span class="s1">: </span><span class="s8">$hasCall</span><span class="s1">) {</span>
+                            <span class="s0">continue;</span>
+                        <span class="s1">}</span>
+                        <span class="s8">$realName </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$name</span><span class="s0">, </span><span class="s7">'('</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s8">$realName</span><span class="s1">) || !(</span><span class="s8">$methodRefl </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">$realName</span><span class="s1">))-&gt;</span><span class="s3">isPublic</span><span class="s1">() || (</span><span class="s8">$static </span><span class="s1">&amp;&amp; !</span><span class="s8">$methodRefl</span><span class="s1">-&gt;</span><span class="s3">isStatic</span><span class="s1">()) || (!</span><span class="s8">$static </span><span class="s1">&amp;&amp; </span><span class="s8">$methodRefl</span><span class="s1">-&gt;</span><span class="s3">isStatic</span><span class="s1">())) {</span>
+                            <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Class &quot;%s&quot; should implement method &quot;%s::%s&quot;%s'</span><span class="s0">, </span><span class="s8">$className</span><span class="s0">, </span><span class="s1">(</span><span class="s8">$static </span><span class="s1">? </span><span class="s7">'static ' </span><span class="s1">: </span><span class="s7">''</span><span class="s1">).</span><span class="s8">$interface</span><span class="s0">, </span><span class="s8">$name</span><span class="s0">, </span><span class="s3">null </span><span class="s1">== </span><span class="s8">$description </span><span class="s1">? </span><span class="s7">'.' </span><span class="s1">: </span><span class="s7">': '</span><span class="s1">.</span><span class="s8">$description</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s8">$class</span><span class="s1">)) {</span>
+            <span class="s8">$file </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$method</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">() === </span><span class="s8">$file</span><span class="s1">) {</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s8">$methodTraits</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()] = </span><span class="s8">$class</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$deprecations</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Inherit @final, @internal, @param and @return annotations for methods</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$finalMethods</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = []</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$internalMethods</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = []</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$annotatedParameters</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = []</span><span class="s0">;</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] = []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$parentAndOwnInterfaces </span><span class="s0">as </span><span class="s8">$use</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">([</span><span class="s7">'finalMethods'</span><span class="s0">, </span><span class="s7">'internalMethods'</span><span class="s0">, </span><span class="s7">'annotatedParameters'</span><span class="s0">, </span><span class="s7">'returnTypes'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$property</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::${</span><span class="s8">$property</span><span class="s1">}[</span><span class="s8">$use</span><span class="s1">])) {</span>
+                    <span class="s3">self</span><span class="s1">::${</span><span class="s8">$property</span><span class="s1">}[</span><span class="s8">$class</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::${</span><span class="s8">$property</span><span class="s1">}[</span><span class="s8">$class</span><span class="s1">] ? </span><span class="s3">self</span><span class="s1">::${</span><span class="s8">$property</span><span class="s1">}[</span><span class="s8">$use</span><span class="s1">] + </span><span class="s3">self</span><span class="s1">::${</span><span class="s8">$property</span><span class="s1">}[</span><span class="s8">$class</span><span class="s1">] : </span><span class="s3">self</span><span class="s1">::${</span><span class="s8">$property</span><span class="s1">}[</span><span class="s8">$use</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== (</span><span class="s3">self</span><span class="s1">::</span><span class="s3">INTERNAL_TYPES</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">INTERNAL_TYPES</span><span class="s1">[</span><span class="s8">$use</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$method </span><span class="s1">=&gt; </span><span class="s8">$returnType</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">'void' </span><span class="s1">!== </span><span class="s8">$returnType</span><span class="s1">) {</span>
+                        <span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] += [</span><span class="s8">$method </span><span class="s1">=&gt; [</span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$class</span><span class="s0">, </span><span class="s7">''</span><span class="s1">]]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$method</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">class </span><span class="s1">!== </span><span class="s8">$class</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$ns </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$methodTraits</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()] ?? </span><span class="s3">null</span><span class="s1">) {</span>
+                <span class="s8">$ns </span><span class="s1">= </span><span class="s8">$vendor</span><span class="s0">;</span>
+                <span class="s8">$len </span><span class="s1">= </span><span class="s8">$vendorLen</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">2 </span><span class="s1">&gt; </span><span class="s8">$len </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">+ (</span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$ns</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">) ?: </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$ns</span><span class="s0">, </span><span class="s7">'_'</span><span class="s1">))) {</span>
+                <span class="s8">$len </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                <span class="s8">$ns </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$ns </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'_'</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$ns</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$len</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$parent </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$finalMethods</span><span class="s1">[</span><span class="s8">$parent</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$message</span><span class="s1">) = </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$finalMethods</span><span class="s1">[</span><span class="s8">$parent</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s::%s()&quot; method is considered final%s. It may change without further notice as of its next major version. You should not extend it from &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s8">$message</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$internalMethods</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$message</span><span class="s1">) = </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$internalMethods</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">strncmp</span><span class="s1">(</span><span class="s8">$ns</span><span class="s0">, </span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$len</span><span class="s1">)) {</span>
+                    <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%s::%s()&quot; method is considered internal%s. It may change without further notice. You should not extend it from &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s8">$message</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// To read method annotations</span>
+            <span class="s8">$doc </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getDocComment</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$annotatedParameters</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                <span class="s8">$definedParameters </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$parameter</span><span class="s1">) {</span>
+                    <span class="s8">$definedParameters</span><span class="s1">[</span><span class="s8">$parameter</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$annotatedParameters</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$parameterName </span><span class="s1">=&gt; </span><span class="s8">$deprecation</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$definedParameters</span><span class="s1">[</span><span class="s8">$parameterName</span><span class="s1">]) &amp;&amp; !(</span><span class="s8">$doc </span><span class="s1">&amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">&quot;/</span><span class="s0">\\</span><span class="s7">n</span><span class="s0">\\</span><span class="s7">s+</span><span class="s0">\\</span><span class="s7">* @param +((?(?!callable *\().*?|callable *\(.*\).*?))(?&lt;= )</span><span class="s0">\\\$</span><span class="s1">{</span><span class="s8">$parameterName</span><span class="s1">}</span><span class="s0">\\</span><span class="s7">b/&quot;</span><span class="s0">, </span><span class="s8">$doc</span><span class="s1">))) {</span>
+                        <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$deprecation</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$forcePatchTypes </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$canAddReturnType </span><span class="s1">= </span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$forcePatchTypes </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">'vendor'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'void' </span><span class="s1">!== (</span><span class="s3">self</span><span class="s1">::</span><span class="s3">MAGIC_METHODS</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] ?? </span><span class="s7">'void'</span><span class="s1">)) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">] = </span><span class="s8">$forcePatchTypes </span><span class="s1">?: </span><span class="s7">'docblock'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$canAddReturnType </span><span class="s1">= </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">'Tests'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)</span>
+                    <span class="s1">|| </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">isFinal</span><span class="s1">()</span>
+                    <span class="s1">|| </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">isFinal</span><span class="s1">()</span>
+                    <span class="s1">|| </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()</span>
+                    <span class="s1">|| (</span><span class="s7">'' </span><span class="s1">=== (</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$internal</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) &amp;&amp; !</span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">())</span>
+                    <span class="s1">|| </span><span class="s7">'' </span><span class="s1">=== (</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$final</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)</span>
+                    <span class="s1">|| </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/@(final|internal)$/m'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s1">)</span>
+                <span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== (</span><span class="s8">$returnType </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] ?? </span><span class="s3">self</span><span class="s1">::</span><span class="s3">MAGIC_METHODS</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">) &amp;&amp; !</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">hasReturnType</span><span class="s1">() &amp;&amp; !(</span><span class="s8">$doc </span><span class="s1">&amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/\n\s+\* @return +(\S+)/'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s1">))) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s8">$normalizedType</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$declaringFile</span><span class="s1">) = \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$returnType</span><span class="s1">) ? [</span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s7">''</span><span class="s1">] : </span><span class="s8">$returnType</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'void' </span><span class="s1">=== </span><span class="s8">$normalizedType</span><span class="s1">) {</span>
+                    <span class="s8">$canAddReturnType </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$canAddReturnType </span><span class="s1">&amp;&amp; </span><span class="s7">'docblock' </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">]) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchMethod</span><span class="s1">(</span><span class="s8">$method</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$declaringFile</span><span class="s0">, </span><span class="s8">$normalizedType</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">strncmp</span><span class="s1">(</span><span class="s8">$ns</span><span class="s0">, </span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$len</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$canAddReturnType </span><span class="s1">&amp;&amp; </span><span class="s7">'docblock' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">] &amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s7">'vendor'</span><span class="s1">.\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">)) {</span>
+                        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchMethod</span><span class="s1">(</span><span class="s8">$method</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$declaringFile</span><span class="s0">, </span><span class="s8">$normalizedType</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$declaringClass </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'deprecations'</span><span class="s1">]) {</span>
+                        <span class="s8">$deprecations</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Method &quot;%s::%s()&quot; will return &quot;%s&quot; as of its next major version. Doing the same in %s &quot;%s&quot; will be required when upgrading.'</span><span class="s0">, </span><span class="s8">$declaringClass</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s8">$normalizedType</span><span class="s0">, </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$declaringClass</span><span class="s1">) ? </span><span class="s7">'implementation' </span><span class="s1">: </span><span class="s7">'child class'</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$doc</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">] = </span><span class="s8">$forcePatchTypes</span><span class="s0">;</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$matches </span><span class="s1">= []</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">hasReturnType</span><span class="s1">() &amp;&amp; ((</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$doc</span><span class="s0">, </span><span class="s7">'@return'</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/\n\s+\* @return +(\S+)/'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) || </span><span class="s7">'void' </span><span class="s1">!== (</span><span class="s3">self</span><span class="s1">::</span><span class="s3">MAGIC_METHODS</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] ?? </span><span class="s7">'void'</span><span class="s1">))) {</span>
+                <span class="s8">$matches </span><span class="s1">= </span><span class="s8">$matches </span><span class="s1">?: [</span><span class="s9">1 </span><span class="s1">=&gt; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">MAGIC_METHODS</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">]]</span><span class="s0">;</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">setReturnType</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$method</span><span class="s0">, </span><span class="s8">$parent</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) &amp;&amp; </span><span class="s8">$canAddReturnType</span><span class="s1">) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">fixReturnStatements</span><span class="s1">(</span><span class="s8">$method</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()) {</span>
+                    <span class="s0">unset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">] = </span><span class="s8">$forcePatchTypes</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$finalOrInternal </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">([</span><span class="s7">'final'</span><span class="s0">, </span><span class="s7">'internal'</span><span class="s1">] </span><span class="s0">as </span><span class="s8">$annotation</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$annotation</span><span class="s1">) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#\n\s+\* @'</span><span class="s1">.</span><span class="s8">$annotation</span><span class="s1">.</span><span class="s7">'(?:( .+?)\.?)?\r?\n\s+\*(?: @|/$|\r?\n)#s'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$notice</span><span class="s1">)) {</span>
+                    <span class="s8">$message </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$notice</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) ? </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#\.?\r?\n( \*)? *(?= |\r?\n|$)#'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$notice</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) : </span><span class="s7">''</span><span class="s0">;</span>
+                    <span class="s3">self</span><span class="s1">::${</span><span class="s8">$annotation</span><span class="s1">.</span><span class="s7">'Methods'</span><span class="s1">}[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = [</span><span class="s8">$class</span><span class="s0">, </span><span class="s8">$message</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$finalOrInternal </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$finalOrInternal </span><span class="s1">|| </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">isConstructor</span><span class="s1">() || </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$doc</span><span class="s0">, </span><span class="s7">'@param'</span><span class="s1">) || </span><span class="s3">StatelessInvocation</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== </span><span class="s8">$class</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match_all</span><span class="s1">(</span><span class="s7">'#\n\s+\* @param +((?(?!callable *\().*?|callable *\(.*\).*?))(?&lt;= )\$([a-zA-Z0-9_\x7f-\xff]++)#'</span><span class="s0">, </span><span class="s8">$doc</span><span class="s0">, </span><span class="s8">$matches</span><span class="s0">, </span><span class="s3">PREG_SET_ORDER</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$annotatedParameters</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                <span class="s8">$definedParameters </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getParameters</span><span class="s1">() </span><span class="s0">as </span><span class="s8">$parameter</span><span class="s1">) {</span>
+                    <span class="s8">$definedParameters</span><span class="s1">[</span><span class="s8">$parameter</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$matches </span><span class="s0">as list</span><span class="s1">(</span><span class="s0">, </span><span class="s8">$parameterType</span><span class="s0">, </span><span class="s8">$parameterName</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$definedParameters</span><span class="s1">[</span><span class="s8">$parameterName</span><span class="s1">])) {</span>
+                    <span class="s8">$parameterType </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$parameterType</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s8">$annotatedParameters</span><span class="s1">[</span><span class="s8">$class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">][</span><span class="s8">$parameterName</span><span class="s1">] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The &quot;%%s::%s()&quot; method will require a new &quot;%s$%s&quot; argument in the next major version of its %s &quot;%s&quot;, not defining it is deprecated.'</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s8">$parameterType </span><span class="s1">? </span><span class="s8">$parameterType</span><span class="s1">.</span><span class="s7">' ' </span><span class="s1">: </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$parameterName</span><span class="s0">, </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$className</span><span class="s1">) ? </span><span class="s7">'interface' </span><span class="s1">: </span><span class="s7">'parent class'</span><span class="s0">, </span><span class="s8">$className</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$deprecations</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">checkCase</span><span class="s1">(\</span><span class="s3">ReflectionClass </span><span class="s8">$refl</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$file</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$class</span><span class="s1">): ?</span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$real </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s8">$class</span><span class="s1">.</span><span class="s3">strrchr</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s7">'.'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s8">$tail </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'/'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s8">$i </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$tail</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s8">$j </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$real</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$tail</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$real</span><span class="s1">[</span><span class="s8">$j</span><span class="s1">]) &amp;&amp; </span><span class="s8">$tail</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] === </span><span class="s8">$real</span><span class="s1">[</span><span class="s8">$j</span><span class="s1">]) {</span>
+            <span class="s1">--</span><span class="s8">$i</span><span class="s0">;</span>
+            <span class="s1">--</span><span class="s8">$j</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">array_splice</span><span class="s1">(</span><span class="s8">$tail</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$tail</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$tail </span><span class="s1">= \</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(\</span><span class="s3">DIRECTORY_SEPARATOR</span><span class="s0">, </span><span class="s8">$tail</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$tailLen </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$tail</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$real </span><span class="s1">= </span><span class="s8">$refl</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">2 </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$caseCheck</span><span class="s1">) {</span>
+            <span class="s8">$real </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">darwinRealpath</span><span class="s1">(</span><span class="s8">$real</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">substr_compare</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s8">$tail</span><span class="s0">, </span><span class="s1">-</span><span class="s8">$tailLen</span><span class="s0">, </span><span class="s8">$tailLen</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span>
+            <span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">substr_compare</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s8">$tail</span><span class="s0">, </span><span class="s1">-</span><span class="s8">$tailLen</span><span class="s0">, </span><span class="s8">$tailLen</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span>
+        <span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$tail</span><span class="s0">, </span><span class="s1">-</span><span class="s8">$tailLen </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s1">-</span><span class="s8">$tailLen </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s8">$tailLen </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* `realpath` on MacOSX doesn't normalize the case of characters.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">darwinRealpath</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$real</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$i </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">+ </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s7">'/'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$file </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$real </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$real</span><span class="s1">])) {</span>
+            <span class="s8">$kDir </span><span class="s1">= </span><span class="s8">$real</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$kDir </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$real</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$kDir</span><span class="s1">])) {</span>
+                <span class="s8">$real </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$kDir</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$dir </span><span class="s1">= </span><span class="s3">getcwd</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(!@</span><span class="s3">chdir</span><span class="s1">(</span><span class="s8">$real</span><span class="s1">)) {</span>
+                    <span class="s0">return </span><span class="s8">$real</span><span class="s1">.</span><span class="s8">$file</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$real </span><span class="s1">= </span><span class="s3">getcwd</span><span class="s1">().</span><span class="s7">'/'</span><span class="s0">;</span>
+                <span class="s3">chdir</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s8">$dir </span><span class="s1">= </span><span class="s8">$real</span><span class="s0">;</span>
+                <span class="s8">$k </span><span class="s1">= </span><span class="s8">$kDir</span><span class="s0">;</span>
+                <span class="s8">$i </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$dir</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">;</span>
+                <span class="s0">while </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$k</span><span class="s1">])) {</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$k</span><span class="s1">] = [</span><span class="s8">$dir</span><span class="s0">, </span><span class="s1">[]]</span><span class="s0">;</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$dir</span><span class="s1">] = &amp;</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$k</span><span class="s1">]</span><span class="s0">;</span>
+
+                    <span class="s0">while </span><span class="s1">(</span><span class="s7">'/' </span><span class="s1">!== </span><span class="s8">$dir</span><span class="s1">[--</span><span class="s8">$i</span><span class="s1">]) {</span>
+                    <span class="s1">}</span>
+                    <span class="s8">$k </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$k</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$dir </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$dir</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$i</span><span class="s1">--)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$dirFiles </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$kDir</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">]) &amp;&amp; </span><span class="s7">') : eval()</span><span class="s0">\'</span><span class="s7">d code' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s1">-</span><span class="s9">17</span><span class="s1">)) {</span>
+            <span class="s2">// Get the file name from &quot;file_name.php(123) : eval()'d code&quot;</span>
+            <span class="s8">$file </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s7">'('</span><span class="s0">, </span><span class="s1">-</span><span class="s9">17</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s8">$real</span><span class="s1">.</span><span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$kFile </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$kFile</span><span class="s1">])) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">scandir</span><span class="s1">(</span><span class="s8">$real</span><span class="s0">, </span><span class="s9">2</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$f</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'.' </span><span class="s1">!== </span><span class="s8">$f</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                    <span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$f</span><span class="s1">] = </span><span class="s8">$f</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$f </span><span class="s1">=== </span><span class="s8">$file</span><span class="s1">) {</span>
+                        <span class="s8">$kFile </span><span class="s1">= </span><span class="s8">$k </span><span class="s1">= </span><span class="s8">$file</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$f </span><span class="s1">!== </span><span class="s8">$k </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$f</span><span class="s1">)) {</span>
+                        <span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$k</span><span class="s1">] = </span><span class="s8">$f</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s8">$darwinCache</span><span class="s1">[</span><span class="s8">$kDir</span><span class="s1">][</span><span class="s9">1</span><span class="s1">] = </span><span class="s8">$dirFiles</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$real</span><span class="s1">.</span><span class="s8">$dirFiles</span><span class="s1">[</span><span class="s8">$kFile</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* `class_implements` includes interfaces from the parents so we have to manually exclude them.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getOwnInterfaces</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$class</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s8">$parent</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$ownInterfaces </span><span class="s1">= </span><span class="s3">class_implements</span><span class="s1">(</span><span class="s8">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$parent</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">class_implements</span><span class="s1">(</span><span class="s8">$parent</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$interface</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s8">$ownInterfaces</span><span class="s1">[</span><span class="s8">$interface</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$ownInterfaces </span><span class="s0">as </span><span class="s8">$interface</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s3">class_implements</span><span class="s1">(</span><span class="s8">$interface</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$interface</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s8">$ownInterfaces</span><span class="s1">[</span><span class="s8">$interface</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ownInterfaces</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">setReturnType</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$types</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ReflectionMethod </span><span class="s8">$method</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s8">$parent</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s8">$nullable </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s8">$typesMap </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">explode</span><span class="s1">(</span><span class="s7">'|'</span><span class="s0">, </span><span class="s8">$types</span><span class="s1">) </span><span class="s0">as </span><span class="s8">$t</span><span class="s1">) {</span>
+            <span class="s8">$typesMap</span><span class="s1">[</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">normalizeType</span><span class="s1">(</span><span class="s8">$t</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">class</span><span class="s0">, </span><span class="s8">$parent</span><span class="s1">)] = </span><span class="s8">$t</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'Traversable'</span><span class="s1">]) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'\Traversable'</span><span class="s1">])) {</span>
+                <span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'iterable'</span><span class="s1">] = </span><span class="s7">'array' </span><span class="s1">!== </span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">] ? </span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">] : </span><span class="s7">'iterable'</span><span class="s0">;</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'Traversable'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'\Traversable'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'array' </span><span class="s1">!== </span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">] &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">])) {</span>
+                <span class="s0">return;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">]) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'iterable'</span><span class="s1">])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'[]' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">]</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">)) {</span>
+                <span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'iterable'</span><span class="s1">] = </span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">[</span><span class="s7">'array'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$iterable </span><span class="s1">= </span><span class="s8">$object </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$typesMap </span><span class="s0">as </span><span class="s8">$n </span><span class="s1">=&gt; </span><span class="s8">$t</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'null' </span><span class="s1">!== </span><span class="s8">$n</span><span class="s1">) {</span>
+                <span class="s8">$iterable </span><span class="s1">= </span><span class="s8">$iterable </span><span class="s1">&amp;&amp; (\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$n</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'array'</span><span class="s0">, </span><span class="s7">'iterable'</span><span class="s1">]) || </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$n</span><span class="s0">, </span><span class="s7">'Iterator'</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s8">$object </span><span class="s1">= </span><span class="s8">$object </span><span class="s1">&amp;&amp; (\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$n</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'callable'</span><span class="s0">, </span><span class="s7">'object'</span><span class="s0">, </span><span class="s7">'$this'</span><span class="s0">, </span><span class="s7">'static'</span><span class="s1">]) || !</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$n</span><span class="s1">]))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s3">key</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$returnType </span><span class="s1">= </span><span class="s3">current</span><span class="s1">(</span><span class="s8">$typesMap</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$typesMap </span><span class="s0">as </span><span class="s8">$n </span><span class="s1">=&gt; </span><span class="s8">$t</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'null' </span><span class="s1">=== </span><span class="s8">$n</span><span class="s1">) {</span>
+                <span class="s8">$nullable </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'null' </span><span class="s1">=== </span><span class="s8">$normalizedType</span><span class="s1">) {</span>
+                <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s8">$t</span><span class="s0">;</span>
+                <span class="s8">$returnType </span><span class="s1">= </span><span class="s8">$t</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$n </span><span class="s1">!== </span><span class="s8">$normalizedType </span><span class="s1">|| !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^</span><span class="s0">\\\\</span><span class="s7">?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*+(?:</span><span class="s0">\\\\</span><span class="s7">[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*+)*+$/'</span><span class="s0">, </span><span class="s8">$n</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$iterable</span><span class="s1">) {</span>
+                    <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s8">$returnType </span><span class="s1">= </span><span class="s7">'iterable'</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$object </span><span class="s1">&amp;&amp; </span><span class="s7">'object' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">]) {</span>
+                    <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s8">$returnType </span><span class="s1">= </span><span class="s7">'object'</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s2">// ignore multi-types return declarations</span>
+                    <span class="s0">return;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'void' </span><span class="s1">=== </span><span class="s8">$normalizedType</span><span class="s1">) {</span>
+            <span class="s8">$nullable </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">BUILTIN_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$normalizedType</span><span class="s1">]) &amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$normalizedType</span><span class="s1">])) {</span>
+            <span class="s2">// ignore other special return types</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$nullable</span><span class="s1">) {</span>
+            <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s7">'?'</span><span class="s1">.</span><span class="s8">$normalizedType</span><span class="s0">;</span>
+            <span class="s8">$returnType </span><span class="s1">.= </span><span class="s7">'|null'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$returnTypes</span><span class="s1">[</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">class</span><span class="s1">][</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = [</span><span class="s8">$normalizedType</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">class</span><span class="s0">, </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">normalizeType</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$class</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s8">$parent</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$lcType </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s8">$type</span><span class="s1">)])) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'parent' </span><span class="s1">=== </span><span class="s8">$lcType </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$lcType</span><span class="s1">]) {</span>
+                <span class="s8">$lcType </span><span class="s1">= </span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$parent </span><span class="s1">? </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">.</span><span class="s8">$parent </span><span class="s1">: </span><span class="s7">'parent'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'self' </span><span class="s1">=== </span><span class="s8">$lcType</span><span class="s1">) {</span>
+                <span class="s8">$lcType </span><span class="s1">= </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">.</span><span class="s8">$class</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$lcType</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'[]' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">'array'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(array|iterable|callable) *[&lt;(]/'</span><span class="s0">, </span><span class="s8">$lcType</span><span class="s0">, </span><span class="s8">$m</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s8">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// We could resolve &quot;use&quot; statements to return the FQDN</span>
+        <span class="s2">// but this would be too expensive for a runtime checker</span>
+
+        <span class="s0">return </span><span class="s8">$type</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Utility method to add </span><span class="s5">@return </span><span class="s4">annotations to the Symfony code-base where it triggers a self-deprecations.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">patchMethod</span><span class="s1">(\</span><span class="s3">ReflectionMethod </span><span class="s8">$method</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$returnType</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$declaringFile</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$normalizedType</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">static </span><span class="s8">$patchedMethods </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">static </span><span class="s8">$useStatements </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$file </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$patchedMethods</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">][</span><span class="s8">$startLine </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()])) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$patchedMethods</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">][</span><span class="s8">$startLine</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s8">$fileOffset </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s8">$fileOffsets</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">] ?? </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s8">$startLine </span><span class="s1">+= </span><span class="s8">$fileOffset </span><span class="s1">- </span><span class="s9">2</span><span class="s0">;</span>
+        <span class="s8">$nullable </span><span class="s1">= </span><span class="s7">'?' </span><span class="s1">=== </span><span class="s8">$normalizedType</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] ? </span><span class="s7">'?' </span><span class="s1">: </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$normalizedType</span><span class="s0">, </span><span class="s7">'?'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$returnType </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">'|'</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$code </span><span class="s1">= </span><span class="s3">file</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$returnType </span><span class="s0">as </span><span class="s8">$i </span><span class="s1">=&gt; </span><span class="s8">$type</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/((?:\[\])+)$/'</span><span class="s0">, </span><span class="s8">$type</span><span class="s0">, </span><span class="s8">$m</span><span class="s1">)) {</span>
+                <span class="s8">$type </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]))</span><span class="s0">;</span>
+                <span class="s8">$format </span><span class="s1">= </span><span class="s7">'%s'</span><span class="s1">.</span><span class="s8">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(array|iterable)&lt;([^,&gt;]++)&gt;$/'</span><span class="s0">, </span><span class="s8">$type</span><span class="s0">, </span><span class="s8">$m</span><span class="s1">)) {</span>
+                <span class="s8">$type </span><span class="s1">= </span><span class="s8">$m</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s8">$format </span><span class="s1">= </span><span class="s8">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">].</span><span class="s7">'&lt;%s&gt;'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$format </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$type</span><span class="s1">]) || (</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s8">$type</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; !</span><span class="s8">$p </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s9">1</span><span class="s1">))) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">list</span><span class="s1">(</span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$useOffset</span><span class="s0">, </span><span class="s8">$useMap</span><span class="s1">) = </span><span class="s8">$useStatements</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">] ?? </span><span class="s8">$useStatements</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getUseStatements</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">!== </span><span class="s8">$type</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">list</span><span class="s1">(</span><span class="s8">$declaringNamespace</span><span class="s0">, , </span><span class="s8">$declaringUseMap</span><span class="s1">) = </span><span class="s8">$useStatements</span><span class="s1">[</span><span class="s8">$declaringFile</span><span class="s1">] ?? </span><span class="s8">$useStatements</span><span class="s1">[</span><span class="s8">$declaringFile</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getUseStatements</span><span class="s1">(</span><span class="s8">$declaringFile</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s8">$p </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s8">$alias </span><span class="s1">= </span><span class="s8">$p </span><span class="s1">? </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$p</span><span class="s1">) : </span><span class="s8">$type</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$declaringUseMap</span><span class="s1">[</span><span class="s8">$alias</span><span class="s1">])) {</span>
+                    <span class="s8">$type </span><span class="s1">= </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">.</span><span class="s8">$declaringUseMap</span><span class="s1">[</span><span class="s8">$alias</span><span class="s1">].(</span><span class="s8">$p </span><span class="s1">? </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s8">$p</span><span class="s1">) : </span><span class="s7">''</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$type </span><span class="s1">= </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">.</span><span class="s8">$declaringNamespace</span><span class="s1">.</span><span class="s8">$type</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$p </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$alias </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s8">$p</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$type </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$type</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$useMap</span><span class="s1">[</span><span class="s8">$alias</span><span class="s1">]) &amp;&amp; (</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">$c </span><span class="s1">= </span><span class="s8">$namespace</span><span class="s1">.</span><span class="s8">$alias</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s8">$c</span><span class="s1">) || </span><span class="s3">trait_exists</span><span class="s1">(</span><span class="s8">$c</span><span class="s1">))) {</span>
+                <span class="s8">$useMap</span><span class="s1">[</span><span class="s8">$alias</span><span class="s1">] = </span><span class="s8">$c</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$useMap</span><span class="s1">[</span><span class="s8">$alias</span><span class="s1">])) {</span>
+                <span class="s8">$useStatements</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">][</span><span class="s9">2</span><span class="s1">][</span><span class="s8">$alias</span><span class="s1">] = </span><span class="s8">$type</span><span class="s0">;</span>
+                <span class="s8">$code</span><span class="s1">[</span><span class="s8">$useOffset</span><span class="s1">] = </span><span class="s7">&quot;use </span><span class="s8">$type</span><span class="s7">;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">.</span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$useOffset</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">++</span><span class="s8">$fileOffset</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$useMap</span><span class="s1">[</span><span class="s8">$alias</span><span class="s1">] !== </span><span class="s8">$type</span><span class="s1">) {</span>
+                <span class="s8">$alias </span><span class="s1">.= </span><span class="s7">'FIXME'</span><span class="s0">;</span>
+                <span class="s8">$useStatements</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">][</span><span class="s9">2</span><span class="s1">][</span><span class="s8">$alias</span><span class="s1">] = </span><span class="s8">$type</span><span class="s0">;</span>
+                <span class="s8">$code</span><span class="s1">[</span><span class="s8">$useOffset</span><span class="s1">] = </span><span class="s7">&quot;use </span><span class="s8">$type </span><span class="s7">as </span><span class="s8">$alias</span><span class="s7">;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">.</span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$useOffset</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">++</span><span class="s8">$fileOffset</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$returnType</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = </span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$format </span><span class="s1">? </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">$format</span><span class="s0">, </span><span class="s8">$alias</span><span class="s1">) : </span><span class="s8">$alias</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$normalizedType</span><span class="s1">]) &amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s3">SPECIAL_RETURN_TYPES</span><span class="s1">[</span><span class="s8">$returnType</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]])) {</span>
+                <span class="s8">$normalizedType </span><span class="s1">= </span><span class="s8">$returnType</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'docblock' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">] || (</span><span class="s7">'object' </span><span class="s1">=== </span><span class="s8">$normalizedType </span><span class="s1">&amp;&amp; </span><span class="s7">'7.1' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'php'</span><span class="s1">])) {</span>
+            <span class="s8">$returnType </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">'|'</span><span class="s0">, </span><span class="s8">$returnType</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getDocComment</span><span class="s1">()) {</span>
+                <span class="s8">$code</span><span class="s1">[</span><span class="s8">$startLine</span><span class="s1">] = </span><span class="s7">&quot;     * @return </span><span class="s8">$returnType</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">.</span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$startLine</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$code</span><span class="s1">[</span><span class="s8">$startLine</span><span class="s1">] .= </span><span class="s3">&lt;&lt;&lt;EOTXT 
+    </span><span class="s7">/** 
+     * @return </span><span class="s8">$returnType</span>
+     <span class="s7">*/ 
+</span>
+<span class="s3">EOTXT</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$fileOffset </span><span class="s1">+= </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$startLine</span><span class="s1">]</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">) - </span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">self</span><span class="s1">::</span><span class="s8">$fileOffsets</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">] = </span><span class="s8">$fileOffset</span><span class="s0">;</span>
+        <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$code</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">fixReturnStatements</span><span class="s1">(</span><span class="s8">$method</span><span class="s0">, </span><span class="s8">$nullable</span><span class="s1">.</span><span class="s8">$normalizedType</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">getUseStatements</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$file</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s8">$namespace </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s8">$useMap </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$useOffset </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">[</span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$useOffset</span><span class="s0">, </span><span class="s8">$useMap</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$file </span><span class="s1">= </span><span class="s3">file</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(class|interface|trait|abstract) /'</span><span class="s0">, </span><span class="s8">$file</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'namespace '</span><span class="s1">)) {</span>
+                <span class="s8">$namespace </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">'namespace '</span><span class="s1">)</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">).</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s0">;</span>
+                <span class="s8">$useOffset </span><span class="s1">= </span><span class="s8">$i </span><span class="s1">+ </span><span class="s9">2</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'use '</span><span class="s1">)) {</span>
+                <span class="s8">$useOffset </span><span class="s1">= </span><span class="s8">$i</span><span class="s0">;</span>
+
+                <span class="s0">for </span><span class="s1">(</span><span class="s0">; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'use '</span><span class="s1">)</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                    <span class="s8">$u </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">' as '</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s9">4</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">)</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$u</span><span class="s1">)) {</span>
+                        <span class="s8">$p </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s8">$u</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">'</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s8">$useMap</span><span class="s1">[</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$u</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$p </span><span class="s1">? </span><span class="s9">1 </span><span class="s1">+ </span><span class="s8">$p </span><span class="s1">: </span><span class="s9">0</span><span class="s1">)] = </span><span class="s8">$u</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s8">$useMap</span><span class="s1">[</span><span class="s8">$u</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]] = </span><span class="s8">$u</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s8">$namespace</span><span class="s0">, </span><span class="s8">$useOffset</span><span class="s0">, </span><span class="s8">$useMap</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">fixReturnStatements</span><span class="s1">(\</span><span class="s3">ReflectionMethod </span><span class="s8">$method</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$returnType</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'7.1' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'php'</span><span class="s1">] &amp;&amp; </span><span class="s7">'object' </span><span class="s1">=== </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$returnType</span><span class="s0">, </span><span class="s7">'?'</span><span class="s1">) &amp;&amp; </span><span class="s7">'docblock' </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">]) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s8">$file </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">())) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$fixedCode </span><span class="s1">= </span><span class="s8">$code </span><span class="s1">= </span><span class="s3">file</span><span class="s1">(</span><span class="s8">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$i </span><span class="s1">= (</span><span class="s3">self</span><span class="s1">::</span><span class="s8">$fileOffsets</span><span class="s1">[</span><span class="s8">$file</span><span class="s1">] ?? </span><span class="s9">0</span><span class="s1">) + </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'?' </span><span class="s1">!== </span><span class="s8">$returnType </span><span class="s1">&amp;&amp; </span><span class="s7">'docblock' </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">patchTypes</span><span class="s1">[</span><span class="s7">'force'</span><span class="s1">]) {</span>
+            <span class="s8">$fixedCode</span><span class="s1">[</span><span class="s8">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">] = </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/\)(;?\n)/'</span><span class="s0">, </span><span class="s7">&quot;): </span><span class="s8">$returnType</span><span class="s0">\\</span><span class="s7">1&quot;</span><span class="s0">, </span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$end </span><span class="s1">= </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">isGenerator</span><span class="s1">() ? </span><span class="s8">$i </span><span class="s1">: </span><span class="s8">$method</span><span class="s1">-&gt;</span><span class="s3">getEndLine</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$end</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'void' </span><span class="s1">=== </span><span class="s8">$returnType</span><span class="s1">) {</span>
+                <span class="s8">$fixedCode</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'    return null;'</span><span class="s0">, </span><span class="s7">'    return;'</span><span class="s0">, </span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'mixed' </span><span class="s1">=== </span><span class="s8">$returnType </span><span class="s1">|| </span><span class="s7">'?' </span><span class="s1">=== </span><span class="s8">$returnType</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s8">$fixedCode</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'    return;'</span><span class="s0">, </span><span class="s7">'    return null;'</span><span class="s0">, </span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$fixedCode</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">] = </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">'    return;'</span><span class="s0">, </span><span class="s7">&quot;    return </span><span class="s8">$returnType</span><span class="s7">!?;&quot;</span><span class="s0">, </span><span class="s8">$code</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$fixedCode </span><span class="s1">!== </span><span class="s8">$code</span><span class="s1">) {</span>
+            <span class="s3">file_put_contents</span><span class="s1">(</span><span class="s8">$file</span><span class="s0">, </span><span class="s8">$fixedCode</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

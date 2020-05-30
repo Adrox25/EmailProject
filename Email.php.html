@@ -1,0 +1,624 @@
+<html>
+<head>
+<title>Email.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #6a8759;}
+.s9 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Email.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">AbstractPart</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">DataPart</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">Multipart</span><span class="s1">\</span><span class="s3">AlternativePart</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">Multipart</span><span class="s1">\</span><span class="s3">MixedPart</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">Multipart</span><span class="s1">\</span><span class="s3">RelatedPart</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Mime</span><span class="s1">\</span><span class="s3">Part</span><span class="s1">\</span><span class="s3">TextPart</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Email </span><span class="s0">extends </span><span class="s3">Message</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">PRIORITY_HIGHEST </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">PRIORITY_HIGH </span><span class="s1">= </span><span class="s7">2</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">PRIORITY_NORMAL </span><span class="s1">= </span><span class="s7">3</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">PRIORITY_LOW </span><span class="s1">= </span><span class="s7">4</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">PRIORITY_LOWEST </span><span class="s1">= </span><span class="s7">5</span><span class="s0">;</span>
+
+    <span class="s0">private const </span><span class="s3">PRIORITY_MAP </span><span class="s1">= [</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">PRIORITY_HIGHEST </span><span class="s1">=&gt; </span><span class="s8">'Highest'</span><span class="s0">,</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">PRIORITY_HIGH </span><span class="s1">=&gt; </span><span class="s8">'High'</span><span class="s0">,</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">PRIORITY_NORMAL </span><span class="s1">=&gt; </span><span class="s8">'Normal'</span><span class="s0">,</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">PRIORITY_LOW </span><span class="s1">=&gt; </span><span class="s8">'Low'</span><span class="s0">,</span>
+        <span class="s3">self</span><span class="s1">::</span><span class="s3">PRIORITY_LOWEST </span><span class="s1">=&gt; </span><span class="s8">'Lowest'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s9">$text</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$textCharset</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$html</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$htmlCharset</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s9">$attachments </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">subject</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$subject</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s8">'Text'</span><span class="s0">, </span><span class="s8">'Subject'</span><span class="s0">, </span><span class="s9">$subject</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getSubject</span><span class="s1">(): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Subject'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">date</span><span class="s1">(\</span><span class="s3">DateTimeInterface </span><span class="s9">$dateTime</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s8">'Date'</span><span class="s0">, </span><span class="s8">'Date'</span><span class="s0">, </span><span class="s9">$dateTime</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getDate</span><span class="s1">(): ?\</span><span class="s3">DateTimeImmutable</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Date'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string $address</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">returnPath</span><span class="s1">(</span><span class="s9">$address</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s8">'Path'</span><span class="s0">, </span><span class="s8">'Return-Path'</span><span class="s0">, </span><span class="s3">Address</span><span class="s1">::</span><span class="s3">create</span><span class="s1">(</span><span class="s9">$address</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getReturnPath</span><span class="s1">(): ?</span><span class="s3">Address</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Return-Path'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string $address</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">sender</span><span class="s1">(</span><span class="s9">$address</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s8">'Mailbox'</span><span class="s0">, </span><span class="s8">'Sender'</span><span class="s0">, </span><span class="s3">Address</span><span class="s1">::</span><span class="s3">create</span><span class="s1">(</span><span class="s9">$address</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getSender</span><span class="s1">(): ?</span><span class="s3">Address</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Sender'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addFrom</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">addListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'From'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">from</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'From'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Address[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getFrom</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'From'</span><span class="s1">) ?: []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addReplyTo</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">addListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'Reply-To'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">replyTo</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'Reply-To'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Address[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getReplyTo</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Reply-To'</span><span class="s1">) ?: []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addTo</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">addListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'To'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">to</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'To'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Address[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTo</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'To'</span><span class="s1">) ?: []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addCc</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">addListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'Cc'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">cc</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'Cc'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Address[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCc</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Cc'</span><span class="s1">) ?: []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addBcc</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">addListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'Bcc'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Address|string ...$addresses</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">bcc</span><span class="s1">(...</span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s8">'Bcc'</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Address[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getBcc</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'Bcc'</span><span class="s1">) ?: []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the priority of this message.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The value is an integer where 1 is the highest priority and 5 is the lowest.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">priority</span><span class="s1">(</span><span class="s3">int </span><span class="s9">$priority</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$priority </span><span class="s1">&gt; </span><span class="s7">5</span><span class="s1">) {</span>
+            <span class="s9">$priority </span><span class="s1">= </span><span class="s7">5</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">$priority </span><span class="s1">&lt; </span><span class="s7">1</span><span class="s1">) {</span>
+            <span class="s9">$priority </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s8">'Text'</span><span class="s0">, </span><span class="s8">'X-Priority'</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%d (%s)'</span><span class="s0">, </span><span class="s9">$priority</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">PRIORITY_MAP</span><span class="s1">[</span><span class="s9">$priority</span><span class="s1">]))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Get the priority of this message.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The returned value is an integer where 1 is the highest priority and 5</span>
+     <span class="s4">* is the lowest.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getPriority</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">list</span><span class="s1">(</span><span class="s9">$priority</span><span class="s1">) = </span><span class="s3">sscanf</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">getHeaderBody</span><span class="s1">(</span><span class="s8">'X-Priority'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'%[1-5]'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$priority </span><span class="s1">?? </span><span class="s7">3</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource|string $body</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">text</span><span class="s1">(</span><span class="s9">$body</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$charset </span><span class="s1">= </span><span class="s8">'utf-8'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text </span><span class="s1">= </span><span class="s9">$body</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">textCharset </span><span class="s1">= </span><span class="s9">$charset</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">resource|string|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTextBody</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getTextCharset</span><span class="s1">(): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">textCharset</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource|string|null $body</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">html</span><span class="s1">(</span><span class="s9">$body</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$charset </span><span class="s1">= </span><span class="s8">'utf-8'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html </span><span class="s1">= </span><span class="s9">$body</span><span class="s0">;</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">htmlCharset </span><span class="s1">= </span><span class="s9">$charset</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">resource|string|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getHtmlBody</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getHtmlCharset</span><span class="s1">(): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">htmlCharset</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource|string $body</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">attach</span><span class="s1">(</span><span class="s9">$body</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$contentType </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">[] = [</span><span class="s8">'body' </span><span class="s1">=&gt; </span><span class="s9">$body</span><span class="s0">, </span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s9">$name</span><span class="s0">, </span><span class="s8">'content-type' </span><span class="s1">=&gt; </span><span class="s9">$contentType</span><span class="s0">, </span><span class="s8">'inline' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">attachFromPath</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$contentType </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">[] = [</span><span class="s8">'path' </span><span class="s1">=&gt; </span><span class="s9">$path</span><span class="s0">, </span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s9">$name</span><span class="s0">, </span><span class="s8">'content-type' </span><span class="s1">=&gt; </span><span class="s9">$contentType</span><span class="s0">, </span><span class="s8">'inline' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource|string $body</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">embed</span><span class="s1">(</span><span class="s9">$body</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$contentType </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">[] = [</span><span class="s8">'body' </span><span class="s1">=&gt; </span><span class="s9">$body</span><span class="s0">, </span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s9">$name</span><span class="s0">, </span><span class="s8">'content-type' </span><span class="s1">=&gt; </span><span class="s9">$contentType</span><span class="s0">, </span><span class="s8">'inline' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">embedFromPath</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$path</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$contentType </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">[] = [</span><span class="s8">'path' </span><span class="s1">=&gt; </span><span class="s9">$path</span><span class="s0">, </span><span class="s8">'name' </span><span class="s1">=&gt; </span><span class="s9">$name</span><span class="s0">, </span><span class="s8">'content-type' </span><span class="s1">=&gt; </span><span class="s9">$contentType</span><span class="s0">, </span><span class="s8">'inline' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">attachPart</span><span class="s1">(</span><span class="s3">DataPart </span><span class="s9">$part</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">[] = [</span><span class="s8">'part' </span><span class="s1">=&gt; </span><span class="s9">$part</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">DataPart[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getAttachments</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s9">$parts </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments </span><span class="s0">as </span><span class="s9">$attachment</span><span class="s1">) {</span>
+            <span class="s9">$parts</span><span class="s1">[] = </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createDataPart</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$parts</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getBody</span><span class="s1">(): </span><span class="s3">AbstractPart</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s9">$body </span><span class="s1">= </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">getBody</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s9">$body</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">generateBody</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">ensureValidity</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html </span><span class="s1">&amp;&amp; !</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'A message must have a text or an HTML part or attachments.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">ensureValidity</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Generates an AbstractPart based on the raw body of a message.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The most &quot;complex&quot; part generated by this method is when there is text and HTML bodies</span>
+     <span class="s4">* with related images for the HTML part and some attachments:</span>
+     <span class="s4">*</span>
+     <span class="s4">* multipart/mixed</span>
+     <span class="s4">*         |</span>
+     <span class="s4">*         |------------&gt; multipart/related</span>
+     <span class="s4">*         |                      |</span>
+     <span class="s4">*         |                      |------------&gt; multipart/alternative</span>
+     <span class="s4">*         |                      |                      |</span>
+     <span class="s4">*         |                      |                       ------------&gt; text/plain (with content)</span>
+     <span class="s4">*         |                      |                      |</span>
+     <span class="s4">*         |                      |                       ------------&gt; text/html (with content)</span>
+     <span class="s4">*         |                      |</span>
+     <span class="s4">*         |                       ------------&gt; image/png (with content)</span>
+     <span class="s4">*         |</span>
+     <span class="s4">*          ------------&gt; application/pdf (with content)</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">generateBody</span><span class="s1">(): </span><span class="s3">AbstractPart</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">ensureValidity</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s1">[</span><span class="s9">$htmlPart</span><span class="s0">, </span><span class="s9">$attachmentParts</span><span class="s0">, </span><span class="s9">$inlineParts</span><span class="s1">] = </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">prepareParts</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s9">$part </span><span class="s1">= </span><span class="s3">null </span><span class="s1">=== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text </span><span class="s1">? </span><span class="s3">null </span><span class="s1">: </span><span class="s0">new </span><span class="s3">TextPart</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">textCharset</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s9">$htmlPart</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s9">$part</span><span class="s1">) {</span>
+                <span class="s9">$part </span><span class="s1">= </span><span class="s0">new </span><span class="s3">AlternativePart</span><span class="s1">(</span><span class="s9">$part</span><span class="s0">, </span><span class="s9">$htmlPart</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s9">$part </span><span class="s1">= </span><span class="s9">$htmlPart</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$inlineParts</span><span class="s1">) {</span>
+            <span class="s9">$part </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RelatedPart</span><span class="s1">(</span><span class="s9">$part</span><span class="s0">, </span><span class="s1">...</span><span class="s9">$inlineParts</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$attachmentParts</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$part</span><span class="s1">) {</span>
+                <span class="s9">$part </span><span class="s1">= </span><span class="s0">new </span><span class="s3">MixedPart</span><span class="s1">(</span><span class="s9">$part</span><span class="s0">, </span><span class="s1">...</span><span class="s9">$attachmentParts</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s9">$part </span><span class="s1">= </span><span class="s0">new </span><span class="s3">MixedPart</span><span class="s1">(...</span><span class="s9">$attachmentParts</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$part</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">prepareParts</span><span class="s1">(): ?</span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s9">$names </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s9">$htmlPart </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s9">$html </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s9">$html</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s9">$html</span><span class="s1">)[</span><span class="s8">'seekable'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                    <span class="s3">rewind</span><span class="s1">(</span><span class="s9">$html</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s9">$html </span><span class="s1">= </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s9">$html</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s9">$htmlPart </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TextPart</span><span class="s1">(</span><span class="s9">$html</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">htmlCharset</span><span class="s0">, </span><span class="s8">'html'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">preg_match_all</span><span class="s1">(</span><span class="s8">'(&lt;img\s+[^&gt;]*src\s*=\s*(?:([</span><span class="s0">\'</span><span class="s8">&quot;])cid:([^&quot;]+)</span><span class="s0">\\</span><span class="s8">1|cid:([^&gt;\s]+)))i'</span><span class="s0">, </span><span class="s9">$html</span><span class="s0">, </span><span class="s9">$names</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s9">$names </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s3">array_unique</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s9">$names</span><span class="s1">[</span><span class="s7">2</span><span class="s1">]</span><span class="s0">, </span><span class="s9">$names</span><span class="s1">[</span><span class="s7">3</span><span class="s1">])))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s9">$attachmentParts </span><span class="s1">= </span><span class="s9">$inlineParts </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments </span><span class="s0">as </span><span class="s9">$attachment</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$names </span><span class="s0">as </span><span class="s9">$name</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'part'</span><span class="s1">])) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">$name </span><span class="s1">!== </span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">]) {</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$inlineParts</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">])) {</span>
+                    <span class="s0">continue </span><span class="s7">2</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'inline'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s9">$inlineParts</span><span class="s1">[</span><span class="s9">$name</span><span class="s1">] = </span><span class="s9">$part </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createDataPart</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s9">$html </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'cid:'</span><span class="s1">.</span><span class="s9">$name</span><span class="s0">, </span><span class="s8">'cid:'</span><span class="s1">.</span><span class="s9">$part</span><span class="s1">-&gt;</span><span class="s3">getContentId</span><span class="s1">()</span><span class="s0">, </span><span class="s9">$html</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue </span><span class="s7">2</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s9">$attachmentParts</span><span class="s1">[] = </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">createDataPart</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s9">$htmlPart</span><span class="s1">) {</span>
+            <span class="s9">$htmlPart </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TextPart</span><span class="s1">(</span><span class="s9">$html</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">htmlCharset</span><span class="s0">, </span><span class="s8">'html'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s9">$htmlPart</span><span class="s0">, </span><span class="s9">$attachmentParts</span><span class="s0">, </span><span class="s3">array_values</span><span class="s1">(</span><span class="s9">$inlineParts</span><span class="s1">)]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">createDataPart</span><span class="s1">(</span><span class="s0">array </span><span class="s9">$attachment</span><span class="s1">): </span><span class="s3">DataPart</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'part'</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'part'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">])) {</span>
+            <span class="s9">$part </span><span class="s1">= </span><span class="s0">new </span><span class="s3">DataPart</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'content-type'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s9">$part </span><span class="s1">= </span><span class="s3">DataPart</span><span class="s1">::</span><span class="s3">fromPath</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'path'</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s0">, </span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s0">, </span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'content-type'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'inline'</span><span class="s1">]) {</span>
+            <span class="s9">$part</span><span class="s1">-&gt;</span><span class="s3">asInline</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$part</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$name</span><span class="s0">, </span><span class="s9">$body</span><span class="s1">): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">setHeaderBody</span><span class="s1">(</span><span class="s9">$type</span><span class="s0">, </span><span class="s9">$name</span><span class="s0">, </span><span class="s9">$body</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addListAddressHeaderBody</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$name</span><span class="s0">, array </span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s9">$header </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">$name</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s9">$name</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s9">$header</span><span class="s1">-&gt;</span><span class="s3">addAddresses</span><span class="s1">(</span><span class="s3">Address</span><span class="s1">::</span><span class="s3">createArray</span><span class="s1">(</span><span class="s9">$addresses</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">setListAddressHeaderBody</span><span class="s1">(</span><span class="s3">string </span><span class="s9">$name</span><span class="s0">, array </span><span class="s9">$addresses</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s9">$addresses </span><span class="s1">= </span><span class="s3">Address</span><span class="s1">::</span><span class="s3">createArray</span><span class="s1">(</span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s9">$headers </span><span class="s1">= </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$header </span><span class="s1">= </span><span class="s9">$headers</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s9">$name</span><span class="s1">)) {</span>
+            <span class="s9">$header</span><span class="s1">-&gt;</span><span class="s3">setAddresses</span><span class="s1">(</span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s9">$headers</span><span class="s1">-&gt;</span><span class="s3">addMailboxListHeader</span><span class="s1">(</span><span class="s9">$name</span><span class="s0">, </span><span class="s9">$addresses</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__serialize</span><span class="s1">(): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">)[</span><span class="s8">'seekable'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                <span class="s3">rewind</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text </span><span class="s1">= </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s1">)[</span><span class="s8">'seekable'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                <span class="s3">rewind</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html </span><span class="s1">= </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments </span><span class="s0">as </span><span class="s9">$i </span><span class="s1">=&gt; </span><span class="s9">$attachment</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">]) &amp;&amp; \</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">])) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">stream_get_meta_data</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">])[</span><span class="s8">'seekable'</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                    <span class="s3">rewind</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s1">[</span><span class="s9">$i</span><span class="s1">][</span><span class="s8">'body'</span><span class="s1">] = </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s9">$attachment</span><span class="s1">[</span><span class="s8">'body'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">textCharset</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">htmlCharset</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s0">, </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">__serialize</span><span class="s1">()]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__unserialize</span><span class="s1">(</span><span class="s0">array </span><span class="s9">$data</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s1">[</span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">textCharset</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">html</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">htmlCharset</span><span class="s0">, </span><span class="s9">$this</span><span class="s1">-&gt;</span><span class="s3">attachments</span><span class="s0">, </span><span class="s9">$parentData</span><span class="s1">] = </span><span class="s9">$data</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__unserialize</span><span class="s1">(</span><span class="s9">$parentData</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

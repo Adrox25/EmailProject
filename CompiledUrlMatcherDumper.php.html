@@ -1,0 +1,526 @@
+<html>
+<head>
+<title>CompiledUrlMatcherDumper.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CompiledUrlMatcherDumper.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Matcher</span><span class="s1">\</span><span class="s3">Dumper</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s1">\</span><span class="s3">ExpressionFunctionProviderInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">Route</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Routing</span><span class="s1">\</span><span class="s3">RouteCollection</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* CompiledUrlMatcherDumper creates PHP arrays to be used with CompiledUrlMatcher.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Tobias Schultze </span><span class="s6">&lt;http:</span><span class="s4">//tobion.de&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Arnaud Le Blanc </span><span class="s6">&lt;arnaud.lb</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CompiledUrlMatcherDumper </span><span class="s0">extends </span><span class="s3">MatcherDumper</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$expressionLanguage</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$signalingException</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">ExpressionFunctionProviderInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$expressionLanguageProviders </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">dump</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">&lt;&lt;&lt;EOF 
+</span><span class="s8">&lt;?php 
+ 
+/** 
+ * This file has been auto-generated 
+ * by the Symfony Routing Component. 
+ */ 
+ 
+return [ 
+</span><span class="s1">{</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">generateCompiledRoutes</span><span class="s1">()}</span><span class="s8">]; 
+</span>
+<span class="s3">EOF</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">addExpressionLanguageProvider</span><span class="s1">(</span><span class="s3">ExpressionFunctionProviderInterface </span><span class="s7">$provider</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguageProviders</span><span class="s1">[] = </span><span class="s7">$provider</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Generates the arrays for CompiledUrlMatcher's constructor.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCompiledRoutes</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$forDump </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s2">// Group hosts by same-suffix, re-order when possible</span>
+        <span class="s7">$matchHost </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$routes </span><span class="s1">= </span><span class="s0">new </span><span class="s3">StaticPrefixCollection</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRoutes</span><span class="s1">()-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$host </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">()) {</span>
+                <span class="s7">$matchHost </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s7">$host </span><span class="s1">= </span><span class="s8">'/'</span><span class="s1">.</span><span class="s3">strtr</span><span class="s1">(</span><span class="s3">strrev</span><span class="s1">(</span><span class="s7">$host</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'}.{'</span><span class="s0">, </span><span class="s8">'(/)'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$host </span><span class="s1">?: </span><span class="s8">'/(.*)'</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$matchHost</span><span class="s1">) {</span>
+            <span class="s7">$compiledRoutes </span><span class="s1">= [</span><span class="s3">true</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$routes </span><span class="s1">= </span><span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">populateCollection</span><span class="s1">(</span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$compiledRoutes </span><span class="s1">= [</span><span class="s3">false</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$routes </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getRoutes</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">list</span><span class="s1">(</span><span class="s7">$staticRoutes</span><span class="s0">, </span><span class="s7">$dynamicRoutes</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">groupStaticRoutes</span><span class="s1">(</span><span class="s7">$routes</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$conditions </span><span class="s1">= [</span><span class="s3">null</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$compiledRoutes</span><span class="s1">[] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileStaticRoutes</span><span class="s1">(</span><span class="s7">$staticRoutes</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$chunkLimit </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$dynamicRoutes</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">signalingException </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s8">'Compilation failed: regular expression is too large'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$compiledRoutes </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$compiledRoutes</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileDynamicRoutes</span><span class="s1">(</span><span class="s7">$dynamicRoutes</span><span class="s0">, </span><span class="s7">$matchHost</span><span class="s0">, </span><span class="s7">$chunkLimit</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s0">break;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">&lt; </span><span class="s7">$chunkLimit </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">signalingException </span><span class="s1">=== </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s7">$chunkLimit </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">+ (</span><span class="s7">$chunkLimit </span><span class="s1">&gt;&gt; </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$forDump</span><span class="s1">) {</span>
+            <span class="s7">$compiledRoutes</span><span class="s1">[</span><span class="s9">2</span><span class="s1">] = </span><span class="s7">$compiledRoutes</span><span class="s1">[</span><span class="s9">4</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$conditions</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$conditions</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$conditions </span><span class="s0">as </span><span class="s7">$expression </span><span class="s1">=&gt; </span><span class="s7">$condition</span><span class="s1">) {</span>
+                <span class="s7">$conditions</span><span class="s1">[</span><span class="s7">$expression</span><span class="s1">] = </span><span class="s8">&quot;case </span><span class="s1">{</span><span class="s7">$condition</span><span class="s1">}</span><span class="s8">: return </span><span class="s1">{</span><span class="s7">$expression</span><span class="s1">}</span><span class="s8">;&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$checkConditionCode </span><span class="s1">= </span><span class="s3">&lt;&lt;&lt;EOF 
+    </span><span class="s8">static function (\$condition, \$context, \$request) { // \$checkCondition 
+        switch (\$condition) { 
+</span><span class="s1">{</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indent</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">)</span><span class="s0">, </span><span class="s9">3</span><span class="s1">)}</span>
+        <span class="s8">} 
+    }</span>
+<span class="s3">EOF</span><span class="s0">;</span>
+            <span class="s7">$compiledRoutes</span><span class="s1">[</span><span class="s9">4</span><span class="s1">] = </span><span class="s7">$forDump </span><span class="s1">? </span><span class="s7">$checkConditionCode</span><span class="s1">.</span><span class="s8">&quot;,</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">: </span><span class="s0">eval</span><span class="s1">(</span><span class="s8">'return '</span><span class="s1">.</span><span class="s7">$checkConditionCode</span><span class="s1">.</span><span class="s8">';'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$compiledRoutes</span><span class="s1">[</span><span class="s9">4</span><span class="s1">] = </span><span class="s7">$forDump </span><span class="s1">? </span><span class="s8">&quot;    null, // </span><span class="s0">\$</span><span class="s8">checkCondition</span><span class="s0">\n</span><span class="s8">&quot; </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$compiledRoutes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">generateCompiledRoutes</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">list</span><span class="s1">(</span><span class="s7">$matchHost</span><span class="s0">, </span><span class="s7">$staticRoutes</span><span class="s0">, </span><span class="s7">$regexpCode</span><span class="s0">, </span><span class="s7">$dynamicRoutes</span><span class="s0">, </span><span class="s7">$checkConditionCode</span><span class="s1">) = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getCompiledRoutes</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$code </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$matchHost</span><span class="s1">).</span><span class="s8">', // $matchHost'</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+
+        <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'[ // $staticRoutes'</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$staticRoutes </span><span class="s0">as </span><span class="s7">$path </span><span class="s1">=&gt; </span><span class="s7">$routes</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;    %s =&gt; [</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes </span><span class="s0">as </span><span class="s7">$route</span><span class="s1">) {</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;        [%s, %s, %s, %s, %s, %s, %s],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s1">...</span><span class="s3">array_map</span><span class="s1">([</span><span class="s3">__CLASS__</span><span class="s0">, </span><span class="s8">'export'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;    ],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+
+        <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;[ // </span><span class="s0">\$</span><span class="s8">regexpList%s</span><span class="s0">\n</span><span class="s8">],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$regexpCode</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'[ // $dynamicRoutes'</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$dynamicRoutes </span><span class="s0">as </span><span class="s7">$path </span><span class="s1">=&gt; </span><span class="s7">$routes</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;    %s =&gt; [</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes </span><span class="s0">as </span><span class="s7">$route</span><span class="s1">) {</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;        [%s, %s, %s, %s, %s, %s, %s],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s1">...</span><span class="s3">array_map</span><span class="s1">([</span><span class="s3">__CLASS__</span><span class="s0">, </span><span class="s8">'export'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;    ],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/ =&gt; \[\n        (\[.+?),\n    \],/'</span><span class="s0">, </span><span class="s8">' =&gt; [$1],'</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indent</span><span class="s1">(</span><span class="s7">$code</span><span class="s0">, </span><span class="s9">1</span><span class="s1">).</span><span class="s7">$checkConditionCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Splits static routes from dynamic routes, so that they can be matched first, using a simple switch.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">groupStaticRoutes</span><span class="s1">(</span><span class="s3">RouteCollection </span><span class="s7">$collection</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$staticRoutes </span><span class="s1">= </span><span class="s7">$dynamicRegex </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$dynamicRoutes </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s7">$compiledRoute </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$staticPrefix </span><span class="s1">= </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getStaticPrefix</span><span class="s1">()</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$hostRegex </span><span class="s1">= </span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getHostRegex</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$regex </span><span class="s1">= </span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasTrailingSlash </span><span class="s1">= </span><span class="s8">'/' </span><span class="s1">!== </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()) {</span>
+                <span class="s7">$pos </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s8">'$'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$hasTrailingSlash </span><span class="s1">= </span><span class="s8">'/' </span><span class="s1">=== </span><span class="s7">$regex</span><span class="s1">[</span><span class="s7">$pos </span><span class="s1">- </span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$regex </span><span class="s1">= </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s8">'/?$'</span><span class="s0">, </span><span class="s7">$pos </span><span class="s1">- </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s7">$hasTrailingSlash</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getPathVariables</span><span class="s1">()) {</span>
+                <span class="s7">$host </span><span class="s1">= !</span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getHostVariables</span><span class="s1">() ? </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">() : </span><span class="s8">''</span><span class="s0">;</span>
+                <span class="s7">$url </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasTrailingSlash</span><span class="s1">) {</span>
+                    <span class="s7">$url </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$dynamicRegex </span><span class="s0">as list</span><span class="s1">(</span><span class="s7">$hostRx</span><span class="s0">, </span><span class="s7">$rx</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">((</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$prefix </span><span class="s1">|| </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$url</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">)) &amp;&amp; (</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$rx</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">) || </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$rx</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">.</span><span class="s8">'/'</span><span class="s1">)) &amp;&amp; (!</span><span class="s7">$host </span><span class="s1">|| !</span><span class="s7">$hostRx </span><span class="s1">|| </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$hostRx</span><span class="s0">, </span><span class="s7">$host</span><span class="s1">))) {</span>
+                        <span class="s7">$dynamicRegex</span><span class="s1">[] = [</span><span class="s7">$hostRegex</span><span class="s0">, </span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$staticPrefix</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s7">$dynamicRoutes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">continue </span><span class="s9">2</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$staticRoutes</span><span class="s1">[</span><span class="s7">$url</span><span class="s1">][</span><span class="s7">$name</span><span class="s1">] = [</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$dynamicRegex</span><span class="s1">[] = [</span><span class="s7">$hostRegex</span><span class="s0">, </span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$staticPrefix</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$dynamicRoutes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s7">$staticRoutes</span><span class="s0">, </span><span class="s7">$dynamicRoutes</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Compiles static routes in a switch statement.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Condition-less paths are put in a static array in the switch's default, with generic matching logic.</span>
+     <span class="s4">* Paths that can match two or more routes, or have user-specified conditions are put in separate switch's cases.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\LogicException</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">compileStaticRoutes</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$staticRoutes</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$conditions</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$staticRoutes</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$compiledRoutes </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$staticRoutes </span><span class="s0">as </span><span class="s7">$url </span><span class="s1">=&gt; </span><span class="s7">$routes</span><span class="s1">) {</span>
+            <span class="s7">$compiledRoutes</span><span class="s1">[</span><span class="s7">$url</span><span class="s1">] = []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s0">list</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s1">)) {</span>
+                <span class="s7">$compiledRoutes</span><span class="s1">[</span><span class="s7">$url</span><span class="s1">][] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileRoute</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s1">(!</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getHostVariables</span><span class="s1">() ? </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getHost</span><span class="s1">() : </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getHostRegex</span><span class="s1">()) ?: </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$compiledRoutes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Compiles a regular expression followed by a switch statement to match dynamic routes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The regular expression matches both the host and the pathinfo at the same time. For stellar performance,</span>
+     <span class="s4">* it is built as a tree of patterns, with re-ordering logic to group same-prefix routes together when possible.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Patterns are named so that we know which one matched (https://pcre.org/current/doc/html/pcre2syntax.html#SEC23).</span>
+     <span class="s4">* This name is used to &quot;switch&quot; to the additional logic required to match the final route.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Condition-less paths are put in a static array in the switch's default, with generic matching logic.</span>
+     <span class="s4">* Paths that can match two or more routes, or have user-specified conditions are put in separate switch's cases.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Last but not least:</span>
+     <span class="s4">*  - Because it is not possibe to mix unicode/non-unicode patterns in a single regexp, several of them can be generated.</span>
+     <span class="s4">*  - The same regexp can be used several times when the logic in the switch rejects the match. When this happens, the</span>
+     <span class="s4">*    matching-but-failing subpattern is blacklisted by replacing its name by &quot;(*F)&quot;, which forces a failure-to-match.</span>
+     <span class="s4">*    To ease this backlisting operation, the name of subpatterns is also the string offset where the replacement should occur.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">compileDynamicRoutes</span><span class="s1">(</span><span class="s3">RouteCollection </span><span class="s7">$collection</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$matchHost</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$chunkLimit</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$conditions</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s1">[[]</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s8">''</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$regexpList </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$state </span><span class="s1">= (object) [</span>
+            <span class="s8">'regexMark' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'regex' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'routes' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'mark' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'markTail' </span><span class="s1">=&gt; </span><span class="s9">0</span><span class="s0">,</span>
+            <span class="s8">'hostVars' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+            <span class="s8">'vars' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">getVars </span><span class="s1">= </span><span class="s0">static function </span><span class="s1">(</span><span class="s7">$m</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$state</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'_route' </span><span class="s1">=== </span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s8">'?:'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">vars</span><span class="s1">[] = </span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">;</span>
+
+        <span class="s7">$chunkSize </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$perModifiers </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collection</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'#[a-zA-Z]*$#'</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$chunkLimit </span><span class="s1">&lt; ++</span><span class="s7">$chunkSize </span><span class="s1">|| </span><span class="s7">$prev </span><span class="s1">!== </span><span class="s7">$rx</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getPathVariables</span><span class="s1">()) {</span>
+                <span class="s7">$chunkSize </span><span class="s1">= </span><span class="s9">1</span><span class="s0">;</span>
+                <span class="s7">$routes </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$perModifiers</span><span class="s1">[] = [</span><span class="s7">$rx</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$routes</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$rx</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$perModifiers </span><span class="s0">as list</span><span class="s1">(</span><span class="s7">$modifiers</span><span class="s0">, </span><span class="s7">$routes</span><span class="s1">)) {</span>
+            <span class="s7">$prev </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s7">$perHost </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getHostRegex</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">!== </span><span class="s7">$regex</span><span class="s1">) {</span>
+                    <span class="s7">$routes </span><span class="s1">= </span><span class="s0">new </span><span class="s3">RouteCollection</span><span class="s1">()</span><span class="s0">;</span>
+                    <span class="s7">$perHost</span><span class="s1">[] = [</span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$routes</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$regex</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">add</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$prev </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s7">$rx </span><span class="s1">= </span><span class="s8">'{^(?'</span><span class="s0">;</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n    </span><span class="s1">{</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s1">} </span><span class="s8">=&gt; &quot;</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$startingMark </span><span class="s1">= </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">= </span><span class="s7">$rx</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$perHost </span><span class="s0">as list</span><span class="s1">(</span><span class="s7">$hostRegex</span><span class="s0">, </span><span class="s7">$routes</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$matchHost</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$hostRegex</span><span class="s1">) {</span>
+                        <span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'#^.\^(.*)\$.[a-zA-Z]*$#'</span><span class="s0">, </span><span class="s7">$hostRegex</span><span class="s0">, </span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">vars </span><span class="s1">= []</span><span class="s0">;</span>
+                        <span class="s7">$hostRegex </span><span class="s1">= </span><span class="s8">'(?i:'</span><span class="s1">.</span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s8">'#\?P&lt;([^&gt;]++)&gt;#'</span><span class="s0">, </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">getVars</span><span class="s0">, </span><span class="s7">$rx</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]).</span><span class="s8">')\.'</span><span class="s0">;</span>
+                        <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">hostVars </span><span class="s1">= </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">vars</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s7">$hostRegex </span><span class="s1">= </span><span class="s8">'(?:(?:[^./]*+\.)++)'</span><span class="s0">;</span>
+                        <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">hostVars </span><span class="s1">= []</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$rx </span><span class="s1">= (</span><span class="s7">$prev </span><span class="s1">? </span><span class="s8">')' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">).</span><span class="s8">&quot;|</span><span class="s1">{</span><span class="s7">$hostRegex</span><span class="s1">}</span><span class="s8">(?&quot;</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n        </span><span class="s8">.&quot;</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">.= </span><span class="s7">$rx</span><span class="s0">;</span>
+                    <span class="s7">$prev </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$tree </span><span class="s1">= </span><span class="s0">new </span><span class="s3">StaticPrefixCollection</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes</span><span class="s1">-&gt;</span><span class="s3">all</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+                    <span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'#^.\^(.*)\$.[a-zA-Z]*$#'</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">vars </span><span class="s1">= []</span><span class="s0">;</span>
+                    <span class="s7">$regex </span><span class="s1">= </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s8">'#\?P&lt;([^&gt;]++)&gt;#'</span><span class="s0">, </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">getVars</span><span class="s0">, </span><span class="s7">$rx</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s7">$hasTrailingSlash </span><span class="s1">= </span><span class="s8">'/' </span><span class="s1">!== </span><span class="s7">$regex </span><span class="s1">&amp;&amp; </span><span class="s8">'/' </span><span class="s1">=== </span><span class="s7">$regex</span><span class="s1">[-</span><span class="s9">1</span><span class="s1">]) {</span>
+                        <span class="s7">$regex </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$hasTrailingVar </span><span class="s1">= (bool) </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'#\{\w+\}/?$#'</span><span class="s0">, </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">())</span><span class="s0">;</span>
+
+                    <span class="s7">$tree</span><span class="s1">-&gt;</span><span class="s3">addRoute</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">vars</span><span class="s0">, </span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s7">$hasTrailingVar</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileStaticPrefixCollection</span><span class="s1">(</span><span class="s7">$tree</span><span class="s0">, </span><span class="s7">$state</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$matchHost</span><span class="s1">) {</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n        </span><span class="s8">.')'&quot;</span><span class="s0">;</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">.= </span><span class="s8">')'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$rx </span><span class="s1">= </span><span class="s8">&quot;)/?$}</span><span class="s1">{</span><span class="s7">$modifiers</span><span class="s1">}</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n        </span><span class="s8">.'</span><span class="s1">{</span><span class="s7">$rx</span><span class="s1">}</span><span class="s8">',&quot;</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">.= </span><span class="s7">$rx</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">markTail </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+            <span class="s2">// if the regex is too large, throw a signaling exception to recompute with smaller chunk size</span>
+            <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$message</span><span class="s1">) { </span><span class="s0">throw </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">signalingException</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">signalingException </span><span class="s1">: </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">; </span><span class="s1">})</span><span class="s0">;</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s3">preg_match</span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex</span><span class="s0">, </span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$regexpList</span><span class="s1">[</span><span class="s7">$startingMark</span><span class="s1">] = </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">routes</span><span class="s1">[</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s1">][] = [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">getVars</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">[</span><span class="s7">$regexpList</span><span class="s0">, </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">routes</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Compiles a regexp tree of subpatterns that matches nested same-prefix routes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\stdClass $state A simple state object that keeps track of the progress of the compilation,</span>
+     <span class="s4">*                         and gathers the generated switch's &quot;case&quot; and &quot;default&quot; statements</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">compileStaticPrefixCollection</span><span class="s1">(</span><span class="s3">StaticPrefixCollection </span><span class="s7">$tree</span><span class="s0">, </span><span class="s1">\</span><span class="s3">stdClass </span><span class="s7">$state</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$prefixLen</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$conditions</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$prevRegex </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$routes </span><span class="s1">= </span><span class="s7">$tree</span><span class="s1">-&gt;</span><span class="s3">getRoutes</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$routes </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$route</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$route </span><span class="s0">instanceof </span><span class="s3">StaticPrefixCollection</span><span class="s1">) {</span>
+                <span class="s7">$prevRegex </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s7">$prefix </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getPrefix</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$prefixLen</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark </span><span class="s1">+= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$rx </span><span class="s1">= </span><span class="s8">&quot;|</span><span class="s1">{</span><span class="s7">$prefix</span><span class="s1">}</span><span class="s8">(?&quot;</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n            </span><span class="s8">.&quot;</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">.= </span><span class="s7">$rx</span><span class="s0">;</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">indent</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileStaticPrefixCollection</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$state</span><span class="s0">, </span><span class="s7">$prefixLen </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$prefix</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n            </span><span class="s8">.')'&quot;</span><span class="s0">;</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">.= </span><span class="s8">')'</span><span class="s0">;</span>
+                <span class="s1">++</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">markTail</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s7">$hasTrailingVar</span><span class="s1">) = </span><span class="s7">$route</span><span class="s0">;</span>
+            <span class="s7">$compiledRoute </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">compile</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$vars </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">hostVars</span><span class="s0">, </span><span class="s7">$vars</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getRegex</span><span class="s1">() === </span><span class="s7">$prevRegex</span><span class="s1">) {</span>
+                <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">routes</span><span class="s1">[</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s1">][] = </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileRoute</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s7">$hasTrailingVar</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark </span><span class="s1">+= </span><span class="s9">3 </span><span class="s1">+ </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">markTail </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$regex</span><span class="s1">) - </span><span class="s7">$prefixLen</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">markTail </span><span class="s1">= </span><span class="s9">2 </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$rx </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'|%s(*:%s)'</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$regex</span><span class="s0">, </span><span class="s7">$prefixLen</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\n            </span><span class="s8">.&quot;</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$rx</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">regex </span><span class="s1">.= </span><span class="s7">$rx</span><span class="s0">;</span>
+
+            <span class="s7">$prevRegex </span><span class="s1">= </span><span class="s7">$compiledRoute</span><span class="s1">-&gt;</span><span class="s3">getRegex</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">routes</span><span class="s1">[</span><span class="s7">$state</span><span class="s1">-&gt;</span><span class="s3">mark</span><span class="s1">] = [</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">compileRoute</span><span class="s1">(</span><span class="s7">$route</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s7">$hasTrailingVar</span><span class="s0">, </span><span class="s7">$conditions</span><span class="s1">)]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$code</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Compiles a single Route to PHP code used to match it against the path info.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">compileRoute</span><span class="s1">(</span><span class="s3">Route </span><span class="s7">$route</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$vars</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$hasTrailingSlash</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$hasTrailingVar</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$conditions</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$defaults </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getDefaults</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'_canonical_route'</span><span class="s1">])) {</span>
+            <span class="s7">$name </span><span class="s1">= </span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'_canonical_route'</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$defaults</span><span class="s1">[</span><span class="s8">'_canonical_route'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$condition </span><span class="s1">= </span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getCondition</span><span class="s1">()) {</span>
+            <span class="s7">$condition </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getExpressionLanguage</span><span class="s1">()-&gt;</span><span class="s3">compile</span><span class="s1">(</span><span class="s7">$condition</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'context'</span><span class="s0">, </span><span class="s8">'request'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s7">$condition </span><span class="s1">= </span><span class="s7">$conditions</span><span class="s1">[</span><span class="s7">$condition</span><span class="s1">] ?? </span><span class="s7">$conditions</span><span class="s1">[</span><span class="s7">$condition</span><span class="s1">] = (</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$condition</span><span class="s0">, </span><span class="s8">'$request'</span><span class="s1">) ? </span><span class="s9">1 </span><span class="s1">: -</span><span class="s9">1</span><span class="s1">) * \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$conditions</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$condition </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s1">[</span><span class="s8">'_route' </span><span class="s1">=&gt; </span><span class="s7">$name</span><span class="s1">] + </span><span class="s7">$defaults</span><span class="s0">,</span>
+            <span class="s7">$vars</span><span class="s0">,</span>
+            <span class="s3">array_flip</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getMethods</span><span class="s1">()) ?: </span><span class="s3">null</span><span class="s0">,</span>
+            <span class="s3">array_flip</span><span class="s1">(</span><span class="s7">$route</span><span class="s1">-&gt;</span><span class="s3">getSchemes</span><span class="s1">()) ?: </span><span class="s3">null</span><span class="s0">,</span>
+            <span class="s7">$hasTrailingSlash</span><span class="s0">,</span>
+            <span class="s7">$hasTrailingVar</span><span class="s0">,</span>
+            <span class="s7">$condition</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getExpressionLanguage</span><span class="s1">(): </span><span class="s3">ExpressionLanguage</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguage</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s8">'Symfony\Component\ExpressionLanguage\ExpressionLanguage'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'Unable to use expressions as the Symfony ExpressionLanguage component is not installed.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguage </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ExpressionLanguage</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguageProviders</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguage</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">indent</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$code</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$level </span><span class="s1">= </span><span class="s9">1</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/^./m'</span><span class="s0">, </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s8">'    '</span><span class="s0">, </span><span class="s7">$level</span><span class="s1">).</span><span class="s8">'$0'</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">'null'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Symfony\Component\Routing\Route cannot contain objects.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\'</span><span class="s8">.&quot;\n&quot;.</span><span class="s0">\'</span><span class="s8">'</span><span class="s0">, </span><span class="s3">var_export</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">true</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">'[]'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$export </span><span class="s1">= </span><span class="s8">'['</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">=== </span><span class="s7">$k</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s7">$i</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$export </span><span class="s1">.= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">).</span><span class="s8">' =&gt; '</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">) &amp;&amp; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$k</span><span class="s1">) {</span>
+                    <span class="s7">$i </span><span class="s1">= </span><span class="s9">1 </span><span class="s1">+ </span><span class="s7">$k</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$export </span><span class="s1">.= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">).</span><span class="s8">', '</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$export</span><span class="s0">, </span><span class="s8">']'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<html>
+<head>
+<title>Translator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Translator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Translation</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Container</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Resource</span><span class="s1">\</span><span class="s3">DirectoryResource</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Resource</span><span class="s1">\</span><span class="s3">FileExistenceResource</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">CacheWarmer</span><span class="s1">\</span><span class="s3">WarmableInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Translation</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Translation</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">MessageFormatterInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Translation</span><span class="s1">\</span><span class="s3">Translator </span><span class="s0">as </span><span class="s3">BaseTranslator</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Translator.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Translator </span><span class="s0">extends </span><span class="s3">BaseTranslator </span><span class="s0">implements </span><span class="s3">WarmableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$loaderIds</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$options </span><span class="s1">= [</span>
+        <span class="s8">'cache_dir' </span><span class="s1">=&gt; </span><span class="s3">null</span><span class="s0">,</span>
+        <span class="s8">'debug' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s0">,</span>
+        <span class="s8">'resource_files' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+        <span class="s8">'scanned_directories' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+        <span class="s8">'cache_vary' </span><span class="s1">=&gt; []</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$resourceLocales</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Holds parameters from addResource() calls so we can defer the actual</span>
+     <span class="s4">* parent::addResource() calls until initialize() is executed.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$resources </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$resourceFiles</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$scannedDirectories</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Constructor.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Available options:</span>
+     <span class="s4">*</span>
+     <span class="s4">*   * cache_dir:      The cache directory (or null to disable caching)</span>
+     <span class="s4">*   * debug:          Whether to enable debugging or not (false by default)</span>
+     <span class="s4">*   * resource_files: List of translation resources available grouped by locale.</span>
+     <span class="s4">*   * cache_vary:     An array of data that is serialized to generate the cached catalogue name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">ContainerInterface </span><span class="s7">$container</span><span class="s0">, </span><span class="s3">MessageFormatterInterface </span><span class="s7">$formatter</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$defaultLocale</span><span class="s0">, array </span><span class="s7">$loaderIds </span><span class="s1">= []</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s7">$container</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaderIds </span><span class="s1">= </span><span class="s7">$loaderIds</span><span class="s0">;</span>
+
+        <span class="s2">// check option names</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$diff </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">)</span><span class="s0">, </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">))) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The Translator does not support the following options: </span><span class="s0">\'</span><span class="s8">%s</span><span class="s0">\'</span><span class="s8">.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\'</span><span class="s8">, </span><span class="s0">\'</span><span class="s8">'</span><span class="s0">, </span><span class="s7">$diff</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceLocales </span><span class="s1">= </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'resource_files'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceFiles </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'resource_files'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scannedDirectories </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'scanned_directories'</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$defaultLocale</span><span class="s0">, </span><span class="s7">$formatter</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'cache_dir'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'debug'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'cache_vary'</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">warmUp</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$cacheDir</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// skip warmUp when translator doesn't use cache</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">[</span><span class="s8">'cache_dir'</span><span class="s1">]) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$locales </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFallbackLocales</span><span class="s1">()</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getLocale</span><span class="s1">()]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceLocales</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_unique</span><span class="s1">(</span><span class="s7">$locales</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$locale</span><span class="s1">) {</span>
+            <span class="s2">// reset catalogue in case it's already loaded during the dump of the other locales.</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">catalogues</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">])) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">catalogues</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loadCatalogue</span><span class="s1">(</span><span class="s7">$locale</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">addResource</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$format</span><span class="s0">, </span><span class="s7">$resource</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$locale</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$domain </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceFiles</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addResourceFiles</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resources</span><span class="s1">[] = [</span><span class="s7">$format</span><span class="s0">, </span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$locale</span><span class="s0">, </span><span class="s7">$domain</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">initializeCatalogue</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$locale</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">initialize</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">initializeCatalogue</span><span class="s1">(</span><span class="s7">$locale</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doLoadCatalogue</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$locale</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">doLoadCatalogue</span><span class="s1">(</span><span class="s7">$locale</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scannedDirectories </span><span class="s0">as </span><span class="s7">$directory</span><span class="s1">) {</span>
+            <span class="s7">$resourceClass </span><span class="s1">= </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">) ? </span><span class="s3">DirectoryResource</span><span class="s1">::</span><span class="s0">class </span><span class="s1">: </span><span class="s3">FileExistenceResource</span><span class="s1">::</span><span class="s0">class;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">catalogues</span><span class="s1">[</span><span class="s7">$locale</span><span class="s1">]-&gt;</span><span class="s3">addResource</span><span class="s1">(</span><span class="s0">new </span><span class="s7">$resourceClass</span><span class="s1">(</span><span class="s7">$directory</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">initialize</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceFiles</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addResourceFiles</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resources </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$params</span><span class="s1">) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$format</span><span class="s0">, </span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$locale</span><span class="s0">, </span><span class="s7">$domain</span><span class="s1">) = </span><span class="s7">$params</span><span class="s0">;</span>
+            <span class="s3">parent</span><span class="s1">::</span><span class="s3">addResource</span><span class="s1">(</span><span class="s7">$format</span><span class="s0">, </span><span class="s7">$resource</span><span class="s0">, </span><span class="s7">$locale</span><span class="s0">, </span><span class="s7">$domain</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resources </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loaderIds </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$aliases</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$aliases </span><span class="s0">as </span><span class="s7">$alias</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addLoader</span><span class="s1">(</span><span class="s7">$alias</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">addResourceFiles</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$filesByLocale </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceFiles</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resourceFiles </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$filesByLocale </span><span class="s0">as </span><span class="s7">$locale </span><span class="s1">=&gt; </span><span class="s7">$files</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$files </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$file</span><span class="s1">) {</span>
+                <span class="s2">// filename is domain.locale.format</span>
+                <span class="s7">$fileNameParts </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'.'</span><span class="s0">, </span><span class="s3">basename</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s7">$format </span><span class="s1">= </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$fileNameParts</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$locale </span><span class="s1">= </span><span class="s3">array_pop</span><span class="s1">(</span><span class="s7">$fileNameParts</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$domain </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'.'</span><span class="s0">, </span><span class="s7">$fileNameParts</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addResource</span><span class="s1">(</span><span class="s7">$format</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$locale</span><span class="s0">, </span><span class="s7">$domain</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

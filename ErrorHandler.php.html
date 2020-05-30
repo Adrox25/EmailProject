@@ -1,0 +1,800 @@
+<html>
+<head>
+<title>ErrorHandler.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ErrorHandler.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LoggerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Psr</span><span class="s1">\</span><span class="s3">Log</span><span class="s1">\</span><span class="s3">LogLevel</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Error</span><span class="s1">\</span><span class="s3">FatalError</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Error</span><span class="s1">\</span><span class="s3">OutOfMemoryError</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorEnhancer</span><span class="s1">\</span><span class="s3">ClassNotFoundErrorEnhancer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorEnhancer</span><span class="s1">\</span><span class="s3">ErrorEnhancerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorEnhancer</span><span class="s1">\</span><span class="s3">UndefinedFunctionErrorEnhancer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorEnhancer</span><span class="s1">\</span><span class="s3">UndefinedMethodErrorEnhancer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorRenderer</span><span class="s1">\</span><span class="s3">CliErrorRenderer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">ErrorRenderer</span><span class="s1">\</span><span class="s3">HtmlErrorRenderer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ErrorHandler</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">SilencedErrorContext</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* A generic ErrorHandler for the PHP engine.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Provides five bit fields that control how errors are handled:</span>
+ <span class="s4">* - thrownErrors: errors thrown as \ErrorException</span>
+ <span class="s4">* - loggedErrors: logged errors, when not @-silenced</span>
+ <span class="s4">* - scopedErrors: errors thrown or logged with their local context</span>
+ <span class="s4">* - tracedErrors: errors logged with their stack trace</span>
+ <span class="s4">* - screamedErrors: never @-silenced errors</span>
+ <span class="s4">*</span>
+ <span class="s4">* Each error level can be logged by a dedicated PSR-3 logger object.</span>
+ <span class="s4">* Screaming only applies to logging.</span>
+ <span class="s4">* Throwing takes precedence over logging.</span>
+ <span class="s4">* Uncaught exceptions are logged as E_ERROR.</span>
+ <span class="s4">* E_DEPRECATED and E_USER_DEPRECATED levels never throw.</span>
+ <span class="s4">* E_RECOVERABLE_ERROR and E_USER_ERROR levels always throw.</span>
+ <span class="s4">* Non catchable errors that can be detected at shutdown time are logged when the scream bit field allows so.</span>
+ <span class="s4">* As errors have a performance cost, repeated errors are all logged, so that the developer</span>
+ <span class="s4">* can see them and weight them as more important to fix than others of the same level.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Grégoire Pineau </span><span class="s6">&lt;lyrixx</span><span class="s4">@lyrixx.info&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ErrorHandler</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$levels </span><span class="s1">= [</span>
+        <span class="s3">E_DEPRECATED </span><span class="s1">=&gt; </span><span class="s8">'Deprecated'</span><span class="s0">,</span>
+        <span class="s3">E_USER_DEPRECATED </span><span class="s1">=&gt; </span><span class="s8">'User Deprecated'</span><span class="s0">,</span>
+        <span class="s3">E_NOTICE </span><span class="s1">=&gt; </span><span class="s8">'Notice'</span><span class="s0">,</span>
+        <span class="s3">E_USER_NOTICE </span><span class="s1">=&gt; </span><span class="s8">'User Notice'</span><span class="s0">,</span>
+        <span class="s3">E_STRICT </span><span class="s1">=&gt; </span><span class="s8">'Runtime Notice'</span><span class="s0">,</span>
+        <span class="s3">E_WARNING </span><span class="s1">=&gt; </span><span class="s8">'Warning'</span><span class="s0">,</span>
+        <span class="s3">E_USER_WARNING </span><span class="s1">=&gt; </span><span class="s8">'User Warning'</span><span class="s0">,</span>
+        <span class="s3">E_COMPILE_WARNING </span><span class="s1">=&gt; </span><span class="s8">'Compile Warning'</span><span class="s0">,</span>
+        <span class="s3">E_CORE_WARNING </span><span class="s1">=&gt; </span><span class="s8">'Core Warning'</span><span class="s0">,</span>
+        <span class="s3">E_USER_ERROR </span><span class="s1">=&gt; </span><span class="s8">'User Error'</span><span class="s0">,</span>
+        <span class="s3">E_RECOVERABLE_ERROR </span><span class="s1">=&gt; </span><span class="s8">'Catchable Fatal Error'</span><span class="s0">,</span>
+        <span class="s3">E_COMPILE_ERROR </span><span class="s1">=&gt; </span><span class="s8">'Compile Error'</span><span class="s0">,</span>
+        <span class="s3">E_PARSE </span><span class="s1">=&gt; </span><span class="s8">'Parse Error'</span><span class="s0">,</span>
+        <span class="s3">E_ERROR </span><span class="s1">=&gt; </span><span class="s8">'Error'</span><span class="s0">,</span>
+        <span class="s3">E_CORE_ERROR </span><span class="s1">=&gt; </span><span class="s8">'Core Error'</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$loggers </span><span class="s1">= [</span>
+        <span class="s3">E_DEPRECATED </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">INFO</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_USER_DEPRECATED </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">INFO</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_NOTICE </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_USER_NOTICE </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_STRICT </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_WARNING </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_USER_WARNING </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_COMPILE_WARNING </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_CORE_WARNING </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">WARNING</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_USER_ERROR </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_RECOVERABLE_ERROR </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_COMPILE_ERROR </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_PARSE </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_ERROR </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL</span><span class="s1">]</span><span class="s0">,</span>
+        <span class="s3">E_CORE_ERROR </span><span class="s1">=&gt; [</span><span class="s3">null</span><span class="s0">, </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">CRITICAL</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s1">]</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$thrownErrors </span><span class="s1">= </span><span class="s9">0x1FFF</span><span class="s0">; </span><span class="s2">// E_ALL - E_DEPRECATED - E_USER_DEPRECATED</span>
+    <span class="s0">private </span><span class="s7">$scopedErrors </span><span class="s1">= </span><span class="s9">0x1FFF</span><span class="s0">; </span><span class="s2">// E_ALL - E_DEPRECATED - E_USER_DEPRECATED</span>
+    <span class="s0">private </span><span class="s7">$tracedErrors </span><span class="s1">= </span><span class="s9">0x77FB</span><span class="s0">; </span><span class="s2">// E_ALL - E_STRICT - E_PARSE</span>
+    <span class="s0">private </span><span class="s7">$screamedErrors </span><span class="s1">= </span><span class="s9">0x55</span><span class="s0">; </span><span class="s2">// E_ERROR + E_CORE_ERROR + E_COMPILE_ERROR + E_PARSE</span>
+    <span class="s0">private </span><span class="s7">$loggedErrors </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$traceReflector</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$debug</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$isRecursive </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$isRoot </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$exceptionHandler</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$bootstrappingLogger</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$reservedMemory</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$toStringException</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$silencedErrorCache </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$silencedErrorCount </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$exitCode </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Registers the error handler.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">register</span><span class="s1">(</span><span class="s3">self </span><span class="s7">$handler </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$replace </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reservedMemory</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$reservedMemory </span><span class="s1">= </span><span class="s3">str_repeat</span><span class="s1">(</span><span class="s8">'x'</span><span class="s0">, </span><span class="s9">10240</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">register_shutdown_function</span><span class="s1">(</span><span class="s3">__CLASS__</span><span class="s1">.</span><span class="s8">'::handleFatalError'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$handlerIsNew </span><span class="s1">= </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$handler</span><span class="s1">) {</span>
+            <span class="s7">$handler </span><span class="s1">= </span><span class="s0">new static</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$prev </span><span class="s1">= </span><span class="s3">set_error_handler</span><span class="s1">([</span><span class="s7">$handler</span><span class="s0">, </span><span class="s8">'handleError'</span><span class="s1">])) {</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s2">// Specifying the error types earlier would expose us to https://bugs.php.net/63206</span>
+            <span class="s3">set_error_handler</span><span class="s1">([</span><span class="s7">$handler</span><span class="s0">, </span><span class="s8">'handleError'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">thrownErrors </span><span class="s1">| </span><span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">isRoot </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$handlerIsNew </span><span class="s1">&amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$prev</span><span class="s1">) &amp;&amp; </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+            <span class="s7">$handler </span><span class="s1">= </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s7">$replace </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$replace </span><span class="s1">&amp;&amp; </span><span class="s7">$prev</span><span class="s1">) {</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$handlerIsRegistered </span><span class="s1">= \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$prev</span><span class="s1">) &amp;&amp; </span><span class="s7">$handler </span><span class="s1">=== </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$handlerIsRegistered </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">= </span><span class="s3">set_exception_handler</span><span class="s1">([</span><span class="s7">$handler</span><span class="s0">, </span><span class="s8">'handleException'</span><span class="s1">])) &amp;&amp; </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+            <span class="s3">restore_exception_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$handlerIsRegistered</span><span class="s1">) {</span>
+                <span class="s7">$handler </span><span class="s1">= </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$handler </span><span class="s1">!== </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">$replace</span><span class="s1">) {</span>
+                <span class="s3">set_exception_handler</span><span class="s1">([</span><span class="s7">$handler</span><span class="s0">, </span><span class="s8">'handleException'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$p </span><span class="s1">= </span><span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">setExceptionHandler</span><span class="s1">(</span><span class="s3">null</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">setExceptionHandler</span><span class="s1">(</span><span class="s7">$p</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$prev</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">setExceptionHandler</span><span class="s1">(</span><span class="s7">$p</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">setExceptionHandler</span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">?? [</span><span class="s7">$handler</span><span class="s0">, </span><span class="s8">'renderException'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">throwAt</span><span class="s1">(</span><span class="s3">E_ALL </span><span class="s1">&amp; </span><span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">thrownErrors</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$handler</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Calls a function and turns any PHP error into \ErrorException.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed What $function(...$arguments) returns</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\ErrorException When $function(...$arguments) triggers a PHP error</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">call</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$function</span><span class="s0">, </span><span class="s1">...</span><span class="s7">$arguments</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s0">static function </span><span class="s1">(</span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$message</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$line</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">__FILE__ </span><span class="s1">=== </span><span class="s7">$file</span><span class="s1">) {</span>
+                <span class="s7">$trace </span><span class="s1">= </span><span class="s3">debug_backtrace</span><span class="s1">(</span><span class="s3">DEBUG_BACKTRACE_IGNORE_ARGS</span><span class="s0">, </span><span class="s9">3</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$file </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s9">2</span><span class="s1">][</span><span class="s8">'file'</span><span class="s1">] ?? </span><span class="s7">$file</span><span class="s0">;</span>
+                <span class="s7">$line </span><span class="s1">= </span><span class="s7">$trace</span><span class="s1">[</span><span class="s9">2</span><span class="s1">][</span><span class="s8">'line'</span><span class="s1">] ?? </span><span class="s7">$line</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">})</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$function</span><span class="s1">(...</span><span class="s7">$arguments</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">BufferingLogger </span><span class="s7">$bootstrappingLogger </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$debug </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$bootstrappingLogger</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger </span><span class="s1">= </span><span class="s7">$bootstrappingLogger</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setDefaultLogger</span><span class="s1">(</span><span class="s7">$bootstrappingLogger</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">traceReflector </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s8">'Exception'</span><span class="s0">, </span><span class="s8">'trace'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">traceReflector</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug </span><span class="s1">= </span><span class="s7">$debug</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a logger to non assigned errors levels.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">LoggerInterface $logger  A PSR-3 logger to put as default for the given levels</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|int       $levels  An array map of E_* to LogLevel::* or an integer bit field of E_* constants</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool            $replace Whether to replace or not any existing logger</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDefaultLogger</span><span class="s1">(</span><span class="s3">LoggerInterface </span><span class="s7">$logger</span><span class="s0">, </span><span class="s7">$levels </span><span class="s1">= </span><span class="s3">E_ALL</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$replace </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s7">$loggers </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$levels</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$levels </span><span class="s0">as </span><span class="s7">$type </span><span class="s1">=&gt; </span><span class="s7">$logLevel</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) || </span><span class="s7">$replace </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] === </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger</span><span class="s1">) {</span>
+                    <span class="s7">$loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">] = [</span><span class="s7">$logger</span><span class="s0">, </span><span class="s7">$logLevel</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$levels</span><span class="s1">) {</span>
+                <span class="s7">$levels </span><span class="s1">= </span><span class="s3">E_ALL</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers </span><span class="s0">as </span><span class="s7">$type </span><span class="s1">=&gt; </span><span class="s7">$log</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">((</span><span class="s7">$type </span><span class="s1">&amp; </span><span class="s7">$levels</span><span class="s1">) &amp;&amp; (</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$log</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) || </span><span class="s7">$replace </span><span class="s1">|| </span><span class="s7">$log</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] === </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger</span><span class="s1">)) {</span>
+                    <span class="s7">$log</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] = </span><span class="s7">$logger</span><span class="s0">;</span>
+                    <span class="s7">$loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">] = </span><span class="s7">$log</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setLoggers</span><span class="s1">(</span><span class="s7">$loggers</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a logger for each error level.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $loggers Error levels to [LoggerInterface|null, LogLevel::*] map</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The previous map</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setLoggers</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$loggers</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$prevLogged </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s0">;</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s0">;</span>
+        <span class="s7">$flush </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$loggers </span><span class="s0">as </span><span class="s7">$type </span><span class="s1">=&gt; </span><span class="s7">$log</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$prev</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Unknown error type: '</span><span class="s1">.</span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$log</span><span class="s1">)) {</span>
+                <span class="s7">$log </span><span class="s1">= [</span><span class="s7">$log</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s7">$log</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'No logger provided.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$log</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors </span><span class="s1">&amp;= ~</span><span class="s7">$type</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$log</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">LoggerInterface</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors </span><span class="s1">|= </span><span class="s7">$type</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Invalid logger provided.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">] = </span><span class="s7">$log </span><span class="s1">+ </span><span class="s7">$prev</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger </span><span class="s1">&amp;&amp; </span><span class="s7">$prev</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] === </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger</span><span class="s1">) {</span>
+                <span class="s7">$flush</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">] = </span><span class="s7">$type</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reRegister</span><span class="s1">(</span><span class="s7">$prevLogged </span><span class="s1">| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$flush</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger</span><span class="s1">-&gt;</span><span class="s3">cleanLogs</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$log</span><span class="s1">) {</span>
+                <span class="s7">$type </span><span class="s1">= </span><span class="s3">ThrowableUtils</span><span class="s1">::</span><span class="s3">getSeverity</span><span class="s1">(</span><span class="s7">$log</span><span class="s1">[</span><span class="s9">2</span><span class="s1">][</span><span class="s8">'exception'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$flush</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">])) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bootstrappingLogger</span><span class="s1">-&gt;</span><span class="s3">log</span><span class="s1">(</span><span class="s7">$log</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$log</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$log</span><span class="s1">[</span><span class="s9">2</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">log</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$log</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$log</span><span class="s1">[</span><span class="s9">2</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$prev</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a user exception handler.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable(\Throwable $e)|null $handler</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">callable|null The previous exception handler</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setExceptionHandler</span><span class="s1">(?</span><span class="s0">callable </span><span class="s7">$handler</span><span class="s1">): ?</span><span class="s0">callable</span>
+    <span class="s1">{</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= </span><span class="s7">$handler</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$prev</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the PHP error levels that throw an exception when a PHP error occurs.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int  $levels  A bit field of E_* constants for thrown errors</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $replace Replace or amend the previous value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The previous value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">throwAt</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$levels</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$replace </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors </span><span class="s1">= (</span><span class="s7">$levels </span><span class="s1">| </span><span class="s3">E_RECOVERABLE_ERROR </span><span class="s1">| </span><span class="s3">E_USER_ERROR</span><span class="s1">) &amp; ~</span><span class="s3">E_USER_DEPRECATED </span><span class="s1">&amp; ~</span><span class="s3">E_DEPRECATED</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$replace</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors </span><span class="s1">|= </span><span class="s7">$prev</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">reRegister</span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$prev</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the PHP error levels for which local variables are preserved.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int  $levels  A bit field of E_* constants for scoped errors</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $replace Replace or amend the previous value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The previous value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">scopeAt</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$levels</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$replace </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scopedErrors</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scopedErrors </span><span class="s1">= </span><span class="s7">$levels</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$replace</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scopedErrors </span><span class="s1">|= </span><span class="s7">$prev</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$prev</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the PHP error levels for which the stack trace is preserved.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int  $levels  A bit field of E_* constants for traced errors</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $replace Replace or amend the previous value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The previous value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">traceAt</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$levels</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$replace </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tracedErrors</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tracedErrors </span><span class="s1">= (int) </span><span class="s7">$levels</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$replace</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tracedErrors </span><span class="s1">|= </span><span class="s7">$prev</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$prev</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the error levels where the @-operator is ignored.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int  $levels  A bit field of E_* constants for screamed errors</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $replace Replace or amend the previous value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The previous value</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">screamAt</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$levels</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$replace </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$prev </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">screamedErrors</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">screamedErrors </span><span class="s1">= </span><span class="s7">$levels</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$replace</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">screamedErrors </span><span class="s1">|= </span><span class="s7">$prev</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$prev</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Re-registers as a PHP error handler if levels changed.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">reRegister</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$prev</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$prev </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors </span><span class="s1">| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s1">) {</span>
+            <span class="s7">$handler </span><span class="s1">= </span><span class="s3">set_error_handler</span><span class="s1">(</span><span class="s8">'var_dump'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$handler </span><span class="s1">= \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$handler</span><span class="s1">) ? </span><span class="s7">$handler</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$handler </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">) {</span>
+                <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRoot</span><span class="s1">) {</span>
+                    <span class="s3">set_error_handler</span><span class="s1">([</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'handleError'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors </span><span class="s1">| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s3">set_error_handler</span><span class="s1">([</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'handleError'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Handles errors by filtering then logging them according to the configured bit fields.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns false when no handling happens so that the PHP engine can handle the error itself</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\ErrorException When $this-&gt;thrownErrors requests so</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">handleError</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$message</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$line</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&gt;= </span><span class="s9">70300 </span><span class="s1">&amp;&amp; </span><span class="s3">E_WARNING </span><span class="s1">=== </span><span class="s7">$type </span><span class="s1">&amp;&amp; </span><span class="s8">'&quot;' </span><span class="s1">=== </span><span class="s7">$message</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s8">'&quot; targeting switch is equivalent to &quot;break'</span><span class="s1">)) {</span>
+            <span class="s7">$type </span><span class="s1">= </span><span class="s3">E_DEPRECATED</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Level is the current error reporting level to manage silent error.</span>
+        <span class="s7">$level </span><span class="s1">= </span><span class="s3">error_reporting</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$silenced </span><span class="s1">= </span><span class="s9">0 </span><span class="s1">=== (</span><span class="s7">$level </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s2">// Strong errors are not authorized to be silenced.</span>
+        <span class="s7">$level </span><span class="s1">|= </span><span class="s3">E_RECOVERABLE_ERROR </span><span class="s1">| </span><span class="s3">E_USER_ERROR </span><span class="s1">| </span><span class="s3">E_DEPRECATED </span><span class="s1">| </span><span class="s3">E_USER_DEPRECATED</span><span class="s0">;</span>
+        <span class="s7">$log </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s0">;</span>
+        <span class="s7">$throw </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">thrownErrors </span><span class="s1">&amp; </span><span class="s7">$type </span><span class="s1">&amp; </span><span class="s7">$level</span><span class="s0">;</span>
+        <span class="s7">$type </span><span class="s1">&amp;= </span><span class="s7">$level </span><span class="s1">| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">screamedErrors</span><span class="s0">;</span>
+
+        <span class="s2">// Never throw on warnings triggered by assert()</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">E_WARNING </span><span class="s1">=== </span><span class="s7">$type </span><span class="s1">&amp;&amp; </span><span class="s8">'a' </span><span class="s1">=== </span><span class="s7">$message</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strncmp</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s8">'assert(): '</span><span class="s0">, </span><span class="s9">10</span><span class="s1">)) {</span>
+            <span class="s7">$throw </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$type </span><span class="s1">|| (!</span><span class="s7">$log </span><span class="s1">&amp;&amp; !</span><span class="s7">$throw</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">!</span><span class="s7">$silenced </span><span class="s1">&amp;&amp; </span><span class="s7">$type </span><span class="s1">&amp;&amp; </span><span class="s7">$log</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$scope </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scopedErrors </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">4 </span><span class="s1">&lt; </span><span class="s7">$numArgs </span><span class="s1">= \</span><span class="s3">func_num_args</span><span class="s1">()) {</span>
+            <span class="s7">$context </span><span class="s1">= </span><span class="s7">$scope </span><span class="s1">? (</span><span class="s3">func_get_arg</span><span class="s1">(</span><span class="s9">4</span><span class="s1">) ?: []) : []</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$context </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$context</span><span class="s1">[</span><span class="s8">'GLOBALS'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$scope</span><span class="s1">) {</span>
+            <span class="s7">$e </span><span class="s1">= </span><span class="s7">$context</span><span class="s0">;                  </span><span class="s2">// Whatever the signature of the method,</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">[</span><span class="s8">'GLOBALS'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">)</span><span class="s0">; </span><span class="s2">// $context is always a reference in 5.3</span>
+            <span class="s7">$context </span><span class="s1">= </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$message</span><span class="s0">, </span><span class="s8">&quot;class@anonymous</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">)) {</span>
+            <span class="s7">$logMessage </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseAnonymousClass</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$logMessage </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">levels</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">].</span><span class="s8">': '</span><span class="s1">.</span><span class="s7">$message</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$toStringException</span><span class="s1">) {</span>
+            <span class="s7">$errorAsException </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$toStringException</span><span class="s0">;</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$toStringException </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$throw </span><span class="s1">&amp;&amp; !(</span><span class="s7">$type </span><span class="s1">&amp; </span><span class="s7">$level</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCache</span><span class="s1">[</span><span class="s7">$id </span><span class="s1">= </span><span class="s7">$file</span><span class="s1">.</span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$line</span><span class="s1">])) {</span>
+                <span class="s7">$lightTrace </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tracedErrors </span><span class="s1">&amp; </span><span class="s7">$type </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cleanTrace</span><span class="s1">(</span><span class="s3">debug_backtrace</span><span class="s1">(</span><span class="s3">DEBUG_BACKTRACE_IGNORE_ARGS</span><span class="s0">, </span><span class="s9">5</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) : []</span><span class="s0">;</span>
+                <span class="s7">$errorAsException </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SilencedErrorContext</span><span class="s1">(</span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s0">, isset</span><span class="s1">(</span><span class="s7">$lightTrace</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) ? [</span><span class="s7">$lightTrace</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]] : </span><span class="s7">$lightTrace</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCache</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">][</span><span class="s7">$message</span><span class="s1">])) {</span>
+                <span class="s7">$lightTrace </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s7">$errorAsException </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCache</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">][</span><span class="s7">$message</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">++</span><span class="s7">$errorAsException</span><span class="s1">-&gt;</span><span class="s3">count</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$lightTrace </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s7">$errorAsException </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">100 </span><span class="s1">&lt; ++</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCount</span><span class="s1">) {</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCache </span><span class="s1">= </span><span class="s7">$lightTrace </span><span class="s1">= []</span><span class="s0">;</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCount </span><span class="s1">= </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$errorAsException</span><span class="s1">) {</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$silencedErrorCache</span><span class="s1">[</span><span class="s7">$id</span><span class="s1">][</span><span class="s7">$message</span><span class="s1">] = </span><span class="s7">$errorAsException</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$lightTrace</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$errorAsException </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">(</span><span class="s7">$logMessage</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$throw </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tracedErrors </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s1">) {</span>
+                <span class="s7">$backtrace </span><span class="s1">= </span><span class="s7">$errorAsException</span><span class="s1">-&gt;</span><span class="s3">getTrace</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s7">$lightTrace </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cleanTrace</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s0">, </span><span class="s7">$type</span><span class="s0">, </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$line</span><span class="s0">, </span><span class="s7">$throw</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">traceReflector</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$errorAsException</span><span class="s0">, </span><span class="s7">$lightTrace</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">traceReflector</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$errorAsException</span><span class="s0">, </span><span class="s1">[])</span><span class="s0">;</span>
+                <span class="s7">$backtrace </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$throw</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70400 </span><span class="s1">&amp;&amp; </span><span class="s3">E_USER_ERROR </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s1">) {</span>
+                <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'function'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'type'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">][</span><span class="s8">'function'</span><span class="s1">])</span>
+                        <span class="s1">&amp;&amp; </span><span class="s8">'__toString' </span><span class="s1">=== </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'function'</span><span class="s1">]</span>
+                        <span class="s1">&amp;&amp; </span><span class="s8">'-&gt;' </span><span class="s1">=== </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'type'</span><span class="s1">]</span>
+                        <span class="s1">&amp;&amp; !</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">][</span><span class="s8">'class'</span><span class="s1">])</span>
+                        <span class="s1">&amp;&amp; (</span><span class="s8">'trigger_error' </span><span class="s1">=== </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">][</span><span class="s8">'function'</span><span class="s1">] || </span><span class="s8">'user_error' </span><span class="s1">=== </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">][</span><span class="s8">'function'</span><span class="s1">])</span>
+                    <span class="s1">) {</span>
+                        <span class="s2">// Here, we know trigger_error() has been called from __toString().</span>
+                        <span class="s2">// PHP triggers a fatal error when throwing from __toString().</span>
+                        <span class="s2">// A small convention allows working around the limitation:</span>
+                        <span class="s2">// given a caught $e exception in __toString(), quitting the method with</span>
+                        <span class="s2">// `return trigger_error($e, E_USER_ERROR);` allows this error handler</span>
+                        <span class="s2">// to make $e get through the __toString() barrier.</span>
+
+                        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$context </span><span class="s0">as </span><span class="s7">$e</span><span class="s1">) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s7">$e </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Throwable </span><span class="s1">&amp;&amp; </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">__toString</span><span class="s1">() === </span><span class="s7">$message</span><span class="s1">) {</span>
+                                <span class="s3">self</span><span class="s1">::</span><span class="s7">$toStringException </span><span class="s1">= </span><span class="s7">$e</span><span class="s0">;</span>
+
+                                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">}</span>
+
+                        <span class="s2">// Display the original error message instead of the default one.</span>
+                        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handleException</span><span class="s1">(</span><span class="s7">$errorAsException</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s2">// Stop the process by giving back the error to the native handler.</span>
+                        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw </span><span class="s7">$errorAsException</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRecursive</span><span class="s1">) {</span>
+            <span class="s7">$log </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; (\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70400 </span><span class="s1">? </span><span class="s9">70316 </span><span class="s1">: </span><span class="s9">70404</span><span class="s1">)) {</span>
+                <span class="s7">$currentErrorHandler </span><span class="s1">= </span><span class="s3">set_error_handler</span><span class="s1">(</span><span class="s8">'var_dump'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s3">restore_error_handler</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRecursive </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s7">$level </span><span class="s1">= (</span><span class="s7">$type </span><span class="s1">&amp; </span><span class="s7">$level</span><span class="s1">) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">1</span><span class="s1">] : </span><span class="s3">LogLevel</span><span class="s1">::</span><span class="s3">DEBUG</span><span class="s0">;</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">log</span><span class="s1">(</span><span class="s7">$level</span><span class="s0">, </span><span class="s7">$logMessage</span><span class="s0">, </span><span class="s7">$errorAsException </span><span class="s1">? [</span><span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$errorAsException</span><span class="s1">] : [])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRecursive </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; (\</span><span class="s3">PHP_VERSION_ID </span><span class="s1">&lt; </span><span class="s9">70400 </span><span class="s1">? </span><span class="s9">70316 </span><span class="s1">: </span><span class="s9">70404</span><span class="s1">)) {</span>
+                    <span class="s3">set_error_handler</span><span class="s1">(</span><span class="s7">$currentErrorHandler</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">!</span><span class="s7">$silenced </span><span class="s1">&amp;&amp; </span><span class="s7">$type </span><span class="s1">&amp;&amp; </span><span class="s7">$log</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Handles an exception by logging then forwarding it to another handler.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">handleException</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$exception</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$handlerException </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$exception </span><span class="s0">instanceof </span><span class="s3">FatalError</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$exitCode </span><span class="s1">= </span><span class="s9">255</span><span class="s0">;</span>
+
+            <span class="s7">$type </span><span class="s1">= </span><span class="s3">ThrowableUtils</span><span class="s1">::</span><span class="s3">getSeverity</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$type </span><span class="s1">= </span><span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">getError</span><span class="s1">()[</span><span class="s8">'type'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$message </span><span class="s1">= </span><span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()</span><span class="s0">, </span><span class="s8">&quot;class@anonymous</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">)) {</span>
+                <span class="s7">$message </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseAnonymousClass</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$exception </span><span class="s0">instanceof </span><span class="s3">FatalError</span><span class="s1">) {</span>
+                <span class="s7">$message </span><span class="s1">= </span><span class="s8">'Fatal '</span><span class="s1">.</span><span class="s7">$message</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$exception </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Error</span><span class="s1">) {</span>
+                <span class="s7">$message </span><span class="s1">= </span><span class="s8">'Uncaught Error: '</span><span class="s1">.</span><span class="s7">$message</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$exception </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ErrorException</span><span class="s1">) {</span>
+                <span class="s7">$message </span><span class="s1">= </span><span class="s8">'Uncaught '</span><span class="s1">.</span><span class="s7">$message</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$message </span><span class="s1">= </span><span class="s8">'Uncaught Exception: '</span><span class="s1">.</span><span class="s7">$message</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">log</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggers</span><span class="s1">[</span><span class="s7">$type</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$message</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'exception' </span><span class="s1">=&gt; </span><span class="s7">$exception</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$handlerException</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$exception </span><span class="s0">instanceof </span><span class="s3">OutOfMemoryError</span><span class="s1">) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getErrorEnhancers</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$errorEnhancer</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$e </span><span class="s1">= </span><span class="s7">$errorEnhancer</span><span class="s1">-&gt;</span><span class="s3">enhance</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">)) {</span>
+                    <span class="s7">$exception </span><span class="s1">= </span><span class="s7">$e</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$exceptionHandler </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= [</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'renderException'</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$exceptionHandler </span><span class="s1">|| </span><span class="s7">$exceptionHandler </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$exceptionHandler</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s7">$exceptionHandler</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$handlerException </span><span class="s1">= </span><span class="s7">$handlerException </span><span class="s1">?: </span><span class="s7">$exception</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$handlerException</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$exception </span><span class="s1">=== </span><span class="s7">$handlerException </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">exceptionHandler</span><span class="s1">) {</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s7">$reservedMemory </span><span class="s1">= </span><span class="s3">null</span><span class="s0">; </span><span class="s2">// Disable the fatal error handler</span>
+            <span class="s0">throw </span><span class="s7">$exception</span><span class="s0">; </span><span class="s2">// Give back $exception to the native handler</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$loggedErrors </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors </span><span class="s1">= </span><span class="s7">$exception </span><span class="s1">=== </span><span class="s7">$handlerException </span><span class="s1">? </span><span class="s9">0 </span><span class="s1">: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">handleException</span><span class="s1">(</span><span class="s7">$handlerException</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">loggedErrors </span><span class="s1">= </span><span class="s7">$loggedErrors</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Shutdown registered function for handling PHP fatal errors.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|null $error An array as returned by error_get_last()</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">handleFatalError</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$error </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reservedMemory</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$handler </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$reservedMemory </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$handlers </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$previousHandler </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$sameHandlerLimit </span><span class="s1">= </span><span class="s9">10</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$handler</span><span class="s1">) || !</span><span class="s7">$handler</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+            <span class="s7">$handler </span><span class="s1">= </span><span class="s3">set_exception_handler</span><span class="s1">(</span><span class="s8">'var_dump'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">restore_exception_handler</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$handler</span><span class="s1">) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+            <span class="s3">restore_exception_handler</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$handler </span><span class="s1">!== </span><span class="s7">$previousHandler</span><span class="s1">) {</span>
+                <span class="s3">array_unshift</span><span class="s1">(</span><span class="s7">$handlers</span><span class="s0">, </span><span class="s7">$handler</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$previousHandler </span><span class="s1">= </span><span class="s7">$handler</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== --</span><span class="s7">$sameHandlerLimit</span><span class="s1">) {</span>
+                <span class="s7">$handler </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$handlers </span><span class="s0">as </span><span class="s7">$h</span><span class="s1">) {</span>
+            <span class="s3">set_exception_handler</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$handler</span><span class="s1">) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$handler </span><span class="s1">!== </span><span class="s7">$h</span><span class="s1">) {</span>
+            <span class="s7">$handler</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]-&gt;</span><span class="s3">setExceptionHandler</span><span class="s1">(</span><span class="s7">$h</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$handler </span><span class="s1">= </span><span class="s7">$handler</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$handlers </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$exit </span><span class="s1">= </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$error</span><span class="s1">) {</span>
+            <span class="s7">$error </span><span class="s1">= </span><span class="s3">error_get_last</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$error </span><span class="s1">&amp;&amp; </span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'type'</span><span class="s1">] &amp;= </span><span class="s3">E_PARSE </span><span class="s1">| </span><span class="s3">E_ERROR </span><span class="s1">| </span><span class="s3">E_CORE_ERROR </span><span class="s1">| </span><span class="s3">E_COMPILE_ERROR</span><span class="s1">) {</span>
+            <span class="s2">// Let's not throw anymore but keep logging</span>
+            <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">throwAt</span><span class="s1">(</span><span class="s9">0</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$trace </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'backtrace'</span><span class="s1">]) ? </span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'backtrace'</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'Allowed memory'</span><span class="s1">) || </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'Out of memory'</span><span class="s1">)) {</span>
+                <span class="s7">$fatalError </span><span class="s1">= </span><span class="s0">new </span><span class="s3">OutOfMemoryError</span><span class="s1">(</span><span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">levels</span><span class="s1">[</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'type'</span><span class="s1">]].</span><span class="s8">': '</span><span class="s1">.</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$error</span><span class="s0">, </span><span class="s9">2</span><span class="s0">, </span><span class="s3">false</span><span class="s0">, </span><span class="s7">$trace</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$fatalError </span><span class="s1">= </span><span class="s0">new </span><span class="s3">FatalError</span><span class="s1">(</span><span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">levels</span><span class="s1">[</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'type'</span><span class="s1">]].</span><span class="s8">': '</span><span class="s1">.</span><span class="s7">$error</span><span class="s1">[</span><span class="s8">'message'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$error</span><span class="s0">, </span><span class="s9">2</span><span class="s0">, </span><span class="s3">true</span><span class="s0">, </span><span class="s7">$trace</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$fatalError </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$fatalError</span><span class="s1">) {</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s7">$exitCode </span><span class="s1">= </span><span class="s9">255</span><span class="s0">;</span>
+                <span class="s7">$handler</span><span class="s1">-&gt;</span><span class="s3">handleException</span><span class="s1">(</span><span class="s7">$fatalError</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">FatalError </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s2">// Ignore this re-throw</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$exit </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$exitCode</span><span class="s1">) {</span>
+            <span class="s7">$exitCode </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$exitCode</span><span class="s0">;</span>
+            <span class="s3">register_shutdown_function</span><span class="s1">(</span><span class="s8">'register_shutdown_function'</span><span class="s0">, function </span><span class="s1">() </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$exitCode</span><span class="s1">) { </span><span class="s0">exit</span><span class="s1">(</span><span class="s7">$exitCode</span><span class="s1">)</span><span class="s0">; </span><span class="s1">})</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Renders the given exception.</span>
+     <span class="s4">*</span>
+     <span class="s4">* As this method is mainly called during boot where nothing is yet available,</span>
+     <span class="s4">* the output is always either HTML or CLI depending where PHP runs.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">renderException</span><span class="s1">(\</span><span class="s3">Throwable </span><span class="s7">$exception</span><span class="s1">): </span><span class="s3">void</span>
+    <span class="s1">{</span>
+        <span class="s7">$renderer </span><span class="s1">= \</span><span class="s3">in_array</span><span class="s1">(\</span><span class="s3">PHP_SAPI</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'cli'</span><span class="s0">, </span><span class="s8">'phpdbg'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) ? </span><span class="s0">new </span><span class="s3">CliErrorRenderer</span><span class="s1">() : </span><span class="s0">new </span><span class="s3">HtmlErrorRenderer</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">debug</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$exception </span><span class="s1">= </span><span class="s7">$renderer</span><span class="s1">-&gt;</span><span class="s3">render</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">headers_sent</span><span class="s1">()) {</span>
+            <span class="s3">http_response_code</span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">())</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">getHeaders</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                <span class="s3">header</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">.</span><span class="s8">': '</span><span class="s1">.</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">echo </span><span class="s7">$exception</span><span class="s1">-&gt;</span><span class="s3">getAsString</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Override this method if you want to define more error enhancers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ErrorEnhancerInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getErrorEnhancers</span><span class="s1">(): </span><span class="s3">iterable</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span>
+            <span class="s0">new </span><span class="s3">UndefinedFunctionErrorEnhancer</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">UndefinedMethodErrorEnhancer</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ClassNotFoundErrorEnhancer</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Cleans the trace by removing function arguments and the frames added by the error handler and DebugClassLoader.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">cleanTrace</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$backtrace</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$type</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$line</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$throw</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$lightTrace </span><span class="s1">= </span><span class="s7">$backtrace</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'file'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'line'</span><span class="s1">]) &amp;&amp; </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'line'</span><span class="s1">] === </span><span class="s7">$line </span><span class="s1">&amp;&amp; </span><span class="s7">$backtrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'file'</span><span class="s1">] === </span><span class="s7">$file</span><span class="s1">) {</span>
+                <span class="s7">$lightTrace </span><span class="s1">= \</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$lightTrace</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">DebugClassLoader</span><span class="s1">::</span><span class="s0">class, </span><span class="s3">false</span><span class="s1">)) {</span>
+            <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$lightTrace</span><span class="s1">) - </span><span class="s9">2</span><span class="s0">; </span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$i</span><span class="s0">; </span><span class="s1">--</span><span class="s7">$i</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">DebugClassLoader</span><span class="s1">::</span><span class="s0">class </span><span class="s1">=== (</span><span class="s7">$lightTrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'class'</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)) {</span>
+                    <span class="s3">array_splice</span><span class="s1">(</span><span class="s7">$lightTrace</span><span class="s0">, </span><span class="s1">--</span><span class="s7">$i</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!(</span><span class="s7">$throw </span><span class="s1">|| </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">scopedErrors </span><span class="s1">&amp; </span><span class="s7">$type</span><span class="s1">)) {</span>
+            <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; isset</span><span class="s1">(</span><span class="s7">$lightTrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$lightTrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'args'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$lightTrace</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">][</span><span class="s8">'object'</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$lightTrace</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parse the error message by removing the anonymous class notation</span>
+     <span class="s4">* and using the parent class instead if possible.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseAnonymousClass</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$message</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s8">'/class@anonymous\x00.*?\.php(?:0x?|:[0-9]++\$)[0-9a-fA-F]++/'</span><span class="s0">, static function </span><span class="s1">(</span><span class="s7">$m</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s3">false</span><span class="s1">) ? </span><span class="s3">get_parent_class</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]).</span><span class="s8">'@anonymous' </span><span class="s1">: </span><span class="s7">$m</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

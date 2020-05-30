@@ -1,0 +1,328 @@
+<html>
+<head>
+<title>FileProfilerStorage.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+FileProfilerStorage.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Profiler</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Storage for profiler using files.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Alexandre Salomé </span><span class="s6">&lt;alexandre.salome</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">FileProfilerStorage </span><span class="s0">implements </span><span class="s3">ProfilerStorageInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Folder where profiler data are stored.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$folder</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Constructs the file storage using a &quot;dsn-like&quot; path.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Example : &quot;file:/path/to/the/storage/folder&quot;</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$dsn</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$dsn</span><span class="s0">, </span><span class="s9">'file:'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Please check your configuration. You are trying to use FileStorage with an invalid dsn &quot;%s&quot;. The expected format is &quot;file:/path/to/the/storage/folder&quot;.'</span><span class="s0">, </span><span class="s7">$dsn</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$dsn</span><span class="s0">, </span><span class="s8">5</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to create the storage directory (%s).'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">find</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$ip</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$url</span><span class="s0">, </span><span class="s1">?</span><span class="s3">int </span><span class="s7">$limit</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$method</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$start </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$end </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$statusCode </span><span class="s1">= </span><span class="s3">null</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getIndexFilename</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$file </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s9">'r'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">fseek</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s3">SEEK_END</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$result </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">while </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">) &lt; </span><span class="s7">$limit </span><span class="s1">&amp;&amp; </span><span class="s7">$line </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">readLineFromFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+            <span class="s7">$values </span><span class="s1">= </span><span class="s3">str_getcsv</span><span class="s1">(</span><span class="s7">$line</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$csvToken</span><span class="s0">, </span><span class="s7">$csvIp</span><span class="s0">, </span><span class="s7">$csvMethod</span><span class="s0">, </span><span class="s7">$csvUrl</span><span class="s0">, </span><span class="s7">$csvTime</span><span class="s0">, </span><span class="s7">$csvParent</span><span class="s0">, </span><span class="s7">$csvStatusCode</span><span class="s1">) = </span><span class="s7">$values</span><span class="s0">;</span>
+            <span class="s7">$csvTime </span><span class="s1">= (int) </span><span class="s7">$csvTime</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$ip </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$csvIp</span><span class="s0">, </span><span class="s7">$ip</span><span class="s1">) || </span><span class="s7">$url </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$csvUrl</span><span class="s0">, </span><span class="s7">$url</span><span class="s1">) || </span><span class="s7">$method </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$csvMethod</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">) || </span><span class="s7">$statusCode </span><span class="s1">&amp;&amp; </span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$csvStatusCode</span><span class="s0">, </span><span class="s7">$statusCode</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$start</span><span class="s1">) &amp;&amp; </span><span class="s7">$csvTime </span><span class="s1">&lt; </span><span class="s7">$start</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$end</span><span class="s1">) &amp;&amp; </span><span class="s7">$csvTime </span><span class="s1">&gt; </span><span class="s7">$end</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$result</span><span class="s1">[</span><span class="s7">$csvToken</span><span class="s1">] = [</span>
+                <span class="s9">'token' </span><span class="s1">=&gt; </span><span class="s7">$csvToken</span><span class="s0">,</span>
+                <span class="s9">'ip' </span><span class="s1">=&gt; </span><span class="s7">$csvIp</span><span class="s0">,</span>
+                <span class="s9">'method' </span><span class="s1">=&gt; </span><span class="s7">$csvMethod</span><span class="s0">,</span>
+                <span class="s9">'url' </span><span class="s1">=&gt; </span><span class="s7">$csvUrl</span><span class="s0">,</span>
+                <span class="s9">'time' </span><span class="s1">=&gt; </span><span class="s7">$csvTime</span><span class="s0">,</span>
+                <span class="s9">'parent' </span><span class="s1">=&gt; </span><span class="s7">$csvParent</span><span class="s0">,</span>
+                <span class="s9">'status_code' </span><span class="s1">=&gt; </span><span class="s7">$csvStatusCode</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">array_values</span><span class="s1">(</span><span class="s7">$result</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">purge</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$flags </span><span class="s1">= \</span><span class="s3">FilesystemIterator</span><span class="s1">::</span><span class="s3">SKIP_DOTS</span><span class="s0">;</span>
+        <span class="s7">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveDirectoryIterator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s0">, </span><span class="s7">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$iterator </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">(</span><span class="s7">$iterator</span><span class="s0">, </span><span class="s1">\</span><span class="s3">RecursiveIteratorIterator</span><span class="s1">::</span><span class="s3">CHILD_FIRST</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$iterator </span><span class="s0">as </span><span class="s7">$file</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+                <span class="s3">unlink</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s3">rmdir</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">read</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">): ?</span><span class="s3">Profile</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$token </span><span class="s1">|| !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFilename</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">))) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'gzcompress'</span><span class="s1">)) {</span>
+            <span class="s7">$file </span><span class="s1">= </span><span class="s9">'compress.zlib://'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createProfileFromData</span><span class="s1">(</span><span class="s7">$token</span><span class="s0">, </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">write</span><span class="s1">(</span><span class="s3">Profile </span><span class="s7">$profile</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFilename</span><span class="s1">(</span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$profileIndexed </span><span class="s1">= </span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$profileIndexed</span><span class="s1">) {</span>
+            <span class="s2">// Create directory</span>
+            <span class="s7">$dir </span><span class="s1">= \</span><span class="s3">dirname</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">=== @</span><span class="s3">mkdir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s0">, </span><span class="s8">0777</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; !</span><span class="s3">is_dir</span><span class="s1">(</span><span class="s7">$dir</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Unable to create the storage directory (%s).'</span><span class="s0">, </span><span class="s7">$dir</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$profileToken </span><span class="s1">= </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s2">// when there are errors in sub-requests, the parent and/or children tokens</span>
+        <span class="s2">// may equal the profile token, resulting in infinite loops</span>
+        <span class="s7">$parentToken </span><span class="s1">= </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getParentToken</span><span class="s1">() !== </span><span class="s7">$profileToken </span><span class="s1">? </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getParentToken</span><span class="s1">() : </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s7">$childrenToken </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s3">array_map</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s3">Profile </span><span class="s7">$p</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$profileToken</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$profileToken </span><span class="s1">!== </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">() ? </span><span class="s7">$p</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">() : </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span><span class="s0">, </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getChildren</span><span class="s1">()))</span><span class="s0">;</span>
+
+        <span class="s2">// Store profile</span>
+        <span class="s7">$data </span><span class="s1">= [</span>
+            <span class="s9">'token' </span><span class="s1">=&gt; </span><span class="s7">$profileToken</span><span class="s0">,</span>
+            <span class="s9">'parent' </span><span class="s1">=&gt; </span><span class="s7">$parentToken</span><span class="s0">,</span>
+            <span class="s9">'children' </span><span class="s1">=&gt; </span><span class="s7">$childrenToken</span><span class="s0">,</span>
+            <span class="s9">'data' </span><span class="s1">=&gt; </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getCollectors</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'ip' </span><span class="s1">=&gt; </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getIp</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'method' </span><span class="s1">=&gt; </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'url' </span><span class="s1">=&gt; </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getUrl</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'time' </span><span class="s1">=&gt; </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getTime</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s9">'status_code' </span><span class="s1">=&gt; </span><span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s7">$context </span><span class="s1">= </span><span class="s3">stream_context_create</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'gzcompress'</span><span class="s1">)) {</span>
+            <span class="s7">$file </span><span class="s1">= </span><span class="s9">'compress.zlib://'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s3">stream_context_set_option</span><span class="s1">(</span><span class="s7">$context</span><span class="s0">, </span><span class="s9">'zlib'</span><span class="s0">, </span><span class="s9">'level'</span><span class="s0">, </span><span class="s8">3</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">file_put_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">)</span><span class="s0">, </span><span class="s8">0</span><span class="s0">, </span><span class="s7">$context</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$profileIndexed</span><span class="s1">) {</span>
+            <span class="s2">// Add to index</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$file </span><span class="s1">= </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getIndexFilename</span><span class="s1">()</span><span class="s0">, </span><span class="s9">'a'</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s3">fputcsv</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s1">[</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getIp</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getUrl</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getTime</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getParentToken</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">getStatusCode</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">])</span><span class="s0">;</span>
+            <span class="s3">fclose</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets filename to store data, associated to the token.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The profile filename</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getFilename</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// Uses 4 last characters, because first are mostly the same.</span>
+        <span class="s7">$folderA </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$token</span><span class="s0">, </span><span class="s1">-</span><span class="s8">2</span><span class="s0">, </span><span class="s8">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$folderB </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$token</span><span class="s0">, </span><span class="s1">-</span><span class="s8">4</span><span class="s0">, </span><span class="s8">2</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$folderA</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$folderB</span><span class="s1">.</span><span class="s9">'/'</span><span class="s1">.</span><span class="s7">$token</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the index filename.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The index filename</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getIndexFilename</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">folder</span><span class="s1">.</span><span class="s9">'/index.csv'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Reads a line in the file, backward.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This function automatically skips the empty lines and do not include the line return in result value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">resource $file The file resource, with the pointer placed at the end of the line to read</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed A string representing the line or null if beginning of file is reached</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">readLineFromFile</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$line </span><span class="s1">= </span><span class="s9">''</span><span class="s0">;</span>
+        <span class="s7">$position </span><span class="s1">= </span><span class="s3">ftell</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">=== </span><span class="s7">$position</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s7">$chunkSize </span><span class="s1">= </span><span class="s3">min</span><span class="s1">(</span><span class="s7">$position</span><span class="s0">, </span><span class="s8">1024</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$position </span><span class="s1">-= </span><span class="s7">$chunkSize</span><span class="s0">;</span>
+            <span class="s3">fseek</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$position</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">0 </span><span class="s1">=== </span><span class="s7">$chunkSize</span><span class="s1">) {</span>
+                <span class="s2">// bof reached</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$buffer </span><span class="s1">= </span><span class="s3">fread</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$chunkSize</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== (</span><span class="s7">$upTo </span><span class="s1">= </span><span class="s3">strrpos</span><span class="s1">(</span><span class="s7">$buffer</span><span class="s0">, </span><span class="s9">&quot;</span><span class="s0">\n</span><span class="s9">&quot;</span><span class="s1">))) {</span>
+                <span class="s7">$line </span><span class="s1">= </span><span class="s7">$buffer</span><span class="s1">.</span><span class="s7">$line</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$position </span><span class="s1">+= </span><span class="s7">$upTo</span><span class="s0">;</span>
+            <span class="s7">$line </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$buffer</span><span class="s0">, </span><span class="s7">$upTo </span><span class="s1">+ </span><span class="s8">1</span><span class="s1">).</span><span class="s7">$line</span><span class="s0">;</span>
+            <span class="s3">fseek</span><span class="s1">(</span><span class="s7">$file</span><span class="s0">, </span><span class="s3">max</span><span class="s1">(</span><span class="s8">0</span><span class="s0">, </span><span class="s7">$position</span><span class="s1">)</span><span class="s0">, </span><span class="s3">SEEK_SET</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">'' </span><span class="s1">!== </span><span class="s7">$line</span><span class="s1">) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">'' </span><span class="s1">=== </span><span class="s7">$line </span><span class="s1">? </span><span class="s3">null </span><span class="s1">: </span><span class="s7">$line</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">createProfileFromData</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s0">, array </span><span class="s7">$data</span><span class="s0">, </span><span class="s3">Profile </span><span class="s7">$parent </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$profile </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Profile</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setIp</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'ip'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setMethod</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'method'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setUrl</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'url'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setTime</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'time'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'status_code'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setCollectors</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'data'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$parent </span><span class="s1">&amp;&amp; </span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'parent'</span><span class="s1">]) {</span>
+            <span class="s7">$parent </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">read</span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'parent'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$parent</span><span class="s1">) {</span>
+            <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">setParent</span><span class="s1">(</span><span class="s7">$parent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$data</span><span class="s1">[</span><span class="s9">'children'</span><span class="s1">] </span><span class="s0">as </span><span class="s7">$token</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$token </span><span class="s1">|| !</span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$file </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFilename</span><span class="s1">(</span><span class="s7">$token</span><span class="s1">))) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s9">'gzcompress'</span><span class="s1">)) {</span>
+                <span class="s7">$file </span><span class="s1">= </span><span class="s9">'compress.zlib://'</span><span class="s1">.</span><span class="s7">$file</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$profile</span><span class="s1">-&gt;</span><span class="s3">addChild</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">createProfileFromData</span><span class="s1">(</span><span class="s7">$token</span><span class="s0">, </span><span class="s3">unserialize</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">))</span><span class="s0">, </span><span class="s7">$profile</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$profile</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

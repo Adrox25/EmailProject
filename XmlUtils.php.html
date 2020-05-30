@@ -1,0 +1,303 @@
+<html>
+<head>
+<title>XmlUtils.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+XmlUtils.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Util</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Util</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidXmlException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Util</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">XmlParsingException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* XMLUtils is a bunch of utility methods to XML operations.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This class contains static methods only and is not meant to be instantiated.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Martin Hasoň </span><span class="s6">&lt;martin.hason</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Ole Rößner </span><span class="s6">&lt;ole</span><span class="s4">@roessner.it&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">XmlUtils</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* This class should not be instantiated.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses an XML string.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string               $content          An XML string</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|callable|null $schemaOrCallable An XSD schema file path, a callable, or null to disable validation</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\DOMDocument</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">XmlParsingException When parsing of XML file returns error</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidXmlException When parsing of XML with schema or callable produces any errors unrelated to the XML parsing itself</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException   When DOM extension is missing</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">parse</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$content</span><span class="s0">, </span><span class="s7">$schemaOrCallable </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">extension_loaded</span><span class="s1">(</span><span class="s8">'dom'</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'Extension DOM is required.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$internalErrors </span><span class="s1">= </span><span class="s3">libxml_use_internal_errors</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$disableEntities </span><span class="s1">= </span><span class="s3">libxml_disable_entity_loader</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">libxml_clear_errors</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$dom </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">DOMDocument</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">validateOnParse </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">loadXML</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s3">LIBXML_NONET </span><span class="s1">| (\</span><span class="s3">defined</span><span class="s1">(</span><span class="s8">'LIBXML_COMPACT'</span><span class="s1">) ? </span><span class="s3">LIBXML_COMPACT </span><span class="s1">: </span><span class="s9">0</span><span class="s1">))) {</span>
+            <span class="s3">libxml_disable_entity_loader</span><span class="s1">(</span><span class="s7">$disableEntities</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">throw new </span><span class="s3">XmlParsingException</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, static</span><span class="s1">::</span><span class="s3">getXmlErrors</span><span class="s1">(</span><span class="s7">$internalErrors</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">normalizeDocument</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s3">libxml_use_internal_errors</span><span class="s1">(</span><span class="s7">$internalErrors</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s3">libxml_disable_entity_loader</span><span class="s1">(</span><span class="s7">$disableEntities</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">childNodes </span><span class="s0">as </span><span class="s7">$child</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">XML_DOCUMENT_TYPE_NODE </span><span class="s1">=== </span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">nodeType</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">XmlParsingException</span><span class="s1">(</span><span class="s8">'Document types are not allowed.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$schemaOrCallable</span><span class="s1">) {</span>
+            <span class="s7">$internalErrors </span><span class="s1">= </span><span class="s3">libxml_use_internal_errors</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s3">libxml_clear_errors</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s7">$e </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_callable</span><span class="s1">(</span><span class="s7">$schemaOrCallable</span><span class="s1">)) {</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s7">$valid </span><span class="s1">= </span><span class="s7">$schemaOrCallable</span><span class="s1">(</span><span class="s7">$dom</span><span class="s0">, </span><span class="s7">$internalErrors</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s7">$e</span><span class="s1">) {</span>
+                    <span class="s7">$valid </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$schemaOrCallable</span><span class="s1">) &amp;&amp; </span><span class="s3">is_file</span><span class="s1">((string) </span><span class="s7">$schemaOrCallable</span><span class="s1">)) {</span>
+                <span class="s7">$schemaSource </span><span class="s1">= </span><span class="s3">file_get_contents</span><span class="s1">((string) </span><span class="s7">$schemaOrCallable</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$valid </span><span class="s1">= @</span><span class="s7">$dom</span><span class="s1">-&gt;</span><span class="s3">schemaValidateSource</span><span class="s1">(</span><span class="s7">$schemaSource</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s3">libxml_use_internal_errors</span><span class="s1">(</span><span class="s7">$internalErrors</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s0">throw new </span><span class="s3">XmlParsingException</span><span class="s1">(</span><span class="s8">'The schemaOrCallable argument has to be a valid path to XSD file or callable.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$valid</span><span class="s1">) {</span>
+                <span class="s7">$messages </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">getXmlErrors</span><span class="s1">(</span><span class="s7">$internalErrors</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$messages</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidXmlException</span><span class="s1">(</span><span class="s8">'The XML is not valid.'</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">throw new </span><span class="s3">XmlParsingException</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$messages</span><span class="s1">)</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s3">libxml_clear_errors</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s3">libxml_use_internal_errors</span><span class="s1">(</span><span class="s7">$internalErrors</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$dom</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Loads an XML file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string               $file             An XML file path</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|callable|null $schemaOrCallable An XSD schema file path, a callable, or null to disable validation</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\DOMDocument</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When loading of XML file returns error</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">XmlParsingException       When XML parsing returns any errors</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\RuntimeException         When DOM extension is missing</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">loadFile</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$file</span><span class="s0">, </span><span class="s7">$schemaOrCallable </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Resource &quot;%s&quot; is not a file.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_readable</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'File &quot;%s&quot; is not readable.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$content </span><span class="s1">= @</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s7">$file</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$content</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'File &quot;%s&quot; does not contain valid XML, it is empty.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return static</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s7">$content</span><span class="s0">, </span><span class="s7">$schemaOrCallable</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">InvalidXmlException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">XmlParsingException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The XML file &quot;%s&quot; is not valid.'</span><span class="s0">, </span><span class="s7">$file</span><span class="s1">)</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getPrevious</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Converts a \DOMElement object to a PHP array.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The following rules applies during the conversion:</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * Each tag is converted to a key value or an array</span>
+     <span class="s4">*    if there is more than one &quot;value&quot;</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * The content of a tag is set under a &quot;value&quot; key (</span><span class="s6">&lt;foo&gt;</span><span class="s4">bar</span><span class="s6">&lt;/foo&gt;</span><span class="s4">)</span>
+     <span class="s4">*    if the tag also has some nested tags</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * The attributes are converted to keys (</span><span class="s6">&lt;foo foo=&quot;bar&quot;/&gt;</span><span class="s4">)</span>
+     <span class="s4">*</span>
+     <span class="s4">*  * The nested-tags are converted to keys (</span><span class="s6">&lt;foo&gt;&lt;foo&gt;</span><span class="s4">bar</span><span class="s6">&lt;/foo&gt;&lt;/foo&gt;</span><span class="s4">)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\DOMElement $element     A \DOMElement instance</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool        $checkPrefix Check prefix in an element or an attribute name</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">convertDomElementToArray</span><span class="s1">(\</span><span class="s3">DOMElement </span><span class="s7">$element</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$checkPrefix </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$prefix </span><span class="s1">= (string) </span><span class="s7">$element</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s0">;</span>
+        <span class="s7">$empty </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$config </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$element</span><span class="s1">-&gt;</span><span class="s3">attributes </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$node</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$checkPrefix </span><span class="s1">&amp;&amp; !\</span><span class="s3">in_array</span><span class="s1">((string) </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s0">, </span><span class="s1">[</span><span class="s8">''</span><span class="s0">, </span><span class="s7">$prefix</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s7">$config</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s0">static</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$empty </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$nodeValue </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$element</span><span class="s1">-&gt;</span><span class="s3">childNodes </span><span class="s0">as </span><span class="s7">$node</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$node </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DOMText</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)) {</span>
+                    <span class="s7">$nodeValue </span><span class="s1">= </span><span class="s3">trim</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$empty </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$checkPrefix </span><span class="s1">&amp;&amp; </span><span class="s7">$prefix </span><span class="s1">!= (string) </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$node </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">DOMComment</span><span class="s1">) {</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">convertDomElementToArray</span><span class="s1">(</span><span class="s7">$node</span><span class="s0">, </span><span class="s7">$checkPrefix</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s7">$key </span><span class="s1">= </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">localName</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                    <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]) || !\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s3">key</span><span class="s1">(</span><span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]))) {</span>
+                        <span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = [</span><span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]]</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">][] = </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$config</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$empty </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$nodeValue</span><span class="s1">) {</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">phpize</span><span class="s1">(</span><span class="s7">$nodeValue</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$config</span><span class="s1">)) {</span>
+                <span class="s7">$config</span><span class="s1">[</span><span class="s8">'value'</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$config </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">!</span><span class="s7">$empty </span><span class="s1">? </span><span class="s7">$config </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Converts an xml value to a PHP type.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">phpize</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$value </span><span class="s1">= (string) </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s7">$lowercaseValue </span><span class="s1">= </span><span class="s3">strtolower</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s8">'null' </span><span class="s1">=== </span><span class="s7">$lowercaseValue</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">ctype_digit</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">):</span>
+                <span class="s7">$raw </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s7">$cast </span><span class="s1">= (int) </span><span class="s7">$value</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s8">'0' </span><span class="s1">== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] ? </span><span class="s3">octdec</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) : (((string) </span><span class="s7">$raw </span><span class="s1">=== (string) </span><span class="s7">$cast</span><span class="s1">) ? </span><span class="s7">$cast </span><span class="s1">: </span><span class="s7">$raw</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case isset</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) &amp;&amp; </span><span class="s8">'-' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">ctype_digit</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)):</span>
+                <span class="s7">$raw </span><span class="s1">= </span><span class="s7">$value</span><span class="s0">;</span>
+                <span class="s7">$cast </span><span class="s1">= (int) </span><span class="s7">$value</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s8">'0' </span><span class="s1">== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ? </span><span class="s3">octdec</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) : (((string) </span><span class="s7">$raw </span><span class="s1">=== (string) </span><span class="s7">$cast</span><span class="s1">) ? </span><span class="s7">$cast </span><span class="s1">: </span><span class="s7">$raw</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">'true' </span><span class="s1">=== </span><span class="s7">$lowercaseValue</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">'false' </span><span class="s1">=== </span><span class="s7">$lowercaseValue</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s0">case isset</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) &amp;&amp; </span><span class="s8">'0b' </span><span class="s1">== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">].</span><span class="s7">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^0b[01]*$/'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s3">bindec</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s8">'0x' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">].</span><span class="s7">$value</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ? </span><span class="s3">hexdec</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) : (float) </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^0x[0-9a-f]++$/i'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s3">hexdec</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^[+-]?[0-9]+(\.[0-9]+)?$/'</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">):</span>
+                <span class="s0">return </span><span class="s1">(float) </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected static function </span><span class="s3">getXmlErrors</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$internalErrors</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$errors </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">libxml_get_errors</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$error</span><span class="s1">) {</span>
+            <span class="s7">$errors</span><span class="s1">[] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'[%s %s] %s (in %s - line %d, column %d)'</span><span class="s0">,</span>
+                <span class="s3">LIBXML_ERR_WARNING </span><span class="s1">== </span><span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">level </span><span class="s1">? </span><span class="s8">'WARNING' </span><span class="s1">: </span><span class="s8">'ERROR'</span><span class="s0">,</span>
+                <span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">code</span><span class="s0">,</span>
+                <span class="s3">trim</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">message</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">file </span><span class="s1">?: </span><span class="s8">'n/a'</span><span class="s0">,</span>
+                <span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">line</span><span class="s0">,</span>
+                <span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">column</span>
+            <span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">libxml_clear_errors</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s3">libxml_use_internal_errors</span><span class="s1">(</span><span class="s7">$internalErrors</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$errors</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

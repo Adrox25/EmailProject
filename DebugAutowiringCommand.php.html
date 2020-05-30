@@ -1,0 +1,187 @@
+<html>
+<head>
+<title>DebugAutowiringCommand.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+DebugAutowiringCommand.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Bundle</span><span class="s1">\</span><span class="s3">FrameworkBundle</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Descriptor</span><span class="s1">\</span><span class="s3">Descriptor</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">OutputFormatterStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputOption</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Style</span><span class="s1">\</span><span class="s3">SymfonyStyle</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Debug</span><span class="s1">\</span><span class="s3">FileLinkFormatter</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* A console command for autowiring information.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Ryan Weaver </span><span class="s6">&lt;ryan</span><span class="s4">@knpuniversity.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">DebugAutowiringCommand </span><span class="s0">extends </span><span class="s3">ContainerDebugCommand</span>
+<span class="s1">{</span>
+    <span class="s0">protected static </span><span class="s7">$defaultName </span><span class="s1">= </span><span class="s8">'debug:autowiring'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$supportsHref</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$fileLinkFormatter</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">FileLinkFormatter </span><span class="s7">$fileLinkFormatter </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">supportsHref </span><span class="s1">= </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s3">OutputFormatterStyle</span><span class="s1">::</span><span class="s0">class, </span><span class="s8">'setHref'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormatter </span><span class="s1">= </span><span class="s7">$fileLinkFormatter</span><span class="s0">;</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">([</span>
+                <span class="s0">new </span><span class="s3">InputArgument</span><span class="s1">(</span><span class="s8">'search'</span><span class="s0">, </span><span class="s3">InputArgument</span><span class="s1">::</span><span class="s3">OPTIONAL</span><span class="s0">, </span><span class="s8">'A search filter'</span><span class="s1">)</span><span class="s0">,</span>
+                <span class="s0">new </span><span class="s3">InputOption</span><span class="s1">(</span><span class="s8">'all'</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s3">InputOption</span><span class="s1">::</span><span class="s3">VALUE_NONE</span><span class="s0">, </span><span class="s8">'Show also services that are not aliased'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">setDescription</span><span class="s1">(</span><span class="s8">'Lists classes/interfaces you can use for autowiring'</span><span class="s1">)</span>
+            <span class="s1">-&gt;</span><span class="s3">setHelp</span><span class="s1">(</span><span class="s3">&lt;&lt;&lt;'EOF' 
+</span><span class="s8">The &lt;info&gt;%command.name%&lt;/info&gt; command displays the classes and interfaces that 
+you can use as type-hints for autowiring: 
+ 
+  &lt;info&gt;php %command.full_name%&lt;/info&gt; 
+ 
+You can also pass a search term to filter the list: 
+ 
+  &lt;info&gt;php %command.full_name% log&lt;/info&gt; 
+</span>
+<span class="s3">EOF</span>
+            <span class="s1">)</span>
+        <span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s7">$io </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SymfonyStyle</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$errorIo </span><span class="s1">= </span><span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">getErrorStyle</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$builder </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerBuilder</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$serviceIds </span><span class="s1">= </span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">getServiceIds</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$serviceIds </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$serviceIds</span><span class="s0">, </span><span class="s1">[</span><span class="s7">$this</span><span class="s0">, </span><span class="s8">'filterToServiceTypes'</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$search </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s8">'search'</span><span class="s1">)) {</span>
+            <span class="s7">$serviceIds </span><span class="s1">= </span><span class="s3">array_filter</span><span class="s1">(</span><span class="s7">$serviceIds</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$search</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$search</span><span class="s1">) &amp;&amp; </span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s8">'.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">})</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$serviceIds</span><span class="s1">)) {</span>
+                <span class="s7">$errorIo</span><span class="s1">-&gt;</span><span class="s3">error</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'No autowirable classes or interfaces found matching &quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$search</span><span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s0">return </span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s3">uasort</span><span class="s1">(</span><span class="s7">$serviceIds</span><span class="s0">, </span><span class="s8">'strnatcmp'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">title</span><span class="s1">(</span><span class="s8">'Autowirable Types'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s8">'The following classes &amp; interfaces can be used as type-hints when autowiring:'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$search</span><span class="s1">) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'(only showing classes/interfaces matching &lt;comment&gt;%s&lt;/comment&gt;)'</span><span class="s0">, </span><span class="s7">$search</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$hasAlias </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$all </span><span class="s1">= </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getOption</span><span class="s1">(</span><span class="s8">'all'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$previousId </span><span class="s1">= </span><span class="s8">'-'</span><span class="s0">;</span>
+        <span class="s7">$serviceIdsNb </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$serviceIds </span><span class="s0">as </span><span class="s7">$serviceId</span><span class="s1">) {</span>
+            <span class="s7">$text </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$resolvedServiceId </span><span class="s1">= </span><span class="s7">$serviceId</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$previousId</span><span class="s1">)) {</span>
+                <span class="s7">$text</span><span class="s1">[] = </span><span class="s8">''</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$description </span><span class="s1">= </span><span class="s3">Descriptor</span><span class="s1">::</span><span class="s3">getClassDescription</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s0">, </span><span class="s7">$resolvedServiceId</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$hasAlias</span><span class="s1">[</span><span class="s7">$serviceId</span><span class="s1">])) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$text</span><span class="s1">[] = </span><span class="s7">$description</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$previousId </span><span class="s1">= </span><span class="s7">$serviceId</span><span class="s1">.</span><span class="s8">' $'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$serviceLine </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;fg=yellow&gt;%s&lt;/&gt;'</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">supportsHref </span><span class="s1">&amp;&amp; </span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$fileLink </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFileLink</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s1">)) {</span>
+                <span class="s7">$serviceLine </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&lt;fg=yellow;href=%s&gt;%s&lt;/&gt;'</span><span class="s0">, </span><span class="s7">$fileLink</span><span class="s0">, </span><span class="s7">$serviceId</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">hasAlias</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s1">)) {</span>
+                <span class="s7">$hasAlias</span><span class="s1">[</span><span class="s7">$serviceId</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s7">$serviceAlias </span><span class="s1">= </span><span class="s7">$builder</span><span class="s1">-&gt;</span><span class="s3">getAlias</span><span class="s1">(</span><span class="s7">$serviceId</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$serviceLine </span><span class="s1">.= </span><span class="s8">' &lt;fg=cyan&gt;('</span><span class="s1">.</span><span class="s7">$serviceAlias</span><span class="s1">.</span><span class="s8">')&lt;/&gt;'</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$serviceAlias</span><span class="s1">-&gt;</span><span class="s3">isDeprecated</span><span class="s1">()) {</span>
+                    <span class="s7">$serviceLine </span><span class="s1">.= </span><span class="s8">' - &lt;fg=magenta&gt;deprecated&lt;/&gt;'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$all</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s7">$serviceIdsNb</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s7">$text</span><span class="s1">[] = </span><span class="s7">$serviceLine</span><span class="s0">;</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s7">$text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">newLine</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s7">$serviceIdsNb</span><span class="s1">) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s more concrete service%s would be displayed when adding the &quot;--all&quot; option.'</span><span class="s0">, </span><span class="s7">$serviceIdsNb</span><span class="s0">, </span><span class="s7">$serviceIdsNb </span><span class="s1">&gt; </span><span class="s9">1 </span><span class="s1">? </span><span class="s8">'s' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$all</span><span class="s1">) {</span>
+            <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">text</span><span class="s1">(</span><span class="s8">'Pro-tip: use interfaces in your type-hints instead of classes to benefit from the dependency inversion principle.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$io</span><span class="s1">-&gt;</span><span class="s3">newLine</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getFileLink</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$class</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormatter</span>
+            <span class="s1">|| (</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getContainerBuilder</span><span class="s1">()-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">false</span><span class="s1">))) {</span>
+            <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">(string) </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">fileLinkFormatter</span><span class="s1">-&gt;</span><span class="s3">format</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getStartLine</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

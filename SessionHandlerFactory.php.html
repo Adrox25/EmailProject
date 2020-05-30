@@ -1,0 +1,110 @@
+<html>
+<head>
+<title>SessionHandlerFactory.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SessionHandlerFactory.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">Storage</span><span class="s1">\</span><span class="s3">Handler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">DriverManager</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s1">\</span><span class="s3">AbstractAdapter</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">RedisClusterProxy</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Traits</span><span class="s1">\</span><span class="s3">RedisProxy</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">SessionHandlerFactory</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\Redis|\RedisArray|\RedisCluster|\Predis\ClientInterface|RedisProxy|RedisClusterProxy|\Memcached|\PDO|string $connection Connection or DSN</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">createHandler</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">): </span><span class="s3">AbstractSessionHandler</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">) &amp;&amp; !\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">TypeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Argument 1 passed to &quot;%s()&quot; must be a string or a connection object, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s3">__METHOD__</span><span class="s0">, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Redis</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">RedisArray</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">RedisCluster</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Predis</span><span class="s1">\</span><span class="s3">ClientInterface</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s3">RedisProxy</span><span class="s1">:</span>
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s3">RedisClusterProxy</span><span class="s1">:</span>
+                <span class="s0">return new </span><span class="s3">RedisSessionHandler</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Memcached</span><span class="s1">:</span>
+                <span class="s0">return new </span><span class="s3">MemcachedSessionHandler</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">case </span><span class="s7">$connection </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">:</span>
+                <span class="s0">return new </span><span class="s3">PdoSessionHandler</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">case </span><span class="s1">!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">):</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported Connection: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'file://'</span><span class="s1">):</span>
+                <span class="s0">return new </span><span class="s3">StrictSessionHandler</span><span class="s1">(</span><span class="s0">new </span><span class="s3">NativeFileSessionHandler</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s9">7</span><span class="s1">)))</span><span class="s0">;</span>
+
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'redis:'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'rediss:'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'memcached:'</span><span class="s1">):</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">AbstractAdapter</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported DSN &quot;%s&quot;. Try running &quot;composer require symfony/cache&quot;.'</span><span class="s0">, </span><span class="s7">$connection</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$handlerClass </span><span class="s1">= </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'memcached:'</span><span class="s1">) ? </span><span class="s3">MemcachedSessionHandler</span><span class="s1">::</span><span class="s0">class </span><span class="s1">: </span><span class="s3">RedisSessionHandler</span><span class="s1">::</span><span class="s0">class;</span>
+                <span class="s7">$connection </span><span class="s1">= </span><span class="s3">AbstractAdapter</span><span class="s1">::</span><span class="s3">createConnection</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'lazy' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">return new </span><span class="s7">$handlerClass</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'pdo_oci://'</span><span class="s1">):</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">DriverManager</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported DSN &quot;%s&quot;. Try running &quot;composer require doctrine/dbal&quot;.'</span><span class="s0">, </span><span class="s7">$connection</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$connection </span><span class="s1">= </span><span class="s3">DriverManager</span><span class="s1">::</span><span class="s3">getConnection</span><span class="s1">([</span><span class="s8">'url' </span><span class="s1">=&gt; </span><span class="s7">$connection</span><span class="s1">])-&gt;</span><span class="s3">getWrappedConnection</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s2">// no break;</span>
+
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'mssql://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'mysql://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'mysql2://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'pgsql://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'postgres://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'postgresql://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'sqlsrv://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'sqlite://'</span><span class="s1">):</span>
+            <span class="s0">case </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$connection</span><span class="s0">, </span><span class="s8">'sqlite3://'</span><span class="s1">):</span>
+                <span class="s0">return new </span><span class="s3">PdoSessionHandler</span><span class="s1">(</span><span class="s7">$connection</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unsupported Connection: &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$connection</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

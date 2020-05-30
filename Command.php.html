@@ -1,0 +1,667 @@
+<html>
+<head>
+<title>Command.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Command.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Application</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ExceptionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Helper</span><span class="s1">\</span><span class="s3">HelperSet</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputDefinition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Input</span><span class="s1">\</span><span class="s3">InputOption</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s1">\</span><span class="s3">OutputInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Base class for all commands.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Command</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string|null The default command name</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected static </span><span class="s7">$defaultName</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$application</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$name</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$processTitle</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$aliases </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$definition</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$hidden </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$help </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$description </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$ignoreValidationErrors </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$applicationDefinitionMerged </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$applicationDefinitionMergedWithArgs </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$code</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$synopsis </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$usages </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$helperSet</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The default command name or null when no default name is set</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">getDefaultName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$class </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s0">class;</span>
+        <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'defaultName'</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$class </span><span class="s1">=== </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">class </span><span class="s1">? </span><span class="s0">static</span><span class="s1">::</span><span class="s7">$defaultName </span><span class="s1">: </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $name The name of the command; passing null means it must be set in configure()</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">LogicException When the command name is empty</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition </span><span class="s1">= </span><span class="s0">new </span><span class="s3">InputDefinition</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$name </span><span class="s1">|| </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$name </span><span class="s1">= </span><span class="s0">static</span><span class="s1">::</span><span class="s3">getDefaultName</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setName</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configure</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Ignores validation errors.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is mainly useful for the help command.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ignoreValidationErrors</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreValidationErrors </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setApplication</span><span class="s1">(</span><span class="s3">Application </span><span class="s7">$application </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application </span><span class="s1">= </span><span class="s7">$application</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$application</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setHelperSet</span><span class="s1">(</span><span class="s7">$application</span><span class="s1">-&gt;</span><span class="s3">getHelperSet</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">helperSet </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setHelperSet</span><span class="s1">(</span><span class="s3">HelperSet </span><span class="s7">$helperSet</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">helperSet </span><span class="s1">= </span><span class="s7">$helperSet</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the helper set.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">HelperSet|null A HelperSet instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getHelperSet</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">helperSet</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the application instance for this command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Application|null An Application instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getApplication</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks whether the command is enabled or not in the current environment.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Override this to check for x or y and return false if the command can not</span>
+     <span class="s4">* run properly under the current conditions.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isEnabled</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Configures the current command.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">configure</span><span class="s1">()</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Executes the current command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is not abstract because you can use this class</span>
+     <span class="s4">* as a concrete class. In this case, instead of defining the</span>
+     <span class="s4">* execute() method, you set the code to execute by passing</span>
+     <span class="s4">* a Closure to the setCode() method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int 0 if everything went fine, or an exit code</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">LogicException When this abstract method is not implemented</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">setCode()</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">execute</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'You must override the execute() method in the concrete command class.'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Interacts with the user.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is executed before the InputDefinition is validated.</span>
+     <span class="s4">* This means that this is the only place where the command can</span>
+     <span class="s4">* interactively ask for values of missing required arguments.</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">interact</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">)</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Initializes the command after the input has been bound and before the input</span>
+     <span class="s4">* is validated.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is mainly useful when a lot of commands extends one main command</span>
+     <span class="s4">* where some things need to be initialized based on the input arguments and options.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">InputInterface::bind()</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">InputInterface::validate()</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">initialize</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">)</span>
+    <span class="s1">{</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Runs the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* The code to execute is either defined directly with the</span>
+     <span class="s4">* setCode() method or by overriding the execute() method</span>
+     <span class="s4">* in a sub-class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The command exit code</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\Exception When binding input fails. Bypass this by calling {</span><span class="s5">@link </span><span class="s4">ignoreValidationErrors()}.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">setCode()</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">execute()</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">run</span><span class="s1">(</span><span class="s3">InputInterface </span><span class="s7">$input</span><span class="s0">, </span><span class="s3">OutputInterface </span><span class="s7">$output</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// force the creation of the synopsis before the merge with the app definition</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSynopsis</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getSynopsis</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// add the application arguments and options</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">mergeApplicationDefinition</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// bind the input against the command specific arguments/options</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">bind</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ExceptionInterface </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreValidationErrors</span><span class="s1">) {</span>
+                <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">initialize</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processTitle</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'cli_set_process_title'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!@</span><span class="s3">cli_set_process_title</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processTitle</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">'Darwin' </span><span class="s1">=== </span><span class="s3">PHP_OS</span><span class="s1">) {</span>
+                        <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s8">'&lt;comment&gt;Running &quot;cli_set_process_title&quot; as an unprivileged user is not supported on MacOS.&lt;/comment&gt;'</span><span class="s0">, </span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERY_VERBOSE</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s3">cli_set_process_title</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processTitle</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'setproctitle'</span><span class="s1">)) {</span>
+                <span class="s3">setproctitle</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processTitle</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">OutputInterface</span><span class="s1">::</span><span class="s3">VERBOSITY_VERY_VERBOSE </span><span class="s1">=== </span><span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">()) {</span>
+                <span class="s7">$output</span><span class="s1">-&gt;</span><span class="s3">writeln</span><span class="s1">(</span><span class="s8">'&lt;comment&gt;Install the proctitle PECL to be able to change the process title.&lt;/comment&gt;'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">isInteractive</span><span class="s1">()) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">interact</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// The command name argument is often omitted when a command is executed directly with its run() method.</span>
+        <span class="s2">// It would fail the validation if we didn't make sure the command argument is present,</span>
+        <span class="s2">// since it's required by the application.</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">hasArgument</span><span class="s1">(</span><span class="s8">'command'</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">getArgument</span><span class="s1">(</span><span class="s8">'command'</span><span class="s1">)) {</span>
+            <span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">setArgument</span><span class="s1">(</span><span class="s8">'command'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$input</span><span class="s1">-&gt;</span><span class="s3">validate</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">code</span><span class="s1">) {</span>
+            <span class="s7">$statusCode </span><span class="s1">= (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">code</span><span class="s1">)(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$statusCode </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">(</span><span class="s7">$input</span><span class="s0">, </span><span class="s7">$output</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$statusCode</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">TypeError</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Return value of &quot;%s::execute()&quot; must be of the type int, &quot;%s&quot; returned.'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class, </span><span class="s1">\</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$statusCode</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$statusCode</span><span class="s1">) ? (int) </span><span class="s7">$statusCode </span><span class="s1">: </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the code to execute when running this command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If this method is used, it overrides the code defined</span>
+     <span class="s4">* in the execute() method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">callable $code A callable(InputInterface $input, OutputInterface $output)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">execute()</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCode</span><span class="s1">(</span><span class="s0">callable </span><span class="s7">$code</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$code </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionFunction</span><span class="s1">(</span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getClosureThis</span><span class="s1">()) {</span>
+                <span class="s7">$code </span><span class="s1">= \</span><span class="s3">Closure</span><span class="s1">::</span><span class="s3">bind</span><span class="s1">(</span><span class="s7">$code</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">code </span><span class="s1">= </span><span class="s7">$code</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Merges the application definition with the command definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is not part of public API and should not be used directly.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $mergeArgs Whether to merge or not the Application definition arguments to Command definition arguments</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">mergeApplicationDefinition</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$mergeArgs </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application </span><span class="s1">|| (</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applicationDefinitionMerged </span><span class="s1">&amp;&amp; (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applicationDefinitionMergedWithArgs </span><span class="s1">|| !</span><span class="s7">$mergeArgs</span><span class="s1">))) {</span>
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">addOptions</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">()-&gt;</span><span class="s3">getOptions</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applicationDefinitionMerged </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$mergeArgs</span><span class="s1">) {</span>
+            <span class="s7">$currentArguments </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">()-&gt;</span><span class="s3">getArguments</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">addArguments</span><span class="s1">(</span><span class="s7">$currentArguments</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applicationDefinitionMergedWithArgs </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets an array of argument and option instances.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array|InputDefinition $definition An array of argument and option instances or a definition instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition </span><span class="s0">instanceof </span><span class="s3">InputDefinition</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition </span><span class="s1">= </span><span class="s7">$definition</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">applicationDefinitionMerged </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the InputDefinition attached to this Command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">InputDefinition An InputDefinition instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDefinition</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Command class &quot;%s&quot; is not correctly initialized. You probably forgot to call the parent constructor.'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the InputDefinition to be used to create representations of this Command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Can be overridden to provide the original command representation when it would otherwise</span>
+     <span class="s4">* be changed by merging with the application InputDefinition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is not part of public API and should not be used directly.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">InputDefinition An InputDefinition instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getNativeDefinition</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds an argument.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null             $mode    The argument mode: InputArgument::REQUIRED or InputArgument::OPTIONAL</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[]|null $default The default value (for InputArgument::OPTIONAL mode only)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When argument mode is not valid</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addArgument</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$mode </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$description </span><span class="s1">= </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$default </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">addArgument</span><span class="s1">(</span><span class="s0">new </span><span class="s3">InputArgument</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$mode</span><span class="s0">, </span><span class="s7">$description</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds an option.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array|null             $shortcut The shortcuts, can be null, a string of shortcuts delimited by | or an array of shortcuts</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null                      $mode     The option mode: One of the InputOption::VALUE_* constants</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|string[]|int|bool|null $default  The default value (must be null for InputOption::VALUE_NONE)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException If option mode is invalid or incompatible</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addOption</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$shortcut </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$mode </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$description </span><span class="s1">= </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$default </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">addOption</span><span class="s1">(</span><span class="s0">new </span><span class="s3">InputOption</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$shortcut</span><span class="s0">, </span><span class="s7">$mode</span><span class="s0">, </span><span class="s7">$description</span><span class="s0">, </span><span class="s7">$default</span><span class="s1">))</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the name of the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method can set both the namespace and the name if</span>
+     <span class="s4">* you separate them by a colon (:)</span>
+     <span class="s4">*</span>
+     <span class="s4">*     $command-&gt;setName('foo:bar');</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When the name is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setName</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validateName</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name </span><span class="s1">= </span><span class="s7">$name</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the process title of the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This feature should be used only when creating a long process command,</span>
+     <span class="s4">* like a daemon.</span>
+     <span class="s4">*</span>
+     <span class="s4">* PHP 5.5+ or the proctitle PECL library is required</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setProcessTitle</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$title</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processTitle </span><span class="s1">= </span><span class="s7">$title</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the command name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getName</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $hidden Whether or not the command should be hidden from the list of commands</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">Command The current instance</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setHidden</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$hidden</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hidden </span><span class="s1">= </span><span class="s7">$hidden</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool whether the command should be publicly shown or not</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isHidden</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hidden</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the description for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDescription</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$description</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">description </span><span class="s1">= </span><span class="s7">$description</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the description for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The description for the command</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDescription</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">description</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the help for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setHelp</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$help</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">help </span><span class="s1">= </span><span class="s7">$help</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the help for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The help for the command</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getHelp</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">help</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the processed help for the command replacing the %command.name% and</span>
+     <span class="s4">* %command.full_name% patterns with the real values dynamically.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The processed help for the command</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getProcessedHelp</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$name </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">;</span>
+        <span class="s7">$isSingleCommand </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">application</span><span class="s1">-&gt;</span><span class="s3">isSingleCommand</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s7">$placeholders </span><span class="s1">= [</span>
+            <span class="s8">'%command.name%'</span><span class="s0">,</span>
+            <span class="s8">'%command.full_name%'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+        <span class="s7">$replacements </span><span class="s1">= [</span>
+            <span class="s7">$name</span><span class="s0">,</span>
+            <span class="s7">$isSingleCommand </span><span class="s1">? </span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'PHP_SELF'</span><span class="s1">] : </span><span class="s7">$_SERVER</span><span class="s1">[</span><span class="s8">'PHP_SELF'</span><span class="s1">].</span><span class="s8">' '</span><span class="s1">.</span><span class="s7">$name</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s7">$placeholders</span><span class="s0">, </span><span class="s7">$replacements</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getHelp</span><span class="s1">() ?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getDescription</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the aliases for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string[] $aliases An array of aliases for the command</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When an alias is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAliases</span><span class="s1">(</span><span class="s3">iterable </span><span class="s7">$aliases</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$aliases </span><span class="s0">as </span><span class="s7">$alias</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validateName</span><span class="s1">(</span><span class="s7">$alias</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">aliases </span><span class="s1">= </span><span class="s7">$aliases</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the aliases for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of aliases for the command</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getAliases</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">aliases</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the synopsis for the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $short Whether to show the short version of the synopsis (with options folded) or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The synopsis</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getSynopsis</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$short </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$key </span><span class="s1">= </span><span class="s7">$short </span><span class="s1">? </span><span class="s8">'short' </span><span class="s1">: </span><span class="s8">'long'</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">synopsis</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">synopsis</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s3">trim</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s %s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">definition</span><span class="s1">-&gt;</span><span class="s3">getSynopsis</span><span class="s1">(</span><span class="s7">$short</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">synopsis</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Add a command usage example, it'll be prefixed with the command name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addUsage</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$usage</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$usage</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">)) {</span>
+            <span class="s7">$usage </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s %s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$usage</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">usages</span><span class="s1">[] = </span><span class="s7">$usage</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns alternative usages of the command.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getUsages</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">usages</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a helper instance by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The helper value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">LogicException           if no HelperSet is defined</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException if the helper is not defined</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getHelper</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">helperSet</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Cannot retrieve helper &quot;%s&quot; because there is no HelperSet defined. Did you forget to add your command to the application or to set the application on the command using the setApplication() method? You can also set the HelperSet directly using the setHelperSet() method.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">helperSet</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validates a command name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* It must be non-empty and parts can optionally be separated by &quot;:&quot;.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException When the name is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">validateName</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'/^[^\:]++(\:[^\:]++)*$/'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Command name &quot;%s&quot; is invalid.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

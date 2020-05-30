@@ -1,0 +1,215 @@
+<html>
+<head>
+<title>ResolveChildDefinitionsPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ResolveChildDefinitionsPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ChildDefinition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ExceptionInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ServiceCircularReferenceException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* This replaces all ChildDefinition instances with their equivalent fully</span>
+ <span class="s4">* merged Definition instance.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ResolveChildDefinitionsPass </span><span class="s0">extends </span><span class="s3">AbstractRecursivePass</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$currentPath</span><span class="s0">;</span>
+
+    <span class="s0">protected function </span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isRoot </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$isRoot</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$isRoot</span><span class="s1">) {</span>
+            <span class="s2">// yes, we are specifically fetching the definition from the</span>
+            <span class="s2">// container to ensure we are not operating on stale data</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$value </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveDefinition</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$isRoot</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">parent</span><span class="s1">::</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$isRoot</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Resolves the definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException When the definition is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">resolveDefinition</span><span class="s1">(</span><span class="s3">ChildDefinition </span><span class="s7">$definition</span><span class="s1">): </span><span class="s3">Definition</span>
+    <span class="s1">{</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">doResolveDefinition</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ServiceCircularReferenceException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ExceptionInterface </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionProperty</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s8">'message'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setAccessible</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">setValue</span><span class="s1">(</span><span class="s7">$e</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Service &quot;%s&quot;: %s'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">()))</span><span class="s0">;</span>
+
+            <span class="s0">throw </span><span class="s7">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">doResolveDefinition</span><span class="s1">(</span><span class="s3">ChildDefinition </span><span class="s7">$definition</span><span class="s1">): </span><span class="s3">Definition</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">has</span><span class="s1">(</span><span class="s7">$parent </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getParent</span><span class="s1">())) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Parent definition &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$parent</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$searchKey </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s7">$parent</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s1">[] = </span><span class="s7">$parent</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$searchKey</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">ServiceCircularReferenceException</span><span class="s1">(</span><span class="s7">$parent</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentPath</span><span class="s0">, </span><span class="s7">$searchKey</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$parentDef </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">findDefinition</span><span class="s1">(</span><span class="s7">$parent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$parentDef </span><span class="s0">instanceof </span><span class="s3">ChildDefinition</span><span class="s1">) {</span>
+            <span class="s7">$id </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">= </span><span class="s7">$parent</span><span class="s0">;</span>
+            <span class="s7">$parentDef </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">resolveDefinition</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">setDefinition</span><span class="s1">(</span><span class="s7">$parent</span><span class="s0">, </span><span class="s7">$parentDef</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">= </span><span class="s7">$id</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">log</span><span class="s1">(</span><span class="s7">$this</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Resolving inheritance for &quot;%s&quot; (parent: %s).'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$parent</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s7">$def </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Definition</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// merge in parent definition</span>
+        <span class="s2">// purposely ignored attributes: abstract, shared, tags, autoconfigured</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setClass</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setMethodCalls</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setProperties</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">isDeprecated</span><span class="s1">()) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getDeprecationMessage</span><span class="s1">(</span><span class="s8">'%service_id%'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setConfigurator</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getConfigurator</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setFile</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setLazy</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">isAutowired</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setChanges</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getChanges</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setBindings</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getBindings</span><span class="s1">() + </span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">getBindings</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s2">// overwrite with values specified in the decorator</span>
+        <span class="s7">$changes </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getChanges</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setClass</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'factory'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'configurator'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setConfigurator</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getConfigurator</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setFile</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFile</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setPublic</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setPrivate</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">() || </span><span class="s7">$parentDef</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setLazy</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isLazy</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'deprecated'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isDeprecated</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getDeprecationMessage</span><span class="s1">(</span><span class="s8">'%service_id%'</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'autowired'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAutowired</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'shared'</span><span class="s1">])) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setShared</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isShared</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'decorated_service'</span><span class="s1">])) {</span>
+            <span class="s7">$decoratedService </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getDecoratedService</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$decoratedService</span><span class="s1">) {</span>
+                <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setDecoratedService</span><span class="s1">(</span><span class="s7">$decoratedService</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setDecoratedService</span><span class="s1">(</span><span class="s7">$decoratedService</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$decoratedService</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$decoratedService</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$decoratedService</span><span class="s1">[</span><span class="s9">3</span><span class="s1">] ?? </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// merge arguments</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">)) {</span>
+                <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">addArgument</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s8">'index_'</span><span class="s1">)) {</span>
+                <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">replaceArgument</span><span class="s1">((int) </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">'index_'</span><span class="s1">))</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setArgument</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// merge properties</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setProperty</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$v</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// append method calls</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$calls </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">()) {</span>
+            <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setMethodCalls</span><span class="s1">(</span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$calls</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">addError</span><span class="s1">(</span><span class="s7">$parentDef</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">addError</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// these attributes are always taken from the child</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setAbstract</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setTags</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getTags</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s2">// autoconfigure is never taken from parent (on purpose)</span>
+        <span class="s2">// and it's not legal on an instanceof</span>
+        <span class="s7">$def</span><span class="s1">-&gt;</span><span class="s3">setAutoconfigured</span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAutoconfigured</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$def</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

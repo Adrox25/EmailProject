@@ -1,0 +1,494 @@
+<html>
+<head>
+<title>PdoAdapter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #9876aa;}
+.s5 { color: #6897bb;}
+.s6 { color: #6a8759;}
+.s7 { color: #629755; font-style: italic;}
+.s8 { color: #629755; font-weight: bold; font-style: italic;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PdoAdapter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Adapter</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">Connection</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">DBALException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">Driver</span><span class="s1">\</span><span class="s3">ServerInfoAwareConnection</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">DriverManager</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">TableNotFoundException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Doctrine</span><span class="s1">\</span><span class="s3">DBAL</span><span class="s1">\</span><span class="s3">Schema</span><span class="s1">\</span><span class="s3">Schema</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Marshaller</span><span class="s1">\</span><span class="s3">DefaultMarshaller</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">Marshaller</span><span class="s1">\</span><span class="s3">MarshallerInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Cache</span><span class="s1">\</span><span class="s3">PruneableInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s0">class </span><span class="s3">PdoAdapter </span><span class="s0">extends </span><span class="s3">AbstractAdapter </span><span class="s0">implements </span><span class="s3">PruneableInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s4">$maxIdLength </span><span class="s1">= </span><span class="s5">255</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s4">$marshaller</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$conn</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$dsn</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$driver</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$serverVersion</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$table </span><span class="s1">= </span><span class="s6">'cache_items'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$idCol </span><span class="s1">= </span><span class="s6">'item_id'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$dataCol </span><span class="s1">= </span><span class="s6">'item_data'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$lifetimeCol </span><span class="s1">= </span><span class="s6">'item_lifetime'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$timeCol </span><span class="s1">= </span><span class="s6">'item_time'</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$username </span><span class="s1">= </span><span class="s6">''</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$password </span><span class="s1">= </span><span class="s6">''</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$connectionOptions </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s4">$namespace</span><span class="s0">;</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* You can either pass an existing database connection as PDO instance or</span>
+     <span class="s7">* a Doctrine DBAL Connection or a DSN string that will be used to</span>
+     <span class="s7">* lazy-connect to the database when the cache is actually used.</span>
+     <span class="s7">*</span>
+     <span class="s7">* When a Doctrine DBAL Connection is passed, the cache table is created</span>
+     <span class="s7">* automatically when possible. Otherwise, use the createTable() method.</span>
+     <span class="s7">*</span>
+     <span class="s7">* List of available options:</span>
+     <span class="s7">*  * db_table: The name of the table [default: cache_items]</span>
+     <span class="s7">*  * db_id_col: The column where to store the cache id [default: item_id]</span>
+     <span class="s7">*  * db_data_col: The column where to store the cache data [default: item_data]</span>
+     <span class="s7">*  * db_lifetime_col: The column where to store the lifetime [default: item_lifetime]</span>
+     <span class="s7">*  * db_time_col: The column where to store the timestamp [default: item_time]</span>
+     <span class="s7">*  * db_username: The username when lazy-connect [default: '']</span>
+     <span class="s7">*  * db_password: The password when lazy-connect [default: '']</span>
+     <span class="s7">*  * db_connection_options: An array of driver-specific connection options [default: []]</span>
+     <span class="s7">*</span>
+     <span class="s7">* </span><span class="s8">@param </span><span class="s7">\PDO|Connection|string $connOrDsn a \PDO or Connection instance or DSN string or null</span>
+     <span class="s7">*</span>
+     <span class="s7">* </span><span class="s8">@throws </span><span class="s7">InvalidArgumentException When first argument is not PDO nor Connection nor string</span>
+     <span class="s7">* </span><span class="s8">@throws </span><span class="s7">InvalidArgumentException When PDO error mode is not PDO::ERRMODE_EXCEPTION</span>
+     <span class="s7">* </span><span class="s8">@throws </span><span class="s7">InvalidArgumentException When namespace contains invalid characters</span>
+     <span class="s7">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s4">$connOrDsn</span><span class="s0">, </span><span class="s3">string </span><span class="s4">$namespace </span><span class="s1">= </span><span class="s6">''</span><span class="s0">, </span><span class="s3">int </span><span class="s4">$defaultLifetime </span><span class="s1">= </span><span class="s5">0</span><span class="s0">, array </span><span class="s4">$options </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">MarshallerInterface </span><span class="s4">$marshaller </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$namespace</span><span class="s1">[</span><span class="s5">0</span><span class="s1">]) &amp;&amp; </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s6">'#[^-+.A-Za-z0-9]#'</span><span class="s0">, </span><span class="s4">$namespace</span><span class="s0">, </span><span class="s4">$match</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Namespace contains &quot;%s&quot; but only characters in [-+.A-Za-z0-9] are allowed.'</span><span class="s0">, </span><span class="s4">$match</span><span class="s1">[</span><span class="s5">0</span><span class="s1">]))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$connOrDsn </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">ERRMODE_EXCEPTION </span><span class="s1">!== </span><span class="s4">$connOrDsn</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">ATTR_ERRMODE</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'&quot;%s&quot; requires PDO error mode attribute be set to throw Exceptions (i.e. $pdo-&gt;setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION)).'</span><span class="s0">, </span><span class="s3">__CLASS__</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s1">= </span><span class="s4">$connOrDsn</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s4">$connOrDsn </span><span class="s0">instanceof </span><span class="s3">Connection</span><span class="s1">) {</span>
+            <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s1">= </span><span class="s4">$connOrDsn</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s4">$connOrDsn</span><span class="s1">)) {</span>
+            <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dsn </span><span class="s1">= </span><span class="s4">$connOrDsn</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'&quot;%s&quot; requires PDO or Doctrine\DBAL\Connection instance or DSN string as first argument, &quot;%s&quot; given.'</span><span class="s0">, </span><span class="s3">__CLASS__</span><span class="s0">, </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s4">$connOrDsn</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s4">$connOrDsn</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s4">$connOrDsn</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_table'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_table'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_id_col'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_id_col'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_data_col'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_data_col'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_lifetime_col'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_lifetime_col'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_time_col'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_time_col'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">username </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_username'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_username'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">username</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">password </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_password'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_password'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">password</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">connectionOptions </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_connection_options'</span><span class="s1">]) ? </span><span class="s4">$options</span><span class="s1">[</span><span class="s6">'db_connection_options'</span><span class="s1">] : </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">connectionOptions</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">namespace </span><span class="s1">= </span><span class="s4">$namespace</span><span class="s0">;</span>
+        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">marshaller </span><span class="s1">= </span><span class="s4">$marshaller </span><span class="s1">?? </span><span class="s0">new </span><span class="s3">DefaultMarshaller</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s4">$namespace</span><span class="s0">, </span><span class="s4">$defaultLifetime</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* Creates the table to store cache items which can be called once for setup.</span>
+     <span class="s7">*</span>
+     <span class="s7">* Cache ID are saved in a column of maximum length 255. Cache data is</span>
+     <span class="s7">* saved in a BLOB.</span>
+     <span class="s7">*</span>
+     <span class="s7">* </span><span class="s8">@throws </span><span class="s7">\PDOException    When the table already exists</span>
+     <span class="s7">* </span><span class="s8">@throws </span><span class="s7">DBALException    When the table already exists</span>
+     <span class="s7">* </span><span class="s8">@throws </span><span class="s7">\DomainException When an unsupported PDO driver is used</span>
+     <span class="s7">*/</span>
+    <span class="s0">public function </span><span class="s3">createTable</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s2">// connect if we are not yet</span>
+        <span class="s4">$conn </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$conn </span><span class="s0">instanceof </span><span class="s3">Connection</span><span class="s1">) {</span>
+            <span class="s4">$types </span><span class="s1">= [</span>
+                <span class="s6">'mysql' </span><span class="s1">=&gt; </span><span class="s6">'binary'</span><span class="s0">,</span>
+                <span class="s6">'sqlite' </span><span class="s1">=&gt; </span><span class="s6">'text'</span><span class="s0">,</span>
+                <span class="s6">'pgsql' </span><span class="s1">=&gt; </span><span class="s6">'string'</span><span class="s0">,</span>
+                <span class="s6">'oci' </span><span class="s1">=&gt; </span><span class="s6">'string'</span><span class="s0">,</span>
+                <span class="s6">'sqlsrv' </span><span class="s1">=&gt; </span><span class="s6">'string'</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s4">$types</span><span class="s1">[</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">])) {</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">DomainException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Creating the cache table is currently not implemented for PDO driver &quot;%s&quot;.'</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s4">$schema </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Schema</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s4">$table </span><span class="s1">= </span><span class="s4">$schema</span><span class="s1">-&gt;</span><span class="s3">createTable</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$table</span><span class="s1">-&gt;</span><span class="s3">addColumn</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s0">, </span><span class="s4">$types</span><span class="s1">[</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'length' </span><span class="s1">=&gt; </span><span class="s5">255</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s4">$table</span><span class="s1">-&gt;</span><span class="s3">addColumn</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s0">, </span><span class="s6">'blob'</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'length' </span><span class="s1">=&gt; </span><span class="s5">16777215</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s4">$table</span><span class="s1">-&gt;</span><span class="s3">addColumn</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s0">, </span><span class="s6">'integer'</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'unsigned' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s0">, </span><span class="s6">'notnull' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s4">$table</span><span class="s1">-&gt;</span><span class="s3">addColumn</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s0">, </span><span class="s6">'integer'</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'unsigned' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s4">$table</span><span class="s1">-&gt;</span><span class="s3">setPrimaryKey</span><span class="s1">([</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s1">])</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$schema</span><span class="s1">-&gt;</span><span class="s3">toSql</span><span class="s1">(</span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">getDatabasePlatform</span><span class="s1">()) </span><span class="s0">as </span><span class="s4">$sql</span><span class="s1">) {</span>
+                <span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">exec</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s6">'mysql'</span><span class="s1">:</span>
+                <span class="s2">// We use varbinary for the ID column because it prevents unwanted conversions:</span>
+                <span class="s2">// - character set conversions between server and client</span>
+                <span class="s2">// - trailing space removal</span>
+                <span class="s2">// - case-insensitivity</span>
+                <span class="s2">// - language processing like é == e</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;CREATE TABLE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">VARBINARY(255) NOT NULL PRIMARY KEY, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">MEDIUMBLOB NOT NULL, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">INTEGER UNSIGNED, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">INTEGER UNSIGNED NOT NULL) COLLATE utf8_bin, ENGINE = InnoDB&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'sqlite'</span><span class="s1">:</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;CREATE TABLE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">TEXT NOT NULL PRIMARY KEY, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">BLOB NOT NULL, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">INTEGER, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">INTEGER NOT NULL)&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'pgsql'</span><span class="s1">:</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;CREATE TABLE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">VARCHAR(255) NOT NULL PRIMARY KEY, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">BYTEA NOT NULL, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">INTEGER, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">INTEGER NOT NULL)&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'oci'</span><span class="s1">:</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;CREATE TABLE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">VARCHAR2(255) NOT NULL PRIMARY KEY, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">BLOB NOT NULL, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">INTEGER, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">INTEGER NOT NULL)&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'sqlsrv'</span><span class="s1">:</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;CREATE TABLE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">VARCHAR(255) NOT NULL PRIMARY KEY, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">VARBINARY(MAX) NOT NULL, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">INTEGER, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">INTEGER NOT NULL)&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s0">throw new </span><span class="s1">\</span><span class="s3">DomainException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Creating the cache table is currently not implemented for PDO driver &quot;%s&quot;.'</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">exec</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* {</span><span class="s8">@inheritdoc</span><span class="s7">}</span>
+     <span class="s7">*/</span>
+    <span class="s0">public function </span><span class="s3">prune</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s4">$deleteSql </span><span class="s1">= </span><span class="s6">&quot;DELETE FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">+ </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">&lt;= :time&quot;</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">'' </span><span class="s1">!== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">) {</span>
+            <span class="s4">$deleteSql </span><span class="s1">.= </span><span class="s6">&quot; AND </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">LIKE :namespace&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s4">$delete </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$deleteSql</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TableNotFoundException </span><span class="s4">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s4">$delete</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':time'</span><span class="s0">, </span><span class="s3">time</span><span class="s1">()</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">'' </span><span class="s1">!== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">) {</span>
+            <span class="s4">$delete</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':namespace'</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'%s%%'</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">namespace</span><span class="s1">)</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_STR</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s4">$delete</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TableNotFoundException </span><span class="s4">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* {</span><span class="s8">@inheritdoc</span><span class="s7">}</span>
+     <span class="s7">*/</span>
+    <span class="s0">protected function </span><span class="s3">doFetch</span><span class="s1">(</span><span class="s0">array </span><span class="s4">$ids</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s4">$now </span><span class="s1">= </span><span class="s3">time</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">$expired </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s4">$sql </span><span class="s1">= </span><span class="s3">str_pad</span><span class="s1">(</span><span class="s6">''</span><span class="s0">, </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s4">$ids</span><span class="s1">) &lt;&lt; </span><span class="s5">1</span><span class="s1">) - </span><span class="s5">1</span><span class="s0">, </span><span class="s6">'?,'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;SELECT </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s6">, CASE WHEN </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">IS NULL OR </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">+ </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">&gt; ? THEN </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">ELSE NULL END FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">IN (</span><span class="s4">$sql</span><span class="s6">)&quot;</span><span class="s0">;</span>
+        <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s4">$i </span><span class="s1">= </span><span class="s5">1</span><span class="s0">, </span><span class="s4">$now</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$ids </span><span class="s0">as </span><span class="s4">$id</span><span class="s1">) {</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(++</span><span class="s4">$i</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s4">$row </span><span class="s1">= </span><span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">fetch</span><span class="s1">(\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">FETCH_NUM</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$row</span><span class="s1">[</span><span class="s5">1</span><span class="s1">]) {</span>
+                <span class="s4">$expired</span><span class="s1">[] = </span><span class="s4">$row</span><span class="s1">[</span><span class="s5">0</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">yield </span><span class="s4">$row</span><span class="s1">[</span><span class="s5">0</span><span class="s1">] =&gt; </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">marshaller</span><span class="s1">-&gt;</span><span class="s3">unmarshall</span><span class="s1">(\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s4">$row</span><span class="s1">[</span><span class="s5">1</span><span class="s1">]) ? </span><span class="s3">stream_get_contents</span><span class="s1">(</span><span class="s4">$row</span><span class="s1">[</span><span class="s5">1</span><span class="s1">]) : </span><span class="s4">$row</span><span class="s1">[</span><span class="s5">1</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s4">$expired</span><span class="s1">) {</span>
+            <span class="s4">$sql </span><span class="s1">= </span><span class="s3">str_pad</span><span class="s1">(</span><span class="s6">''</span><span class="s0">, </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s4">$expired</span><span class="s1">) &lt;&lt; </span><span class="s5">1</span><span class="s1">) - </span><span class="s5">1</span><span class="s0">, </span><span class="s6">'?,'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;DELETE FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">+ </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">&lt;= ? AND </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">IN (</span><span class="s4">$sql</span><span class="s6">)&quot;</span><span class="s0">;</span>
+            <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s4">$i </span><span class="s1">= </span><span class="s5">1</span><span class="s0">, </span><span class="s4">$now</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$expired </span><span class="s0">as </span><span class="s4">$id</span><span class="s1">) {</span>
+                <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(++</span><span class="s4">$i</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* {</span><span class="s8">@inheritdoc</span><span class="s7">}</span>
+     <span class="s7">*/</span>
+    <span class="s0">protected function </span><span class="s3">doHave</span><span class="s1">(</span><span class="s3">string </span><span class="s4">$id</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;SELECT 1 FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">= :id AND (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">IS NULL OR </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">+ </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">&gt; :time)&quot;</span><span class="s0">;</span>
+        <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':id'</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':time'</span><span class="s0">, </span><span class="s3">time</span><span class="s1">()</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s1">(bool) </span><span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">fetchColumn</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* {</span><span class="s8">@inheritdoc</span><span class="s7">}</span>
+     <span class="s7">*/</span>
+    <span class="s0">protected function </span><span class="s3">doClear</span><span class="s1">(</span><span class="s3">string </span><span class="s4">$namespace</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s4">$conn </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">'' </span><span class="s1">=== </span><span class="s4">$namespace</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s6">'sqlite' </span><span class="s1">=== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">) {</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;DELETE FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table</span><span class="s6">&quot;</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;TRUNCATE TABLE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table</span><span class="s6">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;DELETE FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">LIKE '</span><span class="s4">$namespace</span><span class="s6">%'&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">exec</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TableNotFoundException </span><span class="s4">$e</span><span class="s1">) {</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* {</span><span class="s8">@inheritdoc</span><span class="s7">}</span>
+     <span class="s7">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDelete</span><span class="s1">(</span><span class="s0">array </span><span class="s4">$ids</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s4">$sql </span><span class="s1">= </span><span class="s3">str_pad</span><span class="s1">(</span><span class="s6">''</span><span class="s0">, </span><span class="s1">(\</span><span class="s3">count</span><span class="s1">(</span><span class="s4">$ids</span><span class="s1">) &lt;&lt; </span><span class="s5">1</span><span class="s1">) - </span><span class="s5">1</span><span class="s0">, </span><span class="s6">'?,'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;DELETE FROM </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">IN (</span><span class="s4">$sql</span><span class="s6">)&quot;</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">(</span><span class="s3">array_values</span><span class="s1">(</span><span class="s4">$ids</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TableNotFoundException </span><span class="s4">$e</span><span class="s1">) {</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* {</span><span class="s8">@inheritdoc</span><span class="s7">}</span>
+     <span class="s7">*/</span>
+    <span class="s0">protected function </span><span class="s3">doSave</span><span class="s1">(</span><span class="s0">array </span><span class="s4">$values</span><span class="s0">, </span><span class="s3">int </span><span class="s4">$lifetime</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s4">$values </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">marshaller</span><span class="s1">-&gt;</span><span class="s3">marshall</span><span class="s1">(</span><span class="s4">$values</span><span class="s0">, </span><span class="s4">$failed</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s4">$failed</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$conn </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getConnection</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">$driver </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s0">;</span>
+        <span class="s4">$insertSql </span><span class="s1">= </span><span class="s6">&quot;INSERT INTO </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s6">) VALUES (:id, :data, :lifetime, :time)&quot;</span><span class="s0">;</span>
+
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s6">'mysql' </span><span class="s1">=== </span><span class="s4">$driver</span><span class="s1">:</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s4">$insertSql</span><span class="s1">.</span><span class="s6">&quot; ON DUPLICATE KEY UPDATE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">= VALUES(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s6">), </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">= VALUES(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s6">), </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">= VALUES(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s6">)&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'oci' </span><span class="s1">=== </span><span class="s4">$driver</span><span class="s1">:</span>
+                <span class="s2">// DUAL is Oracle specific dummy table</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;MERGE INTO </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">USING DUAL ON (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">= ?) &quot;</span><span class="s1">.</span>
+                    <span class="s6">&quot;WHEN NOT MATCHED THEN INSERT (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s6">) VALUES (?, ?, ?, ?) &quot;</span><span class="s1">.</span>
+                    <span class="s6">&quot;WHEN MATCHED THEN UPDATE SET </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">= ?, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">= ?, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">= ?&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'sqlsrv' </span><span class="s1">=== </span><span class="s4">$driver </span><span class="s1">&amp;&amp; </span><span class="s3">version_compare</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getServerVersion</span><span class="s1">()</span><span class="s0">, </span><span class="s6">'10'</span><span class="s0">, </span><span class="s6">'&gt;='</span><span class="s1">):</span>
+                <span class="s2">// MERGE is only available since SQL Server 2008 and must be terminated by semicolon</span>
+                <span class="s2">// It also requires HOLDLOCK according to http://weblogs.sqlteam.com/dang/archive/2009/01/31/UPSERT-Race-Condition-With-MERGE.aspx</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;MERGE INTO </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">WITH (HOLDLOCK) USING (SELECT 1 AS dummy) AS src ON (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">= ?) &quot;</span><span class="s1">.</span>
+                    <span class="s6">&quot;WHEN NOT MATCHED THEN INSERT (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s6">) VALUES (?, ?, ?, ?) &quot;</span><span class="s1">.</span>
+                    <span class="s6">&quot;WHEN MATCHED THEN UPDATE SET </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">= ?, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">= ?, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">= ?;&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'sqlite' </span><span class="s1">=== </span><span class="s4">$driver</span><span class="s1">:</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">'INSERT OR REPLACE'</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s4">$insertSql</span><span class="s0">, </span><span class="s5">6</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">case </span><span class="s6">'pgsql' </span><span class="s1">=== </span><span class="s4">$driver </span><span class="s1">&amp;&amp; </span><span class="s3">version_compare</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">getServerVersion</span><span class="s1">()</span><span class="s0">, </span><span class="s6">'9.5'</span><span class="s0">, </span><span class="s6">'&gt;='</span><span class="s1">):</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s4">$insertSql</span><span class="s1">.</span><span class="s6">&quot; ON CONFLICT (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol</span><span class="s6">) DO UPDATE SET (</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s6">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s6">) = (EXCLUDED.</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol</span><span class="s6">, EXCLUDED.</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol</span><span class="s6">, EXCLUDED.</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol</span><span class="s6">)&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s0">default</span><span class="s1">:</span>
+                <span class="s4">$driver </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s4">$sql </span><span class="s1">= </span><span class="s6">&quot;UPDATE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">table </span><span class="s6">SET </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dataCol </span><span class="s6">= :data, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">lifetimeCol </span><span class="s6">= :lifetime, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">timeCol </span><span class="s6">= :time WHERE </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">idCol </span><span class="s6">= :id&quot;</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+        <span class="s1">}</span>
+
+        <span class="s4">$now </span><span class="s1">= </span><span class="s3">time</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s4">$lifetime </span><span class="s1">= </span><span class="s4">$lifetime </span><span class="s1">?: </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TableNotFoundException </span><span class="s4">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">isTransactionActive</span><span class="s1">() || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'pgsql'</span><span class="s0">, </span><span class="s6">'sqlite'</span><span class="s0">, </span><span class="s6">'sqlsrv'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">createTable</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">inTransaction</span><span class="s1">() || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'pgsql'</span><span class="s0">, </span><span class="s6">'sqlite'</span><span class="s0">, </span><span class="s6">'sqlsrv'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">createTable</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s4">$stmt </span><span class="s1">= </span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$sql</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s6">'sqlsrv' </span><span class="s1">=== </span><span class="s4">$driver </span><span class="s1">|| </span><span class="s6">'oci' </span><span class="s1">=== </span><span class="s4">$driver</span><span class="s1">) {</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s5">1</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s5">2</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s5">3</span><span class="s0">, </span><span class="s4">$data</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_LOB</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s5">4</span><span class="s0">, </span><span class="s4">$lifetime</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s5">5</span><span class="s0">, </span><span class="s4">$now</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s5">6</span><span class="s0">, </span><span class="s4">$data</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_LOB</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s5">7</span><span class="s0">, </span><span class="s4">$lifetime</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s5">8</span><span class="s0">, </span><span class="s4">$now</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s6">':id'</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s6">':data'</span><span class="s0">, </span><span class="s4">$data</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_LOB</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':lifetime'</span><span class="s0">, </span><span class="s4">$lifetime</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':time'</span><span class="s0">, </span><span class="s4">$now</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$driver</span><span class="s1">) {</span>
+            <span class="s4">$insertStmt </span><span class="s1">= </span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">prepare</span><span class="s1">(</span><span class="s4">$insertSql</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s4">$insertStmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s6">':id'</span><span class="s0">, </span><span class="s4">$id</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$insertStmt</span><span class="s1">-&gt;</span><span class="s3">bindParam</span><span class="s1">(</span><span class="s6">':data'</span><span class="s0">, </span><span class="s4">$data</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_LOB</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$insertStmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':lifetime'</span><span class="s0">, </span><span class="s4">$lifetime</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s4">$insertStmt</span><span class="s1">-&gt;</span><span class="s3">bindValue</span><span class="s1">(</span><span class="s6">':time'</span><span class="s0">, </span><span class="s4">$now</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">PARAM_INT</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s4">$values </span><span class="s0">as </span><span class="s4">$id </span><span class="s1">=&gt; </span><span class="s4">$data</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">TableNotFoundException </span><span class="s4">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">isTransactionActive</span><span class="s1">() || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'pgsql'</span><span class="s0">, </span><span class="s6">'sqlite'</span><span class="s0">, </span><span class="s6">'sqlsrv'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">createTable</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">inTransaction</span><span class="s1">() || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s0">, </span><span class="s1">[</span><span class="s6">'pgsql'</span><span class="s0">, </span><span class="s6">'sqlite'</span><span class="s0">, </span><span class="s6">'sqlsrv'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">createTable</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$driver </span><span class="s1">&amp;&amp; !</span><span class="s4">$stmt</span><span class="s1">-&gt;</span><span class="s3">rowCount</span><span class="s1">()) {</span>
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s4">$insertStmt</span><span class="s1">-&gt;</span><span class="s3">execute</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">DBALException </span><span class="s4">$e</span><span class="s1">) {</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">PDOException </span><span class="s4">$e</span><span class="s1">) {</span>
+                    <span class="s2">// A concurrent write won, let it be</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s4">$failed</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s7">/**</span>
+     <span class="s7">* </span><span class="s8">@return </span><span class="s7">\PDO|Connection</span>
+     <span class="s7">*/</span>
+    <span class="s0">private function </span><span class="s3">getConnection</span><span class="s1">(): </span><span class="s3">object</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">strpos</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dsn</span><span class="s0">, </span><span class="s6">'://'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">DriverManager</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'Failed to parse the DSN &quot;%s&quot;. Try running &quot;composer require doctrine/dbal&quot;.'</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dsn</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s1">= </span><span class="s3">DriverManager</span><span class="s1">::</span><span class="s3">getConnection</span><span class="s1">([</span><span class="s6">'url' </span><span class="s1">=&gt; </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dsn</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">dsn</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">username</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">password</span><span class="s0">, </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">connectionOptions</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn</span><span class="s1">-&gt;</span><span class="s3">setAttribute</span><span class="s1">(\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">ATTR_ERRMODE</span><span class="s0">, </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">ERRMODE_EXCEPTION</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">) {</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">ATTR_DRIVER_NAME</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">switch </span><span class="s1">(</span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn</span><span class="s1">-&gt;</span><span class="s3">getDriver</span><span class="s1">()-&gt;</span><span class="s3">getName</span><span class="s1">()) {</span>
+                    <span class="s0">case </span><span class="s6">'mysqli'</span><span class="s1">:</span>
+                        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">LogicException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s6">'The adapter &quot;%s&quot; does not support the mysqli driver, use pdo_mysql instead.'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s0">case </span><span class="s6">'pdo_mysql'</span><span class="s1">:</span>
+                    <span class="s0">case </span><span class="s6">'drizzle_pdo_mysql'</span><span class="s1">:</span>
+                        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s6">'mysql'</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s0">case </span><span class="s6">'pdo_sqlite'</span><span class="s1">:</span>
+                        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s6">'sqlite'</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s0">case </span><span class="s6">'pdo_pgsql'</span><span class="s1">:</span>
+                        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s6">'pgsql'</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s0">case </span><span class="s6">'oci8'</span><span class="s1">:</span>
+                    <span class="s0">case </span><span class="s6">'pdo_oracle'</span><span class="s1">:</span>
+                        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s6">'oci'</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                    <span class="s0">case </span><span class="s6">'pdo_sqlsrv'</span><span class="s1">:</span>
+                        <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">driver </span><span class="s1">= </span><span class="s6">'sqlsrv'</span><span class="s0">;</span>
+                        <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getServerVersion</span><span class="s1">(): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">serverVersion</span><span class="s1">) {</span>
+            <span class="s4">$conn </span><span class="s1">= </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">PDO </span><span class="s1">? </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn </span><span class="s1">: </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">conn</span><span class="s1">-&gt;</span><span class="s3">getWrappedConnection</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s4">$conn </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">PDO</span><span class="s1">) {</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">serverVersion </span><span class="s1">= </span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">getAttribute</span><span class="s1">(\</span><span class="s3">PDO</span><span class="s1">::</span><span class="s3">ATTR_SERVER_VERSION</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s4">$conn </span><span class="s0">instanceof </span><span class="s3">ServerInfoAwareConnection</span><span class="s1">) {</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">serverVersion </span><span class="s1">= </span><span class="s4">$conn</span><span class="s1">-&gt;</span><span class="s3">getServerVersion</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">serverVersion </span><span class="s1">= </span><span class="s6">'0'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s4">$this</span><span class="s1">-&gt;</span><span class="s3">serverVersion</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

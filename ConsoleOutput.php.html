@@ -1,0 +1,183 @@
+<html>
+<head>
+<title>ConsoleOutput.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ConsoleOutput.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Output</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Formatter</span><span class="s1">\</span><span class="s3">OutputFormatterInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* ConsoleOutput is the default class for all CLI output. It uses STDOUT and STDERR.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This class is a convenient wrapper around `StreamOutput` for both STDOUT and STDERR.</span>
+ <span class="s4">*</span>
+ <span class="s4">*     $output = new ConsoleOutput();</span>
+ <span class="s4">*</span>
+ <span class="s4">* This is equivalent to:</span>
+ <span class="s4">*</span>
+ <span class="s4">*     $output = new StreamOutput(fopen('php://stdout', 'w'));</span>
+ <span class="s4">*     $stdErr = new StreamOutput(fopen('php://stderr', 'w'));</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ConsoleOutput </span><span class="s0">extends </span><span class="s3">StreamOutput </span><span class="s0">implements </span><span class="s3">ConsoleOutputInterface</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$stderr</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$consoleSectionOutputs </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int                           $verbosity The verbosity level (one of the VERBOSITY constants in OutputInterface)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool|null                     $decorated Whether to decorate messages (null for auto-guessing)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">OutputFormatterInterface|null $formatter Output formatter instance (null to use default OutputFormatter)</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$verbosity </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">VERBOSITY_NORMAL</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$decorated </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">OutputFormatterInterface </span><span class="s7">$formatter </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">openOutputStream</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$verbosity</span><span class="s0">, </span><span class="s7">$decorated</span><span class="s0">, </span><span class="s7">$formatter</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$actualDecorated </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr </span><span class="s1">= </span><span class="s0">new </span><span class="s3">StreamOutput</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">openErrorStream</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$verbosity</span><span class="s0">, </span><span class="s7">$decorated</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$decorated</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setDecorated</span><span class="s1">(</span><span class="s7">$actualDecorated </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Creates a new output section.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">section</span><span class="s1">(): </span><span class="s3">ConsoleSectionOutput</span>
+    <span class="s1">{</span>
+        <span class="s0">return new </span><span class="s3">ConsoleSectionOutput</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getStream</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">consoleSectionOutputs</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getVerbosity</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isDecorated</span><span class="s1">()</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getFormatter</span><span class="s1">())</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDecorated</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$decorated</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">setDecorated</span><span class="s1">(</span><span class="s7">$decorated</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr</span><span class="s1">-&gt;</span><span class="s3">setDecorated</span><span class="s1">(</span><span class="s7">$decorated</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setFormatter</span><span class="s1">(</span><span class="s3">OutputFormatterInterface </span><span class="s7">$formatter</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">setFormatter</span><span class="s1">(</span><span class="s7">$formatter</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr</span><span class="s1">-&gt;</span><span class="s3">setFormatter</span><span class="s1">(</span><span class="s7">$formatter</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setVerbosity</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$level</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">setVerbosity</span><span class="s1">(</span><span class="s7">$level</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr</span><span class="s1">-&gt;</span><span class="s3">setVerbosity</span><span class="s1">(</span><span class="s7">$level</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getErrorOutput</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setErrorOutput</span><span class="s1">(</span><span class="s3">OutputInterface </span><span class="s7">$error</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">stderr </span><span class="s1">= </span><span class="s7">$error</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if current environment supports writing console output to</span>
+     <span class="s4">* STDOUT.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">hasStdoutSupport</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRunningOS400</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if current environment supports writing console output to</span>
+     <span class="s4">* STDERR.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">hasStderrSupport</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">isRunningOS400</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Checks if current executing environment is IBM iSeries (OS400), which</span>
+     <span class="s4">* doesn't properly convert character-encodings between ASCII to EBCDIC.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isRunningOS400</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$checks </span><span class="s1">= [</span>
+            <span class="s1">\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s8">'php_uname'</span><span class="s1">) ? </span><span class="s3">php_uname</span><span class="s1">(</span><span class="s8">'s'</span><span class="s1">) : </span><span class="s8">''</span><span class="s0">,</span>
+            <span class="s3">getenv</span><span class="s1">(</span><span class="s8">'OSTYPE'</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s3">PHP_OS</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">stripos</span><span class="s1">(</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">';'</span><span class="s0">, </span><span class="s7">$checks</span><span class="s1">)</span><span class="s0">, </span><span class="s8">'OS400'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">resource</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">openOutputStream</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasStdoutSupport</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">'php://output'</span><span class="s0">, </span><span class="s8">'w'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s1">@</span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">'php://stdout'</span><span class="s0">, </span><span class="s8">'w'</span><span class="s1">) ?: </span><span class="s3">fopen</span><span class="s1">(</span><span class="s8">'php://output'</span><span class="s0">, </span><span class="s8">'w'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">resource</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">openErrorStream</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">fopen</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">hasStderrSupport</span><span class="s1">() ? </span><span class="s8">'php://stderr' </span><span class="s1">: </span><span class="s8">'php://output'</span><span class="s0">, </span><span class="s8">'w'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

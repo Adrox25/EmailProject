@@ -1,0 +1,144 @@
+<html>
+<head>
+<title>MemcachedSessionHandler.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+MemcachedSessionHandler.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpFoundation</span><span class="s1">\</span><span class="s3">Session</span><span class="s1">\</span><span class="s3">Storage</span><span class="s1">\</span><span class="s3">Handler</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Memcached based session storage handler based on the Memcached class</span>
+ <span class="s4">* provided by the PHP memcached extension.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@see </span><span class="s4">https://php.net/memcached</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Drak </span><span class="s6">&lt;drak</span><span class="s4">@zikula.org&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">MemcachedSessionHandler </span><span class="s0">extends </span><span class="s3">AbstractSessionHandler</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$memcached</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">int Time to live in seconds</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$ttl</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">string Key prefix for shared environments</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$prefix</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Constructor.</span>
+     <span class="s4">*</span>
+     <span class="s4">* List of available options:</span>
+     <span class="s4">*  * prefix: The prefix to use for the memcached keys in order to avoid collision</span>
+     <span class="s4">*  * expiretime: The time to live in seconds.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException When unsupported options are passed</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(\</span><span class="s3">Memcached </span><span class="s7">$memcached</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached </span><span class="s1">= </span><span class="s7">$memcached</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$diff </span><span class="s1">= </span><span class="s3">array_diff</span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'prefix'</span><span class="s0">, </span><span class="s8">'expiretime'</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The following options are not supported &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">', '</span><span class="s0">, </span><span class="s7">$diff</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ttl </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'expiretime'</span><span class="s1">]) ? (int) </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'expiretime'</span><span class="s1">] : </span><span class="s9">86400</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'prefix'</span><span class="s1">]) ? </span><span class="s7">$options</span><span class="s1">[</span><span class="s8">'prefix'</span><span class="s1">] : </span><span class="s8">'sf2s'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">close</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s1">-&gt;</span><span class="s3">quit</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doRead</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">.</span><span class="s7">$sessionId</span><span class="s1">) ?: </span><span class="s8">''</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">updateTimestamp</span><span class="s1">(</span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s7">$data</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s1">-&gt;</span><span class="s3">touch</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">.</span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s3">time</span><span class="s1">() + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ttl</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doWrite</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$data</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s1">-&gt;</span><span class="s3">set</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">.</span><span class="s7">$sessionId</span><span class="s0">, </span><span class="s7">$data</span><span class="s0">, </span><span class="s3">time</span><span class="s1">() + </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ttl</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">doDestroy</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$sessionId</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$result </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s1">-&gt;</span><span class="s3">delete</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prefix</span><span class="s1">.</span><span class="s7">$sessionId</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$result </span><span class="s1">|| \</span><span class="s3">Memcached</span><span class="s1">::</span><span class="s3">RES_NOTFOUND </span><span class="s1">== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s1">-&gt;</span><span class="s3">getResultCode</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">gc</span><span class="s1">(</span><span class="s7">$maxlifetime</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s2">// not required here because memcached will auto expire the records anyhow.</span>
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Return a Memcached instance.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\Memcached</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getMemcached</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">memcached</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

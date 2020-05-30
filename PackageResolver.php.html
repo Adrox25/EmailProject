@@ -1,0 +1,169 @@
+<html>
+<head>
+<title>PackageResolver.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PackageResolver.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Factory</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Package</span><span class="s1">\</span><span class="s3">Version</span><span class="s1">\</span><span class="s3">VersionParser</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Repository</span><span class="s1">\</span><span class="s3">PlatformRepository</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">PackageResolver</span>
+<span class="s1">{</span>
+    <span class="s0">private static </span><span class="s7">$SYMFONY_VERSIONS </span><span class="s1">= [</span><span class="s8">'lts'</span><span class="s0">, </span><span class="s8">'previous'</span><span class="s0">, </span><span class="s8">'stable'</span><span class="s0">, </span><span class="s8">'next'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s0">private static </span><span class="s7">$aliases</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$downloader</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Downloader </span><span class="s7">$downloader</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader </span><span class="s1">= </span><span class="s7">$downloader</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">resolve</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$arguments </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isRequire </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$versionParser </span><span class="s1">= </span><span class="s0">new </span><span class="s3">VersionParser</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s2">// first pass split on : and = to separate package names and versions</span>
+        <span class="s7">$explodedArguments </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$arguments </span><span class="s0">as </span><span class="s7">$argument</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">((</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$pos </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s8">':'</span><span class="s1">)) || (</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$pos </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s8">'='</span><span class="s1">))) {</span>
+                <span class="s7">$explodedArguments</span><span class="s1">[] = </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$pos</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s7">$explodedArguments</span><span class="s1">[] = </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$pos </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$explodedArguments</span><span class="s1">[] = </span><span class="s7">$argument</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// second pass to resolve package names</span>
+        <span class="s7">$packages </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$explodedArguments </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$argument</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s8">'/'</span><span class="s1">) &amp;&amp; !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">PlatformRepository</span><span class="s1">::</span><span class="s3">PLATFORM_PACKAGE_REGEX</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">) &amp;&amp; !\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'mirrors'</span><span class="s0">, </span><span class="s8">'nothing'</span><span class="s1">])) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$aliases</span><span class="s1">) {</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s7">$aliases </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s8">'/aliases.json'</span><span class="s1">)-&gt;</span><span class="s3">getBody</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$aliases</span><span class="s1">[</span><span class="s7">$argument</span><span class="s1">])) {</span>
+                    <span class="s7">$argument </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$aliases</span><span class="s1">[</span><span class="s7">$argument</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s2">// is it a version or an alias that does not exist?</span>
+                    <span class="s0">try </span><span class="s1">{</span>
+                        <span class="s7">$versionParser</span><span class="s1">-&gt;</span><span class="s3">parseConstraints</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">UnexpectedValueException </span><span class="s7">$e</span><span class="s1">) {</span>
+                        <span class="s2">// is it a special Symfony version?</span>
+                        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$SYMFONY_VERSIONS</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">throwAlternatives</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$packages</span><span class="s1">[] = </span><span class="s7">$argument</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// third pass to resolve versions</span>
+        <span class="s7">$requires </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$versionParser</span><span class="s1">-&gt;</span><span class="s3">parseNameVersionPairs</span><span class="s1">(</span><span class="s7">$packages</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$package</span><span class="s1">) {</span>
+            <span class="s7">$requires</span><span class="s1">[] = </span><span class="s7">$package</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">].</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parseVersion</span><span class="s1">(</span><span class="s7">$package</span><span class="s1">[</span><span class="s8">'name'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$package</span><span class="s1">[</span><span class="s8">'version'</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$isRequire</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">array_unique</span><span class="s1">(</span><span class="s7">$requires</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">parseVersion</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$package</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$version</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isRequire</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$package</span><span class="s0">, </span><span class="s8">'symfony/'</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s7">$version </span><span class="s1">? </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$version </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$versions </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">downloader</span><span class="s1">-&gt;</span><span class="s3">getVersions</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$versions</span><span class="s1">[</span><span class="s8">'splits'</span><span class="s1">][</span><span class="s7">$package</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$version </span><span class="s1">? </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$version </span><span class="s1">: </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$version </span><span class="s1">|| </span><span class="s8">'*' </span><span class="s1">=== </span><span class="s7">$version</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s7">$config </span><span class="s1">= @</span><span class="s3">json_decode</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s3">Factory</span><span class="s1">::</span><span class="s3">getComposerFile</span><span class="s1">())</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$isRequire </span><span class="s1">|| !(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$config</span><span class="s1">[</span><span class="s8">'extra'</span><span class="s1">][</span><span class="s8">'symfony'</span><span class="s1">][</span><span class="s8">'require'</span><span class="s1">]) || </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$config</span><span class="s1">[</span><span class="s8">'require'</span><span class="s1">][</span><span class="s8">'symfony/framework-bundle'</span><span class="s1">]))) {</span>
+                    <span class="s0">return </span><span class="s8">''</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s7">$version </span><span class="s1">= </span><span class="s7">$config</span><span class="s1">[</span><span class="s8">'extra'</span><span class="s1">][</span><span class="s8">'symfony'</span><span class="s1">][</span><span class="s8">'require'</span><span class="s1">] ?? </span><span class="s7">$config</span><span class="s1">[</span><span class="s8">'require'</span><span class="s1">][</span><span class="s8">'symfony/framework-bundle'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'next' </span><span class="s1">=== </span><span class="s7">$version</span><span class="s1">) {</span>
+            <span class="s7">$version </span><span class="s1">= </span><span class="s8">'^'</span><span class="s1">.</span><span class="s7">$versions</span><span class="s1">[</span><span class="s7">$version</span><span class="s1">].</span><span class="s8">'@dev'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s7">$version</span><span class="s0">, </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$SYMFONY_VERSIONS</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+            <span class="s7">$version </span><span class="s1">= </span><span class="s8">'^'</span><span class="s1">.</span><span class="s7">$versions</span><span class="s1">[</span><span class="s7">$version</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">':'</span><span class="s1">.</span><span class="s7">$version</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\UnexpectedValueException</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">throwAlternatives</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$argument</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$position</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$alternatives </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">self</span><span class="s1">::</span><span class="s7">$aliases </span><span class="s0">as </span><span class="s7">$alias </span><span class="s1">=&gt; </span><span class="s7">$package</span><span class="s1">) {</span>
+            <span class="s7">$lev </span><span class="s1">= </span><span class="s3">levenshtein</span><span class="s1">(</span><span class="s7">$argument</span><span class="s0">, </span><span class="s7">$alias</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$lev </span><span class="s1">&lt;= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">) / </span><span class="s9">3 </span><span class="s1">|| </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$alias</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">)) {</span>
+                <span class="s7">$alternatives</span><span class="s1">[</span><span class="s7">$package</span><span class="s1">][] = </span><span class="s7">$alias</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// First position can only be a package name, not a version</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$alternatives </span><span class="s1">|| </span><span class="s9">0 </span><span class="s1">=== </span><span class="s7">$position</span><span class="s1">) {</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;%s&quot; is not a valid alias.'</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$alternatives</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$alternatives</span><span class="s1">)) {</span>
+                    <span class="s7">$message </span><span class="s1">.= </span><span class="s8">&quot; Did you mean this:</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$message </span><span class="s1">.= </span><span class="s8">&quot; Did you mean one of these:</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$alternatives </span><span class="s0">as </span><span class="s7">$package </span><span class="s1">=&gt; </span><span class="s7">$aliases</span><span class="s1">) {</span>
+                    <span class="s7">$message </span><span class="s1">.= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;  </span><span class="s0">\&quot;</span><span class="s8">%s</span><span class="s0">\&quot;</span><span class="s8">, supported aliases: </span><span class="s0">\&quot;</span><span class="s8">%s</span><span class="s0">\&quot;\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s7">$package</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s8">'&quot;, &quot;'</span><span class="s0">, </span><span class="s7">$aliases</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$message </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Could not parse version constraint &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">UnexpectedValueException</span><span class="s1">(</span><span class="s7">$message</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

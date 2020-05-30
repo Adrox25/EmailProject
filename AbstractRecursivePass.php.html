@@ -1,0 +1,248 @@
+<html>
+<head>
+<title>AbstractRecursivePass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+AbstractRecursivePass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">ArgumentInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Definition</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Reference</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">ExpressionLanguage</span><span class="s1">\</span><span class="s3">Expression</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">abstract class </span><span class="s3">AbstractRecursivePass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">ContainerBuilder</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected </span><span class="s7">$container</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$currentId</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$processExpressions </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$expressionLanguage</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$inExpression </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s7">$container</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">()</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">enableExpressionProcessing</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processExpressions </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">protected function </span><span class="s3">inExpression</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$reset </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s7">$inExpression </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inExpression</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$reset</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inExpression </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$inExpression</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Processes a value found in a definition tree.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The processed value</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$isRoot </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$isRoot</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">= </span><span class="s7">$k</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$v </span><span class="s1">!== </span><span class="s7">$processedValue </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s7">$isRoot</span><span class="s1">)) {</span>
+                    <span class="s7">$value</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$processedValue</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">ArgumentInterface</span><span class="s1">) {</span>
+            <span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">setValues</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getValues</span><span class="s1">()))</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Expression </span><span class="s1">&amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processExpressions</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getExpressionLanguage</span><span class="s1">()-&gt;</span><span class="s3">compile</span><span class="s1">((string) </span><span class="s7">$value</span><span class="s0">, </span><span class="s1">[</span><span class="s8">'this' </span><span class="s1">=&gt; </span><span class="s8">'container'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+            <span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">setArguments</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getArguments</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">setProperties</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getProperties</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">setMethodCalls</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getMethodCalls</span><span class="s1">()))</span><span class="s0">;</span>
+
+            <span class="s7">$changes </span><span class="s1">= </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getChanges</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'factory'</span><span class="s1">])) {</span>
+                <span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">setFactory</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$changes</span><span class="s1">[</span><span class="s8">'configurator'</span><span class="s1">])) {</span>
+                <span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">setConfigurator</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">getConfigurator</span><span class="s1">()))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\ReflectionFunctionAbstract|null</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getConstructor</span><span class="s1">(</span><span class="s3">Definition </span><span class="s7">$definition</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$required</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isSynthetic</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$factory </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">())) {</span>
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">function_exists</span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: function &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$factory</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$r </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionFunction</span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">() &amp;&amp; </span><span class="s3">file_exists</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">())) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">fileExists</span><span class="s1">(</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getFileName</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$r</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">) {</span>
+            <span class="s0">list</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">) = </span><span class="s7">$factory</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$class </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">findDefinition</span><span class="s1">((string) </span><span class="s7">$class</span><span class="s1">)-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$class </span><span class="s0">instanceof </span><span class="s3">Definition</span><span class="s1">) {</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s7">$class</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$class</span><span class="s1">) {</span>
+                <span class="s7">$class </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'__construct' </span><span class="s1">=== </span><span class="s7">$method</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: &quot;__construct()&quot; cannot be used as a factory method.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getReflectionMethod</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Definition</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$method</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$class </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: class &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">ReflectionException </span><span class="s7">$e</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: '</span><span class="s1">.</span><span class="s3">lcfirst</span><span class="s1">(</span><span class="s7">$e</span><span class="s1">-&gt;</span><span class="s3">getMessage</span><span class="s1">())</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getConstructor</span><span class="s1">()) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$required</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: class%s has no constructor.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">$class </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">? </span><span class="s8">' &quot;%s&quot;' </span><span class="s1">: </span><span class="s8">''</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: %s must be public.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">$class </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">? </span><span class="s8">'constructor of class &quot;%s&quot;' </span><span class="s1">: </span><span class="s8">'its constructor'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">)))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$r</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">\ReflectionFunctionAbstract</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getReflectionMethod</span><span class="s1">(</span><span class="s3">Definition </span><span class="s7">$definition</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'__construct' </span><span class="s1">=== </span><span class="s7">$method</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getConstructor</span><span class="s1">(</span><span class="s7">$definition</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$class </span><span class="s1">= </span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: the class is not set.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getReflectionClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: class &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s7">$method</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: method &quot;%s()&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$class </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">? </span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'::'</span><span class="s1">.</span><span class="s7">$method </span><span class="s1">: </span><span class="s7">$method</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$r </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s7">$method</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$r</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Invalid service &quot;%s&quot;: method &quot;%s()&quot; must be public.'</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId</span><span class="s0">, </span><span class="s7">$class </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">currentId </span><span class="s1">? </span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'::'</span><span class="s1">.</span><span class="s7">$method </span><span class="s1">: </span><span class="s7">$method</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$r</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getExpressionLanguage</span><span class="s1">(): </span><span class="s3">ExpressionLanguage</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguage</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">ExpressionLanguage</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'Unable to use expressions as the Symfony ExpressionLanguage component is not installed.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$providers </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">container</span><span class="s1">-&gt;</span><span class="s3">getExpressionLanguageProviders</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguage </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ExpressionLanguage</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$providers</span><span class="s0">, function </span><span class="s1">(</span><span class="s3">string </span><span class="s7">$arg</span><span class="s1">): </span><span class="s3">string </span><span class="s1">{</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'&quot;&quot;' </span><span class="s1">=== </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$arg</span><span class="s0">, </span><span class="s8">''</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+                    <span class="s7">$id </span><span class="s1">= </span><span class="s3">stripcslashes</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$arg</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inExpression </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                    <span class="s7">$arg </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">processValue</span><span class="s1">(</span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">inExpression </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s7">$arg </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+                        <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;%s::processValue()&quot; must return a Reference when processing an expression, &quot;%s&quot; returned for service(&quot;%s&quot;).'</span><span class="s0">, static</span><span class="s1">::</span><span class="s0">class, </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$arg</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$arg</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$arg</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$arg </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'&quot;%s&quot;'</span><span class="s0">, </span><span class="s7">$arg</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'$this-&gt;get(%s)'</span><span class="s0">, </span><span class="s7">$arg</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">})</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">expressionLanguage</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

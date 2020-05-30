@@ -1,0 +1,291 @@
+<html>
+<head>
+<title>PassConfig.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PassConfig.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Compiler Pass Configuration.</span>
+ <span class="s4">*</span>
+ <span class="s4">* This class has a default configuration embedded.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">PassConfig</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">TYPE_AFTER_REMOVING </span><span class="s1">= </span><span class="s7">'afterRemoving'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">TYPE_BEFORE_OPTIMIZATION </span><span class="s1">= </span><span class="s7">'beforeOptimization'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">TYPE_BEFORE_REMOVING </span><span class="s1">= </span><span class="s7">'beforeRemoving'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">TYPE_OPTIMIZE </span><span class="s1">= </span><span class="s7">'optimization'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">TYPE_REMOVE </span><span class="s1">= </span><span class="s7">'removing'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$mergePass</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$afterRemovingPasses </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$beforeOptimizationPasses </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$beforeRemovingPasses </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$optimizationPasses</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$removingPasses</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mergePass </span><span class="s1">= </span><span class="s0">new </span><span class="s3">MergeExtensionConfigurationPass</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">beforeOptimizationPasses </span><span class="s1">= [</span>
+            <span class="s9">100 </span><span class="s1">=&gt; [</span>
+                <span class="s0">new </span><span class="s3">ResolveClassPass</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s0">new </span><span class="s3">ResolveInstanceofConditionalsPass</span><span class="s1">()</span><span class="s0">,</span>
+                <span class="s0">new </span><span class="s3">RegisterEnvVarProcessorsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">,</span>
+            <span class="s1">-</span><span class="s9">1000 </span><span class="s1">=&gt; [</span><span class="s0">new </span><span class="s3">ExtensionCompilerPass</span><span class="s1">()]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">optimizationPasses </span><span class="s1">= [[</span>
+            <span class="s0">new </span><span class="s3">ValidateEnvPlaceholdersPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveChildDefinitionsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">RegisterServiceSubscribersPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveParameterPlaceHoldersPass</span><span class="s1">(</span><span class="s3">false</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveFactoryClassPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveNamedArgumentsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">AutowireRequiredMethodsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveBindingsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ServiceLocatorTagPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">DecoratorServicePass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">CheckDefinitionValidityPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">AutowirePass</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveTaggedIteratorArgumentPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveServiceSubscribersPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveReferencesToAliasesPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveInvalidReferencesPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">AnalyzeServiceReferencesPass</span><span class="s1">(</span><span class="s3">true</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">CheckCircularReferencesPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">CheckReferenceValidityPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">CheckArgumentsValidityPass</span><span class="s1">(</span><span class="s3">false</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]]</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">beforeRemovingPasses </span><span class="s1">= [</span>
+            <span class="s1">-</span><span class="s9">100 </span><span class="s1">=&gt; [</span>
+                <span class="s0">new </span><span class="s3">ResolvePrivatesPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s1">]</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">removingPasses </span><span class="s1">= [[</span>
+            <span class="s0">new </span><span class="s3">RemovePrivateAliasesPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ReplaceAliasByActualDefinitionPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">RemoveAbstractDefinitionsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">RemoveUnusedDefinitionsPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">InlineServiceDefinitionsPass</span><span class="s1">(</span><span class="s0">new </span><span class="s3">AnalyzeServiceReferencesPass</span><span class="s1">())</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">AnalyzeServiceReferencesPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">DefinitionErrorExceptionPass</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">]]</span><span class="s0">;</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">afterRemovingPasses </span><span class="s1">= [[</span>
+            <span class="s0">new </span><span class="s3">CheckExceptionOnInvalidReferenceBehaviorPass</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s0">new </span><span class="s3">ResolveHotPathPass</span><span class="s1">()</span><span class="s0">,</span>
+        <span class="s1">]]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns all passes in order to be processed.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getPasses</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">array_merge</span><span class="s1">(</span>
+            <span class="s1">[</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mergePass</span><span class="s1">]</span><span class="s0">,</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getBeforeOptimizationPasses</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getOptimizationPasses</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getBeforeRemovingPasses</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRemovingPasses</span><span class="s1">()</span><span class="s0">,</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getAfterRemovingPasses</span><span class="s1">()</span>
+        <span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException when a pass type doesn't exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addPass</span><span class="s1">(</span><span class="s3">CompilerPassInterface </span><span class="s8">$pass</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$type </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">TYPE_BEFORE_OPTIMIZATION</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$priority </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$property </span><span class="s1">= </span><span class="s8">$type</span><span class="s1">.</span><span class="s7">'Passes'</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s8">$property</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Invalid type &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$type</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$passes </span><span class="s1">= &amp;</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s8">$property</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$passes</span><span class="s1">[</span><span class="s8">$priority</span><span class="s1">])) {</span>
+            <span class="s8">$passes</span><span class="s1">[</span><span class="s8">$priority</span><span class="s1">] = []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s8">$passes</span><span class="s1">[</span><span class="s8">$priority</span><span class="s1">][] = </span><span class="s8">$pass</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets all passes for the AfterRemoving pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getAfterRemovingPasses</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sortPasses</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">afterRemovingPasses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets all passes for the BeforeOptimization pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getBeforeOptimizationPasses</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sortPasses</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">beforeOptimizationPasses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets all passes for the BeforeRemoving pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getBeforeRemovingPasses</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sortPasses</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">beforeRemovingPasses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets all passes for the Optimization pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getOptimizationPasses</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sortPasses</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">optimizationPasses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets all passes for the Removing pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRemovingPasses</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">sortPasses</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">removingPasses</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the Merge pass.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getMergePass</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mergePass</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setMergePass</span><span class="s1">(</span><span class="s3">CompilerPassInterface </span><span class="s8">$pass</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">mergePass </span><span class="s1">= </span><span class="s8">$pass</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the AfterRemoving passes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">CompilerPassInterface[] $passes</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAfterRemovingPasses</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$passes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">afterRemovingPasses </span><span class="s1">= [</span><span class="s8">$passes</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the BeforeOptimization passes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">CompilerPassInterface[] $passes</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setBeforeOptimizationPasses</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$passes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">beforeOptimizationPasses </span><span class="s1">= [</span><span class="s8">$passes</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the BeforeRemoving passes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">CompilerPassInterface[] $passes</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setBeforeRemovingPasses</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$passes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">beforeRemovingPasses </span><span class="s1">= [</span><span class="s8">$passes</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Optimization passes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">CompilerPassInterface[] $passes</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setOptimizationPasses</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$passes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">optimizationPasses </span><span class="s1">= [</span><span class="s8">$passes</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Removing passes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">CompilerPassInterface[] $passes</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setRemovingPasses</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$passes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">removingPasses </span><span class="s1">= [</span><span class="s8">$passes</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sort passes by priority.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $passes CompilerPassInterface instances with their priority as key</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">CompilerPassInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">sortPasses</span><span class="s1">(</span><span class="s0">array </span><span class="s8">$passes</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$passes</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s1">[]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s3">krsort</span><span class="s1">(</span><span class="s8">$passes</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Flatten the array</span>
+        <span class="s0">return </span><span class="s3">array_merge</span><span class="s1">(...</span><span class="s8">$passes</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

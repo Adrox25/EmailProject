@@ -1,0 +1,107 @@
+<html>
+<head>
+<title>Configurator.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Configurator.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">Composer</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Composer</span><span class="s1">\</span><span class="s3">IO</span><span class="s1">\</span><span class="s3">IOInterface</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Flex</span><span class="s1">\</span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">AbstractConfigurator</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Configurator</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$composer</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$io</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$options</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$configurators</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$cache</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">Composer </span><span class="s7">$composer</span><span class="s0">, </span><span class="s3">IOInterface </span><span class="s7">$io</span><span class="s0">, </span><span class="s3">Options </span><span class="s7">$options</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">composer </span><span class="s1">= </span><span class="s7">$composer</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io </span><span class="s1">= </span><span class="s7">$io</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options </span><span class="s1">= </span><span class="s7">$options</span><span class="s0">;</span>
+        <span class="s2">// ordered list of configurators</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurators </span><span class="s1">= [</span>
+            <span class="s8">'bundles' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">BundlesConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'copy-from-recipe' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">CopyFromRecipeConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'copy-from-package' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">CopyFromPackageConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'env' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">EnvConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'container' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">ContainerConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'makefile' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">MakefileConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'composer-scripts' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">ComposerScriptsConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'gitignore' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">GitignoreConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'dockerfile' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">DockerfileConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+            <span class="s8">'docker-compose' </span><span class="s1">=&gt; </span><span class="s3">Configurator</span><span class="s1">\</span><span class="s3">DockerComposeConfigurator</span><span class="s1">::</span><span class="s0">class,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">install</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s3">Lock </span><span class="s7">$lock</span><span class="s0">, array </span><span class="s7">$options </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$manifest </span><span class="s1">= </span><span class="s7">$recipe</span><span class="s1">-&gt;</span><span class="s3">getManifest</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurators</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$manifest</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)-&gt;</span><span class="s3">configure</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$manifest</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$lock</span><span class="s0">, </span><span class="s7">$options</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">unconfigure</span><span class="s1">(</span><span class="s3">Recipe </span><span class="s7">$recipe</span><span class="s0">, </span><span class="s3">Lock </span><span class="s7">$lock</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$manifest </span><span class="s1">= </span><span class="s7">$recipe</span><span class="s1">-&gt;</span><span class="s3">getManifest</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s3">array_keys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurators</span><span class="s1">) </span><span class="s0">as </span><span class="s7">$key</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$manifest</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">)-&gt;</span><span class="s3">unconfigure</span><span class="s1">(</span><span class="s7">$recipe</span><span class="s0">, </span><span class="s7">$manifest</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$lock</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">get</span><span class="s1">(</span><span class="s7">$key</span><span class="s1">): </span><span class="s3">AbstractConfigurator</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurators</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Unknown configurator &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])) {</span>
+            <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$class </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurators</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">cache</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s7">$class</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">composer</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">io</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">options</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

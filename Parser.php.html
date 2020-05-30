@@ -1,0 +1,1270 @@
+<html>
+<head>
+<title>Parser.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6a8759;}
+.s8 { color: #9876aa;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Parser.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">ParseException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Yaml</span><span class="s1">\</span><span class="s3">Tag</span><span class="s1">\</span><span class="s3">TaggedValue</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Parser parses YAML strings to convert them to PHP arrays.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Parser</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">TAG_PATTERN </span><span class="s1">= </span><span class="s7">'(?P&lt;tag&gt;![\w!.\/:-]+)'</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">BLOCK_SCALAR_HEADER_PATTERN </span><span class="s1">= </span><span class="s7">'(?P&lt;separator&gt;\||&gt;)(?P&lt;modifiers&gt;\+|\-|\d+|\+\d+|\-\d+|\d+\+|\d+\-)?(?P&lt;comments&gt; +#.*)?'</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s8">$filename</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$offset </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$totalNumberOfLines</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$lines </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$currentLineNb </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$currentLine </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$refs </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$skippedLineNumbers </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$locallySkippedLineNumbers </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s8">$refsBeingParsed </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML file into a PHP value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $filename The path to the YAML file to be parsed</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int    $flags    A bit field of PARSE_* constants to customize the YAML parser behavior</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The YAML converted to a PHP value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException If the file could not be read or the YAML is not valid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">parseFile</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$filename</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_file</span><span class="s1">(</span><span class="s8">$filename</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'File &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s8">$filename</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_readable</span><span class="s1">(</span><span class="s8">$filename</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'File &quot;%s&quot; cannot be read.'</span><span class="s0">, </span><span class="s8">$filename</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename </span><span class="s1">= </span><span class="s8">$filename</span><span class="s0">;</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parse</span><span class="s1">(</span><span class="s3">file_get_contents</span><span class="s1">(</span><span class="s8">$filename</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML string to a PHP value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value A YAML string</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int    $flags A bit field of PARSE_* constants to customize the YAML parser behavior</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed A PHP value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException If the YAML is not valid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">parse</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'//u'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'The YAML value does not appear to be valid UTF-8.'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s8">$mbEncoding </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">2 </span><span class="s2">/* MB_OVERLOAD_STRING */ </span><span class="s1">&amp; (int) </span><span class="s3">ini_get</span><span class="s1">(</span><span class="s7">'mbstring.func_overload'</span><span class="s1">)) {</span>
+            <span class="s8">$mbEncoding </span><span class="s1">= </span><span class="s3">mb_internal_encoding</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s3">mb_internal_encoding</span><span class="s1">(</span><span class="s7">'UTF-8'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s8">$data </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">doParse</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">finally </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$mbEncoding</span><span class="s1">) {</span>
+                <span class="s3">mb_internal_encoding</span><span class="s1">(</span><span class="s8">$mbEncoding</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">skippedLineNumbers </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">locallySkippedLineNumbers </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$data</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">doParse</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s8">$value </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">cleanup</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">locallySkippedLineNumbers </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">totalNumberOfLines</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">totalNumberOfLines </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$data </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s8">$context </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s8">$allowOverwrite </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">()) {</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+                <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// Resolves the tag and returns if end of the document</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== (</span><span class="s8">$tag </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getLineTag</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) &amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s0">return new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s7">''</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">do </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">()) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// tab?</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\t</span><span class="s7">&quot; </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'A YAML file cannot contain tabs as indentation.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s3">Inline</span><span class="s1">::</span><span class="s3">initialize</span><span class="s1">(</span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s8">$isRef </span><span class="s1">= </span><span class="s8">$mergeNode </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'-' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^\-((?P&lt;leadspaces&gt;\s+)(?P&lt;value&gt;.+))?$#u'</span><span class="s0">, </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$context </span><span class="s1">&amp;&amp; </span><span class="s7">'mapping' </span><span class="s1">== </span><span class="s8">$context</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'You cannot define a sequence item when in a mapping.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s8">$context </span><span class="s1">= </span><span class="s7">'sequence'</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) &amp;&amp; </span><span class="s7">'&amp;' </span><span class="s1">=== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^&amp;(?P&lt;ref&gt;[^ ]+) *(?P&lt;value&gt;.*)#u'</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) {</span>
+                    <span class="s8">$isRef </span><span class="s1">= </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'ref'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s1">[] = </span><span class="s8">$isRef</span><span class="s0">;</span>
+                    <span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">] = </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]) &amp;&amp; </span><span class="s7">'?' </span><span class="s1">=== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">1</span><span class="s1">]) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Complex mappings are not supported.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// array</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) || </span><span class="s7">'' </span><span class="s1">== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">) || </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">)</span><span class="s0">, </span><span class="s7">'#'</span><span class="s1">)) {</span>
+                    <span class="s8">$data</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseBlock</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNextEmbedBlock</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) ?? </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$subTag </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getLineTag</span><span class="s1">(</span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)) {</span>
+                    <span class="s8">$data</span><span class="s1">[] = </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span>
+                        <span class="s8">$subTag</span><span class="s0">,</span>
+                        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseBlock</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNextEmbedBlock</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span>
+                    <span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'leadspaces'</span><span class="s1">])</span>
+                        <span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^(?P&lt;key&gt;'</span><span class="s1">.</span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">REGEX_QUOTED_STRING</span><span class="s1">.</span><span class="s7">'|[^ </span><span class="s0">\'</span><span class="s7">&quot;\{\[].*?) *\:(\s+(?P&lt;value&gt;.+?))?\s*$#u'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">trimTag</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">])</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)</span>
+                    <span class="s1">) {</span>
+                        <span class="s2">// this is a compact notation element, add to next block and parse</span>
+                        <span class="s8">$block </span><span class="s1">= </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isNextLineIndented</span><span class="s1">()) {</span>
+                            <span class="s8">$block </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">.</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNextEmbedBlock</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">() + \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'leadspaces'</span><span class="s1">]) + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s8">$data</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseBlock</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$block</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s8">$data</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseValue</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$context</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$isRef</span><span class="s1">) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">[</span><span class="s8">$isRef</span><span class="s1">] = </span><span class="s3">end</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s3">array_pop</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span>
+                <span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^(?P&lt;key&gt;(?:![^\s]++\s++)?(?:'</span><span class="s1">.</span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">REGEX_QUOTED_STRING</span><span class="s1">.</span><span class="s7">'|(?:!?!php/const:)?[^ </span><span class="s0">\'</span><span class="s7">&quot;\[\{!].*?)) *\:(\s++(?P&lt;value&gt;.+))?$#u'</span><span class="s0">, </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">)</span>
+                <span class="s1">&amp;&amp; (</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'key'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">' #'</span><span class="s1">) || \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'key'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'&quot;'</span><span class="s0">, </span><span class="s7">&quot;'&quot;</span><span class="s1">]))</span>
+            <span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$context </span><span class="s1">&amp;&amp; </span><span class="s7">'sequence' </span><span class="s1">== </span><span class="s8">$context</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'You cannot define a mapping item when in a sequence.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s8">$context </span><span class="s1">= </span><span class="s7">'mapping'</span><span class="s0">;</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s8">$key </span><span class="s1">= </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parseScalar</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'key'</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">) &amp;&amp; !\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'%s keys are not supported. Quote your evaluable mapping keys instead.'</span><span class="s0">, </span><span class="s3">is_numeric</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">) ? </span><span class="s7">'Numeric' </span><span class="s1">: </span><span class="s7">'Non-string'</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// Convert float keys to strings, to avoid being converted to integers by PHP</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_float</span><span class="s1">(</span><span class="s8">$key</span><span class="s1">)) {</span>
+                    <span class="s8">$key </span><span class="s1">= (string) </span><span class="s8">$key</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key </span><span class="s1">&amp;&amp; (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) || </span><span class="s7">'&amp;' </span><span class="s1">!== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] || !</span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^&amp;(?P&lt;ref&gt;[^ ]+)#u'</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$refMatches</span><span class="s1">))) {</span>
+                    <span class="s8">$mergeNode </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                    <span class="s8">$allowOverwrite </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">'*' </span><span class="s1">=== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+                        <span class="s8">$refName </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">])</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">$refName</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$pos </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s8">$refName</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Circular reference [%s, %s] detected for reference &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">', '</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s0">, </span><span class="s8">$pos</span><span class="s1">))</span><span class="s0">, </span><span class="s8">$refName</span><span class="s0">, </span><span class="s8">$refName</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Reference &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s8">$refName</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s8">$refValue </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">[</span><span class="s8">$refName</span><span class="s1">]</span><span class="s0">;</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT_FOR_MAP </span><span class="s1">&amp; </span><span class="s8">$flags </span><span class="s1">&amp;&amp; </span><span class="s8">$refValue </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">stdClass</span><span class="s1">) {</span>
+                            <span class="s8">$refValue </span><span class="s1">= (array) </span><span class="s8">$refValue</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$refValue</span><span class="s1">)) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'YAML merge keys used with a scalar value instead of an array.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s8">$data </span><span class="s1">+= </span><span class="s8">$refValue</span><span class="s0">; </span><span class="s2">// array union</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) &amp;&amp; </span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) {</span>
+                            <span class="s8">$value </span><span class="s1">= </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s8">$value </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNextEmbedBlock</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                        <span class="s8">$parsed </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseBlock</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT_FOR_MAP </span><span class="s1">&amp; </span><span class="s8">$flags </span><span class="s1">&amp;&amp; </span><span class="s8">$parsed </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">stdClass</span><span class="s1">) {</span>
+                            <span class="s8">$parsed </span><span class="s1">= (array) </span><span class="s8">$parsed</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$parsed</span><span class="s1">)) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'YAML merge keys used with a scalar value instead of an array.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$parsed</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])) {</span>
+                            <span class="s2">// If the value associated with the merge key is a sequence, then this sequence is expected to contain mapping nodes</span>
+                            <span class="s2">// and each of these nodes is merged in turn according to its order in the sequence. Keys in mapping nodes earlier</span>
+                            <span class="s2">// in the sequence override keys specified in later mapping nodes.</span>
+                            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$parsed </span><span class="s0">as </span><span class="s8">$parsedItem</span><span class="s1">) {</span>
+                                <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT_FOR_MAP </span><span class="s1">&amp; </span><span class="s8">$flags </span><span class="s1">&amp;&amp; </span><span class="s8">$parsedItem </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">stdClass</span><span class="s1">) {</span>
+                                    <span class="s8">$parsedItem </span><span class="s1">= (array) </span><span class="s8">$parsedItem</span><span class="s0">;</span>
+                                <span class="s1">}</span>
+
+                                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s8">$parsedItem</span><span class="s1">)) {</span>
+                                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Merge items must be arrays.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$parsedItem</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                                <span class="s1">}</span>
+
+                                <span class="s8">$data </span><span class="s1">+= </span><span class="s8">$parsedItem</span><span class="s0">; </span><span class="s2">// array union</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s2">// If the value associated with the key is a single mapping node, each of its key/value pairs is inserted into the</span>
+                            <span class="s2">// current mapping, unless the key already exists in it.</span>
+                            <span class="s8">$data </span><span class="s1">+= </span><span class="s8">$parsed</span><span class="s0">; </span><span class="s2">// array union</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">!== </span><span class="s8">$key </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) &amp;&amp; </span><span class="s7">'&amp;' </span><span class="s1">=== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">][</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'#^&amp;(?P&lt;ref&gt;[^ ]++) *+(?P&lt;value&gt;.*)#u'</span><span class="s0">, </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) {</span>
+                    <span class="s8">$isRef </span><span class="s1">= </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'ref'</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s1">[] = </span><span class="s8">$isRef</span><span class="s0">;</span>
+                    <span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">] = </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$subTag </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$mergeNode</span><span class="s1">) {</span>
+                    <span class="s2">// Merge keys</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]) || </span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">] || </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s7">'#'</span><span class="s1">) || (</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$subTag </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getLineTag</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)) || </span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                    <span class="s2">// hash</span>
+                    <span class="s2">// if next line is less indented or equal, then it means that the current value is null</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isNextLineIndented</span><span class="s1">() &amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isNextLineUnIndentedCollection</span><span class="s1">()) {</span>
+                        <span class="s2">// Spec: Keys MUST be unique; first one wins.</span>
+                        <span class="s2">// But overwriting is allowed when a merge node is used in current block.</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s8">$allowOverwrite </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$subTag</span><span class="s1">) {</span>
+                                <span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$subTag</span><span class="s0">, </span><span class="s7">''</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                                <span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s3">null</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Duplicate key &quot;%s&quot; detected.'</span><span class="s0">, </span><span class="s8">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s2">// remember the parsed line number here in case we need it to provide some contexts in error messages below</span>
+                        <span class="s8">$realCurrentLineNbKey </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">()</span><span class="s0">;</span>
+                        <span class="s8">$value </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseBlock</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getNextEmbedBlock</span><span class="s1">()</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'&lt;&lt;' </span><span class="s1">=== </span><span class="s8">$key</span><span class="s1">) {</span>
+                            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">[</span><span class="s8">$refMatches</span><span class="s1">[</span><span class="s7">'ref'</span><span class="s1">]] = </span><span class="s8">$value</span><span class="s0">;</span>
+
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT_FOR_MAP </span><span class="s1">&amp; </span><span class="s8">$flags </span><span class="s1">&amp;&amp; </span><span class="s8">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">stdClass</span><span class="s1">) {</span>
+                                <span class="s8">$value </span><span class="s1">= (array) </span><span class="s8">$value</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+
+                            <span class="s8">$data </span><span class="s1">+= </span><span class="s8">$value</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$allowOverwrite </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                            <span class="s2">// Spec: Keys MUST be unique; first one wins.</span>
+                            <span class="s2">// But overwriting is allowed when a merge node is used in current block.</span>
+                            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$subTag</span><span class="s1">) {</span>
+                                <span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$subTag</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+                            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                                <span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+                            <span class="s1">}</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Duplicate key &quot;%s&quot; detected.'</span><span class="s0">, </span><span class="s8">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$realCurrentLineNbKey </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$value </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseValue</span><span class="s1">(</span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$values</span><span class="s1">[</span><span class="s7">'value'</span><span class="s1">])</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$context</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s2">// Spec: Keys MUST be unique; first one wins.</span>
+                    <span class="s2">// But overwriting is allowed when a merge node is used in current block.</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">$allowOverwrite </span><span class="s1">|| !</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">])) {</span>
+                        <span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">] = </span><span class="s8">$value</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                        <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Duplicate key &quot;%s&quot; detected.'</span><span class="s0">, </span><span class="s8">$key</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$isRef</span><span class="s1">) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">[</span><span class="s8">$isRef</span><span class="s1">] = </span><span class="s8">$data</span><span class="s1">[</span><span class="s8">$key</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s3">array_pop</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'&quot;' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">&quot;'&quot; </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$context</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s0">return </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseQuotedString</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'{' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$context</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s8">$parsedMapping </span><span class="s1">= </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lexInlineMapping</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">()) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">return </span><span class="s8">$parsedMapping</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'[' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$context</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">try </span><span class="s1">{</span>
+                    <span class="s8">$parsedSequence </span><span class="s1">= </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lexInlineSequence</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">()) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">return </span><span class="s8">$parsedSequence</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+                    <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s2">// multiple documents are not supported</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'---' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Multiple documents are not supported.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$deprecatedUsage </span><span class="s1">= (</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) &amp;&amp; </span><span class="s7">'?' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Complex mappings are not supported.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// 1-liner optionally followed by newline(s)</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">) &amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] === </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)) {</span>
+                    <span class="s0">try </span><span class="s1">{</span>
+                        <span class="s8">$value </span><span class="s1">= </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+                        <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+                        <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">return </span><span class="s8">$value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// try to parse the value as a multi-line string as a last resort</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb</span><span class="s1">) {</span>
+                    <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s8">$value </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines </span><span class="s0">as </span><span class="s8">$line</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">) &amp;&amp; </span><span class="s7">'#' </span><span class="s1">=== </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">)[</span><span class="s9">0</span><span class="s1">]) {</span>
+                            <span class="s0">continue;</span>
+                        <span class="s1">}</span>
+                        <span class="s2">// If the indentation is not consistent at offset 0, it is to be considered as a ParseError</span>
+                        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">&amp;&amp; !</span><span class="s8">$deprecatedUsage </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$line</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$line</span><span class="s0">, </span><span class="s7">': '</span><span class="s1">)) {</span>
+                            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Mapping values are not allowed in multi-line blocks.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">)) {</span>
+                            <span class="s8">$value </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s8">$previousLineWasNewline </span><span class="s1">&amp;&amp; !</span><span class="s8">$previousLineWasTerminatedWithBackslash</span><span class="s1">) {</span>
+                            <span class="s8">$value </span><span class="s1">.= </span><span class="s7">' '</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">) &amp;&amp; </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$line</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+                            <span class="s8">$value </span><span class="s1">.= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$line</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">)) {</span>
+                            <span class="s8">$value </span><span class="s1">.= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">)</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+
+                        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$line</span><span class="s1">)) {</span>
+                            <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                            <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$line</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+                            <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                            <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                            <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                            <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">try </span><span class="s1">{</span>
+                        <span class="s0">return </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">))</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+                        <span class="s2">// fall-through to the ParseException thrown below</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Unable to parse.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">())</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$tag</span><span class="s1">) {</span>
+            <span class="s8">$data </span><span class="s1">= </span><span class="s0">new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s8">$tag</span><span class="s0">, </span><span class="s8">$data</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_OBJECT_FOR_MAP </span><span class="s1">&amp; </span><span class="s8">$flags </span><span class="s1">&amp;&amp; !\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">) &amp;&amp; </span><span class="s7">'mapping' </span><span class="s1">=== </span><span class="s8">$context</span><span class="s1">) {</span>
+            <span class="s8">$object </span><span class="s1">= </span><span class="s0">new </span><span class="s1">\</span><span class="s3">stdClass</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$data </span><span class="s0">as </span><span class="s8">$key </span><span class="s1">=&gt; </span><span class="s8">$value</span><span class="s1">) {</span>
+                <span class="s8">$object</span><span class="s1">-&gt;</span><span class="s8">$key </span><span class="s1">= </span><span class="s8">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$data </span><span class="s1">= </span><span class="s8">$object</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return empty</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">) ? </span><span class="s3">null </span><span class="s1">: </span><span class="s8">$data</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseBlock</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$offset</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$yaml</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s8">$skippedLineNumbers </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">skippedLineNumbers</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">locallySkippedLineNumbers </span><span class="s0">as </span><span class="s8">$lineNumber</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$lineNumber </span><span class="s1">&lt; </span><span class="s8">$offset</span><span class="s1">) {</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$skippedLineNumbers</span><span class="s1">[] = </span><span class="s8">$lineNumber</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$parser </span><span class="s1">= </span><span class="s0">new </span><span class="s3">self</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$parser</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">= </span><span class="s8">$offset</span><span class="s0">;</span>
+        <span class="s8">$parser</span><span class="s1">-&gt;</span><span class="s3">totalNumberOfLines </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">totalNumberOfLines</span><span class="s0">;</span>
+        <span class="s8">$parser</span><span class="s1">-&gt;</span><span class="s3">skippedLineNumbers </span><span class="s1">= </span><span class="s8">$skippedLineNumbers</span><span class="s0">;</span>
+        <span class="s8">$parser</span><span class="s1">-&gt;</span><span class="s3">refs </span><span class="s1">= &amp;</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s0">;</span>
+        <span class="s8">$parser</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">$parser</span><span class="s1">-&gt;</span><span class="s3">doParse</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s0">, </span><span class="s8">$flags</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the current line number (takes the offset into account).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The current line number</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getRealCurrentLineNb</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s8">$realCurrentLineNumber </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">+ </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">offset</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">skippedLineNumbers </span><span class="s0">as </span><span class="s8">$skippedLineNumber</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$skippedLineNumber </span><span class="s1">&gt; </span><span class="s8">$realCurrentLineNumber</span><span class="s1">) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s1">++</span><span class="s8">$realCurrentLineNumber</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$realCurrentLineNumber</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the current line indentation.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The current line indentation</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getCurrentLineIndentation</span><span class="s1">(): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">) - \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the next embed block of YAML.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|null $indentation The indent level at which the block is to be read, or null for default</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool     $inSequence  True if the enclosing data structure is a sequence</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string A YAML string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException When indentation problem are detected</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">getNextEmbedBlock</span><span class="s1">(</span><span class="s3">int </span><span class="s8">$indentation </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$inSequence </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$oldLineIndentation </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$indentation</span><span class="s1">) {</span>
+            <span class="s8">$newIndent </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s8">$movements </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+            <span class="s0">do </span><span class="s1">{</span>
+                <span class="s8">$EOF </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+                <span class="s2">// empty and comment-like lines do not influence the indentation depth</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineComment</span><span class="s1">()) {</span>
+                    <span class="s8">$EOF </span><span class="s1">= !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()</span><span class="s0">;</span>
+
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s8">$EOF</span><span class="s1">) {</span>
+                        <span class="s1">++</span><span class="s8">$movements</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$newIndent </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">while </span><span class="s1">(!</span><span class="s8">$EOF </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$newIndent</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$movements</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$unindentedEmbedBlock </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isStringUnIndentedCollectionItem</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() &amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s8">$newIndent </span><span class="s1">&amp;&amp; !</span><span class="s8">$unindentedEmbedBlock</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Indentation problem.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$newIndent </span><span class="s1">= </span><span class="s8">$indentation</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$data </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">() &gt;= </span><span class="s8">$newIndent</span><span class="s1">) {</span>
+            <span class="s8">$data</span><span class="s1">[] = </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$newIndent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineComment</span><span class="s1">()) {</span>
+            <span class="s8">$data</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$inSequence </span><span class="s1">&amp;&amp; </span><span class="s8">$oldLineIndentation </span><span class="s1">=== </span><span class="s8">$newIndent </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) &amp;&amp; </span><span class="s7">'-' </span><span class="s1">=== </span><span class="s8">$data</span><span class="s1">[</span><span class="s9">0</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s2">// the previous line contained a dash but no item content, this line is a sequence item with the same indentation</span>
+            <span class="s2">// and therefore no nested list or mapping</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$isItUnindentedCollection </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isStringUnIndentedCollectionItem</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s8">$indent </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$isItUnindentedCollection </span><span class="s1">&amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() &amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isStringUnIndentedCollectionItem</span><span class="s1">() &amp;&amp; </span><span class="s8">$newIndent </span><span class="s1">=== </span><span class="s8">$indent</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineBlank</span><span class="s1">()) {</span>
+                <span class="s8">$data</span><span class="s1">[] = </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$newIndent</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$indent </span><span class="s1">&gt;= </span><span class="s8">$newIndent</span><span class="s1">) {</span>
+                <span class="s8">$data</span><span class="s1">[] = </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$newIndent</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineComment</span><span class="s1">()) {</span>
+                <span class="s8">$data</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">== </span><span class="s8">$indent</span><span class="s1">) {</span>
+                <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+
+                <span class="s0">break;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'Indentation problem.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$data</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Moves the parser to the next line.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">moveToNextLine</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">&gt;= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines</span><span class="s1">) - </span><span class="s9">1</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines</span><span class="s1">[++</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Moves the parser to the previous line.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">moveToPreviousLine</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">&lt; </span><span class="s9">1</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lines</span><span class="s1">[--</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a YAML value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value   A YAML value</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int    $flags   A bit field of PARSE_* constants to customize the YAML parser behavior</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $context The parser context (either sequence or mapping)</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed A PHP value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException When reference does not exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseValue</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$context</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">'*'</span><span class="s1">)) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$pos </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">'#'</span><span class="s1">)) {</span>
+                <span class="s8">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$pos </span><span class="s1">- </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$value </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s8">$pos </span><span class="s1">= </span><span class="s3">array_search</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Circular reference [%s, %s] detected for reference &quot;%s&quot;.'</span><span class="s0">, </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">', '</span><span class="s0">, </span><span class="s1">\</span><span class="s3">array_slice</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refsBeingParsed</span><span class="s0">, </span><span class="s8">$pos</span><span class="s1">))</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Reference &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb </span><span class="s1">+ </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">[</span><span class="s8">$value</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">[</span><span class="s7">'!'</span><span class="s0">, </span><span class="s7">'|'</span><span class="s0">, </span><span class="s7">'&gt;'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">true</span><span class="s1">) &amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^(?:'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">TAG_PATTERN</span><span class="s1">.</span><span class="s7">' +)?'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">BLOCK_SCALAR_HEADER_PATTERN</span><span class="s1">.</span><span class="s7">'$/'</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) {</span>
+            <span class="s8">$modifiers </span><span class="s1">= </span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'modifiers'</span><span class="s1">]) ? </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'modifiers'</span><span class="s1">] : </span><span class="s7">''</span><span class="s0">;</span>
+
+            <span class="s8">$data </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">parseBlockScalar</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'separator'</span><span class="s1">]</span><span class="s0">, </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#\d+#'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$modifiers</span><span class="s1">)</span><span class="s0">, </span><span class="s1">(int) </span><span class="s3">abs</span><span class="s1">((int) </span><span class="s8">$modifiers</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'tag'</span><span class="s1">] &amp;&amp; </span><span class="s7">'!' </span><span class="s1">!== </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'tag'</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'!!binary' </span><span class="s1">=== </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'tag'</span><span class="s1">]) {</span>
+                    <span class="s0">return </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">evaluateBinaryScalar</span><span class="s1">(</span><span class="s8">$data</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return new </span><span class="s3">TaggedValue</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'tag'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$data</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$data</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">try </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$value </span><span class="s1">&amp;&amp; </span><span class="s7">'{' </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lexInlineMapping</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$value </span><span class="s1">&amp;&amp; </span><span class="s7">'[' </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                <span class="s0">return </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">lexInlineSequence</span><span class="s1">(</span><span class="s8">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$quotation </span><span class="s1">= </span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$value </span><span class="s1">&amp;&amp; (</span><span class="s7">'&quot;' </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s7">&quot;'&quot; </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) ? </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] : </span><span class="s3">null</span><span class="s0">;</span>
+
+            <span class="s2">// do not take following lines into account when the current line is a quoted single line value</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s8">$quotation </span><span class="s1">&amp;&amp; </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^'</span><span class="s1">.</span><span class="s8">$quotation</span><span class="s1">.</span><span class="s7">'.*'</span><span class="s1">.</span><span class="s8">$quotation</span><span class="s1">.</span><span class="s7">'(\s*#.*)?$/'</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)) {</span>
+                <span class="s0">return </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$lines </span><span class="s1">= []</span><span class="s0">;</span>
+
+            <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+                <span class="s2">// unquoted strings end before the first unindented line</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s8">$quotation </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">()) {</span>
+                    <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+
+                <span class="s8">$lines</span><span class="s1">[] = </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s2">// quoted string values end with a line that is terminated with the quotation character</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine </span><span class="s1">&amp;&amp; </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">) === </span><span class="s8">$quotation</span><span class="s1">) {</span>
+                    <span class="s0">break;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$linesCount </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$linesCount</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                    <span class="s8">$value </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$previousLineBlank</span><span class="s1">) {</span>
+                    <span class="s8">$value </span><span class="s1">.= </span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$value </span><span class="s1">.= </span><span class="s7">' '</span><span class="s1">.</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s3">Inline</span><span class="s1">::</span><span class="s8">$parsedLineNumber </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s8">$parsedValue </span><span class="s1">= </span><span class="s3">Inline</span><span class="s1">::</span><span class="s3">parse</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">refs</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'mapping' </span><span class="s1">=== </span><span class="s8">$context </span><span class="s1">&amp;&amp; \</span><span class="s3">is_string</span><span class="s1">(</span><span class="s8">$parsedValue</span><span class="s1">) &amp;&amp; </span><span class="s7">'&quot;' </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">&quot;'&quot; </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">'[' </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">'{' </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">'!' </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$parsedValue</span><span class="s0">, </span><span class="s7">': '</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s7">'A colon cannot be used in an unquoted mapping value.'</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">$parsedValue</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">catch </span><span class="s1">(</span><span class="s3">ParseException </span><span class="s8">$e</span><span class="s1">) {</span>
+            <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setParsedLine</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$e</span><span class="s1">-&gt;</span><span class="s3">setSnippet</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">throw </span><span class="s8">$e</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Parses a block scalar.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $style       The style indicator that was used to begin this block scalar (| or &gt;)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $chomping    The chomping indicator that was used to begin this block scalar (+ or -)</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int    $indentation The indentation indicator that was used to begin this block scalar</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">parseBlockScalar</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$style</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$chomping </span><span class="s1">= </span><span class="s7">''</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$indentation </span><span class="s1">= </span><span class="s9">0</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$notEOF </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s8">$notEOF</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$isCurrentLineBlank </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineBlank</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$blockLines </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s2">// leading blank lines are consumed before determining indentation</span>
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$notEOF </span><span class="s1">&amp;&amp; </span><span class="s8">$isCurrentLineBlank</span><span class="s1">) {</span>
+            <span class="s2">// newline only if not EOF</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">$notEOF </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+                <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s7">''</span><span class="s0">;</span>
+                <span class="s8">$isCurrentLineBlank </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineBlank</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// determine indentation if not specified</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s8">$indentation</span><span class="s1">) {</span>
+            <span class="s8">$currentLineLength </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$currentLineLength </span><span class="s1">&amp;&amp; </span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s8">$indentation</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$indentation </span><span class="s1">&gt; </span><span class="s9">0</span><span class="s1">) {</span>
+            <span class="s8">$pattern </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'/^ {%d}(.*)$/'</span><span class="s0">, </span><span class="s8">$indentation</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">while </span><span class="s1">(</span>
+                <span class="s8">$notEOF </span><span class="s1">&amp;&amp; (</span>
+                    <span class="s8">$isCurrentLineBlank </span><span class="s1">||</span>
+                    <span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$pattern</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)</span>
+                <span class="s1">)</span>
+            <span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$isCurrentLineBlank </span><span class="s1">&amp;&amp; \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">) &gt; </span><span class="s8">$indentation</span><span class="s1">) {</span>
+                    <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s8">$indentation</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$isCurrentLineBlank</span><span class="s1">) {</span>
+                    <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s7">''</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s8">$matches</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s2">// newline only if not EOF</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">$notEOF </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+                    <span class="s8">$isCurrentLineBlank </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineBlank</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$notEOF</span><span class="s1">) {</span>
+            <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$notEOF</span><span class="s1">) {</span>
+            <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s8">$notEOF </span><span class="s1">&amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineLastLineInDocument</span><span class="s1">()) {</span>
+            <span class="s8">$blockLines</span><span class="s1">[] = </span><span class="s7">''</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// folded style</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'&gt;' </span><span class="s1">=== </span><span class="s8">$style</span><span class="s1">) {</span>
+            <span class="s8">$text </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+            <span class="s8">$previousLineIndented </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$blockLinesCount </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$blockLines</span><span class="s1">)</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$blockLinesCount</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$blockLines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                    <span class="s8">$text </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">;</span>
+                    <span class="s8">$previousLineIndented </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">' ' </span><span class="s1">=== </span><span class="s8">$blockLines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">][</span><span class="s9">0</span><span class="s1">]) {</span>
+                    <span class="s8">$text </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">.</span><span class="s8">$blockLines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$previousLineIndented </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$previousLineIndented</span><span class="s1">) {</span>
+                    <span class="s8">$text </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">.</span><span class="s8">$blockLines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$previousLineIndented </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">$previousLineBlank </span><span class="s1">|| </span><span class="s9">0 </span><span class="s1">=== </span><span class="s8">$i</span><span class="s1">) {</span>
+                    <span class="s8">$text </span><span class="s1">.= </span><span class="s8">$blockLines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$previousLineIndented </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s8">$text </span><span class="s1">.= </span><span class="s7">' '</span><span class="s1">.</span><span class="s8">$blockLines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">;</span>
+                    <span class="s8">$previousLineIndented </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s8">$previousLineBlank </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s8">$text </span><span class="s1">= </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$blockLines</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// deal with trailing newlines</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$chomping</span><span class="s1">) {</span>
+            <span class="s8">$text </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/\n+$/'</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'-' </span><span class="s1">=== </span><span class="s8">$chomping</span><span class="s1">) {</span>
+            <span class="s8">$text </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'/\n+$/'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$text</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$text</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the next line is indented.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns true if the next line is indented, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isNextLineIndented</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s8">$currentIndentation </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$movements </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+        <span class="s0">do </span><span class="s1">{</span>
+            <span class="s8">$EOF </span><span class="s1">= !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$EOF</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s8">$movements</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">while </span><span class="s1">(!</span><span class="s8">$EOF </span><span class="s1">&amp;&amp; (</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineComment</span><span class="s1">()))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$EOF</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$ret </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">() &gt; </span><span class="s8">$currentIndentation</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$movements</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ret</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the current line is blank or if it is a comment line.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns true if the current line is empty or if it is a comment line, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isCurrentLineEmpty</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineBlank</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineComment</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the current line is blank.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns true if the current line is blank, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isCurrentLineBlank</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">'' </span><span class="s1">== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the current line is a comment line.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns true if the current line is a comment line, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isCurrentLineComment</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s2">//checking explicitly the first char of the trim is faster than loops or strpos</span>
+        <span class="s8">$ltrimmedLine </span><span class="s1">= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">'' </span><span class="s1">!== </span><span class="s8">$ltrimmedLine </span><span class="s1">&amp;&amp; </span><span class="s7">'#' </span><span class="s1">=== </span><span class="s8">$ltrimmedLine</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">isCurrentLineLastLineInDocument</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">+ </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLineNb</span><span class="s1">) &gt;= (</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">totalNumberOfLines </span><span class="s1">- </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Cleanups a YAML string to be parsed.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $value The input YAML string</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string A cleaned up YAML string</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">cleanup</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s8">$value </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">([</span><span class="s7">&quot;</span><span class="s0">\r\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\r</span><span class="s7">&quot;</span><span class="s1">]</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// strip YAML header</span>
+        <span class="s8">$count </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s8">$value </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#^\%YAML[: ][\d\.]+.*\n#u'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s8">$count</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">+= </span><span class="s8">$count</span><span class="s0">;</span>
+
+        <span class="s2">// remove leading comments</span>
+        <span class="s8">$trimmedValue </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#^(\#.*?\n)+#s'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s8">$count</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== </span><span class="s8">$count</span><span class="s1">) {</span>
+            <span class="s2">// items have been removed, update the offset</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">+= </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">) - </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s8">$trimmedValue</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$value </span><span class="s1">= </span><span class="s8">$trimmedValue</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// remove start of the document marker (---)</span>
+        <span class="s8">$trimmedValue </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#^\-\-\-.*?\n#s'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s8">$count</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== </span><span class="s8">$count</span><span class="s1">) {</span>
+            <span class="s2">// items have been removed, update the offset</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">offset </span><span class="s1">+= </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">) - </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s8">$trimmedValue</span><span class="s0">, </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s8">$value </span><span class="s1">= </span><span class="s8">$trimmedValue</span><span class="s0">;</span>
+
+            <span class="s2">// remove end of the document marker (...)</span>
+            <span class="s8">$value </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s7">'#\.\.\.\s*$#'</span><span class="s0">, </span><span class="s7">''</span><span class="s0">, </span><span class="s8">$value</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the next line starts unindented collection.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns true if the next line starts unindented collection, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isNextLineUnIndentedCollection</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s8">$currentIndentation </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s8">$movements </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+
+        <span class="s0">do </span><span class="s1">{</span>
+            <span class="s8">$EOF </span><span class="s1">= !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$EOF</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s8">$movements</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">while </span><span class="s1">(!</span><span class="s8">$EOF </span><span class="s1">&amp;&amp; (</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() || </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineComment</span><span class="s1">()))</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$EOF</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$ret </span><span class="s1">= </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getCurrentLineIndentation</span><span class="s1">() === </span><span class="s8">$currentIndentation </span><span class="s1">&amp;&amp; </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isStringUnIndentedCollectionItem</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$movements</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToPreviousLine</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ret</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns true if the string is un-indented collection item.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool Returns true if the string is un-indented collection item, false otherwise</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">isStringUnIndentedCollectionItem</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">'-' </span><span class="s1">=== </span><span class="s3">rtrim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">) || </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">, </span><span class="s7">'- '</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* A local wrapper for &quot;preg_match&quot; which will throw a ParseException if there</span>
+     <span class="s4">* is an internal error in the PCRE engine.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This avoids us needing to check for &quot;false&quot; every time PCRE is used</span>
+     <span class="s4">* in the YAML engine</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">ParseException on a PCRE internal error</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@see </span><span class="s4">preg_last_error()</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$pattern</span><span class="s0">, </span><span class="s3">string </span><span class="s8">$subject</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s8">$matches </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$offset </span><span class="s1">= </span><span class="s9">0</span><span class="s1">): </span><span class="s3">int</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s8">$ret </span><span class="s1">= </span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">$pattern</span><span class="s0">, </span><span class="s8">$subject</span><span class="s0">, </span><span class="s8">$matches</span><span class="s0">, </span><span class="s8">$flags</span><span class="s0">, </span><span class="s8">$offset</span><span class="s1">)) {</span>
+            <span class="s0">switch </span><span class="s1">(</span><span class="s3">preg_last_error</span><span class="s1">()) {</span>
+                <span class="s0">case </span><span class="s3">PREG_INTERNAL_ERROR</span><span class="s1">:</span>
+                    <span class="s8">$error </span><span class="s1">= </span><span class="s7">'Internal PCRE error.'</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s3">PREG_BACKTRACK_LIMIT_ERROR</span><span class="s1">:</span>
+                    <span class="s8">$error </span><span class="s1">= </span><span class="s7">'pcre.backtrack_limit reached.'</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s3">PREG_RECURSION_LIMIT_ERROR</span><span class="s1">:</span>
+                    <span class="s8">$error </span><span class="s1">= </span><span class="s7">'pcre.recursion_limit reached.'</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s3">PREG_BAD_UTF8_ERROR</span><span class="s1">:</span>
+                    <span class="s8">$error </span><span class="s1">= </span><span class="s7">'Malformed UTF-8 data.'</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">case </span><span class="s3">PREG_BAD_UTF8_OFFSET_ERROR</span><span class="s1">:</span>
+                    <span class="s8">$error </span><span class="s1">= </span><span class="s7">'Offset doesn</span><span class="s0">\'</span><span class="s7">t correspond to the begin of a valid UTF-8 code point.'</span><span class="s0">;</span>
+                    <span class="s0">break;</span>
+                <span class="s0">default</span><span class="s1">:</span>
+                    <span class="s8">$error </span><span class="s1">= </span><span class="s7">'Error.'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s8">$error</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$ret</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Trim the tag on top of the value.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Prevent values such as &quot;!foo {quz: bar}&quot; to be considered as</span>
+     <span class="s4">* a mapping block.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">trimTag</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'!' </span><span class="s1">=== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s3">strcspn</span><span class="s1">(</span><span class="s8">$value</span><span class="s0">, </span><span class="s7">&quot; </span><span class="s0">\r\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s9">1</span><span class="s1">))</span><span class="s0">, </span><span class="s7">' '</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">getLineTag</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$value</span><span class="s0">, </span><span class="s3">int </span><span class="s8">$flags</span><span class="s0">, </span><span class="s3">bool </span><span class="s8">$nextLineCheck </span><span class="s1">= </span><span class="s3">true</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$value </span><span class="s1">|| </span><span class="s7">'!' </span><span class="s1">!== </span><span class="s8">$value</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] || </span><span class="s9">1 </span><span class="s1">!== </span><span class="s3">self</span><span class="s1">::</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s7">'/^'</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">TAG_PATTERN</span><span class="s1">.</span><span class="s7">' *( +#.*)?$/'</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">)) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$nextLineCheck </span><span class="s1">&amp;&amp; !</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isNextLineIndented</span><span class="s1">()) {</span>
+            <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$tag </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'tag'</span><span class="s1">]</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s2">// Built-in tags</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">$tag </span><span class="s1">&amp;&amp; </span><span class="s7">'!' </span><span class="s1">=== </span><span class="s8">$tag</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'The built-in tag &quot;!%s&quot; is not implemented.'</span><span class="s0">, </span><span class="s8">$tag</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">Yaml</span><span class="s1">::</span><span class="s3">PARSE_CUSTOM_TAGS </span><span class="s1">&amp; </span><span class="s8">$flags</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">$tag</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s3">ParseException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'Tags support is not enabled. You must use the flag &quot;Yaml::PARSE_CUSTOM_TAGS&quot; to use &quot;%s&quot;.'</span><span class="s0">, </span><span class="s8">$matches</span><span class="s1">[</span><span class="s7">'tag'</span><span class="s1">])</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">getRealCurrentLineNb</span><span class="s1">() + </span><span class="s9">1</span><span class="s0">, </span><span class="s8">$value</span><span class="s0">, </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">filename</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">parseQuotedString</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$yaml</span><span class="s1">): ?</span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$yaml </span><span class="s1">|| (</span><span class="s7">'&quot;' </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] &amp;&amp; </span><span class="s7">&quot;'&quot; </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s9">0</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'&quot;%s&quot; is not a quoted string.'</span><span class="s0">, </span><span class="s8">$yaml</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$lines </span><span class="s1">= [</span><span class="s8">$yaml</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s8">$lines</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">isCurrentLineEmpty</span><span class="s1">() &amp;&amp; </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] === </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[-</span><span class="s9">1</span><span class="s1">]) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$value </span><span class="s1">= </span><span class="s7">''</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s8">$linesCount </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">)</span><span class="s0">, </span><span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">false</span><span class="s0">, </span><span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">; </span><span class="s8">$i </span><span class="s1">&lt; </span><span class="s8">$linesCount</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                <span class="s8">$value </span><span class="s1">.= </span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s8">$previousLineWasNewline </span><span class="s1">&amp;&amp; !</span><span class="s8">$previousLineWasTerminatedWithBackslash</span><span class="s1">) {</span>
+                <span class="s8">$value </span><span class="s1">.= </span><span class="s7">' '</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+                <span class="s8">$value </span><span class="s1">.= </span><span class="s3">ltrim</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">!== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                <span class="s8">$value </span><span class="s1">.= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">])) {</span>
+                <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">'</span><span class="s0">\\</span><span class="s7">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s8">$lines</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">)) {</span>
+                <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s8">$previousLineWasNewline </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s8">$previousLineWasTerminatedWithBackslash </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$value</span><span class="s0">;</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s8">$quotation </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s2">// quoted single line string</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s8">$quotation </span><span class="s1">=== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s8">$yaml</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$lines </span><span class="s1">= [</span><span class="s8">$yaml</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s8">$quotation </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$lines</span><span class="s1">[] = </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s8">$quotation </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">lexInlineMapping</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$yaml</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$yaml </span><span class="s1">|| </span><span class="s7">'{' </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'&quot;%s&quot; is not a sequence.'</span><span class="s0">, </span><span class="s8">$yaml</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">'}' </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">'}' </span><span class="s1">=== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s8">$yaml</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$lines </span><span class="s1">= [</span><span class="s8">$yaml</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s8">$lines</span><span class="s1">[] = </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">implode</span><span class="s1">(</span><span class="s7">&quot;</span><span class="s0">\n</span><span class="s7">&quot;</span><span class="s0">, </span><span class="s8">$lines</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private function </span><span class="s3">lexInlineSequence</span><span class="s1">(</span><span class="s3">string </span><span class="s8">$yaml</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">'' </span><span class="s1">=== </span><span class="s8">$yaml </span><span class="s1">|| </span><span class="s7">'[' </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s7">'&quot;%s&quot; is not a sequence.'</span><span class="s0">, </span><span class="s8">$yaml</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">']' </span><span class="s1">!== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">']' </span><span class="s1">=== </span><span class="s8">$yaml</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+            <span class="s0">return </span><span class="s8">$yaml</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s8">$value </span><span class="s1">= </span><span class="s8">$yaml</span><span class="s0">;</span>
+
+        <span class="s0">while </span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">moveToNextLine</span><span class="s1">()) {</span>
+            <span class="s0">for </span><span class="s1">(</span><span class="s8">$i </span><span class="s1">= </span><span class="s9">1</span><span class="s0">; isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">']' </span><span class="s1">!== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]</span><span class="s0">; </span><span class="s1">++</span><span class="s8">$i</span><span class="s1">) {</span>
+            <span class="s1">}</span>
+
+            <span class="s8">$value </span><span class="s1">.= </span><span class="s3">trim</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) &amp;&amp; </span><span class="s7">']' </span><span class="s1">=== </span><span class="s8">$this</span><span class="s1">-&gt;</span><span class="s3">currentLine</span><span class="s1">[</span><span class="s8">$i</span><span class="s1">]) {</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">$value</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

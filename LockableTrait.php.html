@@ -1,0 +1,93 @@
+<html>
+<head>
+<title>LockableTrait.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+LockableTrait.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Command</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Console</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">LogicException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Lock</span><span class="s1">\</span><span class="s3">Lock</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Lock</span><span class="s1">\</span><span class="s3">LockFactory</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Lock</span><span class="s1">\</span><span class="s3">Store</span><span class="s1">\</span><span class="s3">FlockStore</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Lock</span><span class="s1">\</span><span class="s3">Store</span><span class="s1">\</span><span class="s3">SemaphoreStore</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Basic lock feature for commands.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Geoffrey Brier </span><span class="s6">&lt;geoffrey.brier</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">trait </span><span class="s3">LockableTrait</span>
+<span class="s1">{</span>
+    <span class="s4">/** </span><span class="s5">@var </span><span class="s4">Lock */</span>
+    <span class="s0">private </span><span class="s7">$lock</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Locks a command.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">lock</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$blocking </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s3">SemaphoreStore</span><span class="s1">::</span><span class="s0">class</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'To enable the locking feature you must install the symfony/lock component.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">LogicException</span><span class="s1">(</span><span class="s8">'A lock is already in place.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">SemaphoreStore</span><span class="s1">::</span><span class="s3">isSupported</span><span class="s1">()) {</span>
+            <span class="s7">$store </span><span class="s1">= </span><span class="s0">new </span><span class="s3">SemaphoreStore</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$store </span><span class="s1">= </span><span class="s0">new </span><span class="s3">FlockStore</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock </span><span class="s1">= (</span><span class="s0">new </span><span class="s3">LockFactory</span><span class="s1">(</span><span class="s7">$store</span><span class="s1">))-&gt;</span><span class="s3">createLock</span><span class="s1">(</span><span class="s7">$name </span><span class="s1">?: </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock</span><span class="s1">-&gt;</span><span class="s3">acquire</span><span class="s1">(</span><span class="s7">$blocking</span><span class="s1">)) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Releases the command lock if there is one.</span>
+     <span class="s4">*/</span>
+    <span class="s0">private function </span><span class="s3">release</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock</span><span class="s1">-&gt;</span><span class="s3">release</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lock </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

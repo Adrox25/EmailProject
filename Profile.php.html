@@ -1,0 +1,299 @@
+<html>
+<head>
+<title>Profile.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6897bb;}
+.s9 { color: #6a8759;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Profile.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">Profiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">HttpKernel</span><span class="s1">\</span><span class="s3">DataCollector</span><span class="s1">\</span><span class="s3">DataCollectorInterface</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Profile.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Profile</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$token</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">DataCollectorInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$collectors </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private </span><span class="s7">$ip</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$method</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$url</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$time</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$statusCode</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">Profile</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$parent</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@var </span><span class="s4">Profile[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">private </span><span class="s7">$children </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">token </span><span class="s1">= </span><span class="s7">$token</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setToken</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">token </span><span class="s1">= </span><span class="s7">$token</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the token.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string The token</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getToken</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">token</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the parent token.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setParent</span><span class="s1">(</span><span class="s3">self </span><span class="s7">$parent</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s7">$parent</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the parent profile.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">self</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getParent</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the parent token.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The parent token</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getParentToken</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">() : </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the IP.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The IP</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getIp</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ip</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setIp</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$ip</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ip </span><span class="s1">= </span><span class="s7">$ip</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the request method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The request method</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getMethod</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">method</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setMethod</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">method </span><span class="s1">= </span><span class="s7">$method</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns the URL.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The URL</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getUrl</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">url</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setUrl</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$url</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">url </span><span class="s1">= </span><span class="s7">$url</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int The time</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTime</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">time</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s8">0</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">time</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setTime</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$time</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">time </span><span class="s1">= </span><span class="s7">$time</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">setStatusCode</span><span class="s1">(</span><span class="s3">int </span><span class="s7">$statusCode</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode </span><span class="s1">= </span><span class="s7">$statusCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">int|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getStatusCode</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">statusCode</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finds children profilers.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">self[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getChildren</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets children profiler.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">Profile[] $children</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setChildren</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$children</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$children </span><span class="s0">as </span><span class="s7">$child</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addChild</span><span class="s1">(</span><span class="s7">$child</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds the child token.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addChild</span><span class="s1">(</span><span class="s3">self </span><span class="s7">$child</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children</span><span class="s1">[] = </span><span class="s7">$child</span><span class="s0">;</span>
+        <span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">setParent</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">getChildByToken</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$token</span><span class="s1">): ?</span><span class="s3">self</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children </span><span class="s0">as </span><span class="s7">$child</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$token </span><span class="s1">=== </span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">getToken</span><span class="s1">()) {</span>
+                <span class="s0">return </span><span class="s7">$child</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">null</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a Collector by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">DataCollectorInterface A DataCollectorInterface instance</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">\InvalidArgumentException if the collector does not exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCollector</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collectors</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s9">'Collector &quot;%s&quot; does not exist.'</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collectors</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the Collectors associated with this profile.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">DataCollectorInterface[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getCollectors</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collectors</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the Collectors associated with this profile.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">DataCollectorInterface[] $collectors</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setCollectors</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$collectors</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collectors </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$collectors </span><span class="s0">as </span><span class="s7">$collector</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addCollector</span><span class="s1">(</span><span class="s7">$collector</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a Collector.</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addCollector</span><span class="s1">(</span><span class="s3">DataCollectorInterface </span><span class="s7">$collector</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collectors</span><span class="s1">[</span><span class="s7">$collector</span><span class="s1">-&gt;</span><span class="s3">getName</span><span class="s1">()] = </span><span class="s7">$collector</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasCollector</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">collectors</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__sleep</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">[</span><span class="s9">'token'</span><span class="s0">, </span><span class="s9">'parent'</span><span class="s0">, </span><span class="s9">'children'</span><span class="s0">, </span><span class="s9">'collectors'</span><span class="s0">, </span><span class="s9">'ip'</span><span class="s0">, </span><span class="s9">'method'</span><span class="s0">, </span><span class="s9">'url'</span><span class="s0">, </span><span class="s9">'time'</span><span class="s0">, </span><span class="s9">'statusCode'</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

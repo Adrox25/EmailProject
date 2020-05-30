@@ -1,0 +1,136 @@
+<html>
+<head>
+<title>Glob.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Glob.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Finder</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Glob matches globbing patterns against text.</span>
+ <span class="s4">*</span>
+ <span class="s4">*     if match_glob(&quot;foo.*&quot;, &quot;foo.bar&quot;) echo &quot;matched\n&quot;;</span>
+ <span class="s4">*</span>
+ <span class="s4">*     // prints foo.bar and foo.baz</span>
+ <span class="s4">*     $regex = glob_to_regex(&quot;foo.*&quot;);</span>
+ <span class="s4">*     for (['foo.bar', 'foo.baz', 'foo', 'bar'] as $t)</span>
+ <span class="s4">*     {</span>
+ <span class="s4">*         if (/$regex/) echo &quot;matched: $car\n&quot;;</span>
+ <span class="s4">*     }</span>
+ <span class="s4">*</span>
+ <span class="s4">* Glob implements glob(3) style matching that can be used to match</span>
+ <span class="s4">* against text, rather than fetching names from a filesystem.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Based on the Perl Text::Glob module.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt; PHP port</span>
+ <span class="s4">* </span><span class="s5">@author     </span><span class="s4">Richard Clamp </span><span class="s6">&lt;richardc</span><span class="s4">@unixbeard.net&gt; Perl version</span>
+ <span class="s4">* </span><span class="s5">@copyright  </span><span class="s4">2004-2005 Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">* </span><span class="s5">@copyright  </span><span class="s4">2002 Richard Clamp </span><span class="s6">&lt;richardc</span><span class="s4">@unixbeard.net&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Glob</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a regexp which is the equivalent of the glob pattern.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">toRegex</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$glob</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$strictLeadingDot </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$strictWildcardSlash </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$delimiter </span><span class="s1">= </span><span class="s8">'#'</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$firstByte </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$escaping </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s7">$inCurlies </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$regex </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$sizeGlob </span><span class="s1">= \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$glob</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s0">for </span><span class="s1">(</span><span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">; </span><span class="s7">$i </span><span class="s1">&lt; </span><span class="s7">$sizeGlob</span><span class="s0">; </span><span class="s1">++</span><span class="s7">$i</span><span class="s1">) {</span>
+            <span class="s7">$car </span><span class="s1">= </span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$firstByte </span><span class="s1">&amp;&amp; </span><span class="s7">$strictLeadingDot </span><span class="s1">&amp;&amp; </span><span class="s8">'.' </span><span class="s1">!== </span><span class="s7">$car</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s8">'(?=[^\.])'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$firstByte </span><span class="s1">= </span><span class="s8">'/' </span><span class="s1">=== </span><span class="s7">$car</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$firstByte </span><span class="s1">&amp;&amp; </span><span class="s7">$strictWildcardSlash </span><span class="s1">&amp;&amp; </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">2</span><span class="s1">]) &amp;&amp; </span><span class="s8">'**' </span><span class="s1">=== </span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">1</span><span class="s1">].</span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">2</span><span class="s1">] &amp;&amp; (!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">3</span><span class="s1">]) || </span><span class="s8">'/' </span><span class="s1">=== </span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">3</span><span class="s1">])) {</span>
+                <span class="s7">$car </span><span class="s1">= </span><span class="s8">'[^/]++/'</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">3</span><span class="s1">])) {</span>
+                    <span class="s7">$car </span><span class="s1">.= </span><span class="s8">'?'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$strictLeadingDot</span><span class="s1">) {</span>
+                    <span class="s7">$car </span><span class="s1">= </span><span class="s8">'(?=[^\.])'</span><span class="s1">.</span><span class="s7">$car</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$car </span><span class="s1">= </span><span class="s8">'/(?:'</span><span class="s1">.</span><span class="s7">$car</span><span class="s1">.</span><span class="s8">')*'</span><span class="s0">;</span>
+                <span class="s7">$i </span><span class="s1">+= </span><span class="s9">2 </span><span class="s1">+ </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$glob</span><span class="s1">[</span><span class="s7">$i </span><span class="s1">+ </span><span class="s9">3</span><span class="s1">])</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'/' </span><span class="s1">=== </span><span class="s7">$delimiter</span><span class="s1">) {</span>
+                    <span class="s7">$car </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'/'</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">/'</span><span class="s0">, </span><span class="s7">$car</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$delimiter </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">'.' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">'(' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">')' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">'|' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">'+' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">'^' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">|| </span><span class="s8">'$' </span><span class="s1">=== </span><span class="s7">$car</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s8">&quot;</span><span class="s0">\\</span><span class="s7">$car</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'*' </span><span class="s1">=== </span><span class="s7">$car</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s7">$escaping </span><span class="s1">? </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">*' </span><span class="s1">: (</span><span class="s7">$strictWildcardSlash </span><span class="s1">? </span><span class="s8">'[^/]*' </span><span class="s1">: </span><span class="s8">'.*'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'?' </span><span class="s1">=== </span><span class="s7">$car</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s7">$escaping </span><span class="s1">? </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">?' </span><span class="s1">: (</span><span class="s7">$strictWildcardSlash </span><span class="s1">? </span><span class="s8">'[^/]' </span><span class="s1">: </span><span class="s8">'.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'{' </span><span class="s1">=== </span><span class="s7">$car</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s7">$escaping </span><span class="s1">? </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">{' </span><span class="s1">: </span><span class="s8">'('</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$escaping</span><span class="s1">) {</span>
+                    <span class="s1">++</span><span class="s7">$inCurlies</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'}' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">&amp;&amp; </span><span class="s7">$inCurlies</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s7">$escaping </span><span class="s1">? </span><span class="s8">'}' </span><span class="s1">: </span><span class="s8">')'</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$escaping</span><span class="s1">) {</span>
+                    <span class="s1">--</span><span class="s7">$inCurlies</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">',' </span><span class="s1">=== </span><span class="s7">$car </span><span class="s1">&amp;&amp; </span><span class="s7">$inCurlies</span><span class="s1">) {</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s7">$escaping </span><span class="s1">? </span><span class="s8">',' </span><span class="s1">: </span><span class="s8">'|'</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'</span><span class="s0">\\</span><span class="s8">' </span><span class="s1">=== </span><span class="s7">$car</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$escaping</span><span class="s1">) {</span>
+                    <span class="s7">$regex </span><span class="s1">.= </span><span class="s8">'</span><span class="s0">\\\\</span><span class="s8">'</span><span class="s0">;</span>
+                    <span class="s7">$escaping </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$escaping </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">continue;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$regex </span><span class="s1">.= </span><span class="s7">$car</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$escaping </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$delimiter</span><span class="s1">.</span><span class="s8">'^'</span><span class="s1">.</span><span class="s7">$regex</span><span class="s1">.</span><span class="s8">'$'</span><span class="s1">.</span><span class="s7">$delimiter</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

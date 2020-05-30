@@ -1,0 +1,430 @@
+<html>
+<head>
+<title>Exporter.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Exporter.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarExporter</span><span class="s1">\</span><span class="s3">Internal</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarExporter</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">NotInstantiableTypeException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@internal</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Exporter</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Prepares an array of values for VarExporter.</span>
+     <span class="s4">*</span>
+     <span class="s4">* For performance this method is public and has no type-hints.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array             &amp;$values</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\SplObjectStorage $objectsPool</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array             &amp;$refsPool</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int               &amp;$objectsCount</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool              &amp;$valuesAreStatic</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">NotInstantiableTypeException When a value cannot be serialized</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">prepare</span><span class="s1">(</span><span class="s7">$values</span><span class="s0">, </span><span class="s7">$objectsPool</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$refsPool</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$objectsCount</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$valuesAreStatic</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$refs </span><span class="s1">= </span><span class="s7">$values</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$values </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_resource</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">NotInstantiableTypeException</span><span class="s1">(</span><span class="s3">get_resource_type</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">).</span><span class="s8">' resource'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$refs</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$objectsPool</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$isRef </span><span class="s1">= !</span><span class="s7">$valueIsStatic </span><span class="s1">= </span><span class="s7">$values</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] !== </span><span class="s7">$objectsPool</span><span class="s1">) {</span>
+                <span class="s7">$values</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = &amp;</span><span class="s7">$value</span><span class="s0">; </span><span class="s2">// Break hard references to make $values completely</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;         </span><span class="s2">// independent from the original structure</span>
+                <span class="s7">$refs</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$value </span><span class="s1">= </span><span class="s7">$values</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Reference </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">&gt; </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">id</span><span class="s1">) {</span>
+                    <span class="s7">$valuesAreStatic </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+                    <span class="s1">++</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">count</span><span class="s0">;</span>
+                    <span class="s0">continue;</span>
+                <span class="s1">}</span>
+                <span class="s7">$refsPool</span><span class="s1">[] = [&amp;</span><span class="s7">$refs</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$value</span><span class="s0">, </span><span class="s1">&amp;</span><span class="s7">$value</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$refs</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$values</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(-\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$refsPool</span><span class="s1">)</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) {</span>
+                    <span class="s7">$value </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">prepare</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$objectsPool</span><span class="s0">, </span><span class="s7">$refsPool</span><span class="s0">, </span><span class="s7">$objectsCount</span><span class="s0">, </span><span class="s7">$valueIsStatic</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">goto </span><span class="s3">handle_value</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &amp;&amp; !</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">__PHP_Incomplete_Class</span><span class="s1">) {</span>
+                <span class="s0">goto </span><span class="s3">handle_value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$valueIsStatic </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$objectsPool</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">])) {</span>
+                <span class="s1">++</span><span class="s7">$objectsCount</span><span class="s0">;</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$objectsPool</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">][</span><span class="s9">0</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s0">goto </span><span class="s3">handle_value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$class </span><span class="s1">= \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$reflector </span><span class="s1">= </span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$reflectors</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] ?? </span><span class="s3">Registry</span><span class="s1">::</span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">hasMethod</span><span class="s1">(</span><span class="s8">'__serialize'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'__serialize'</span><span class="s1">)-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">Error</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Call to %s method &quot;%s::__serialize()&quot;.'</span><span class="s0">, </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'__serialize'</span><span class="s1">)-&gt;</span><span class="s3">isProtected</span><span class="s1">() ? </span><span class="s8">'protected' </span><span class="s1">: </span><span class="s8">'private'</span><span class="s0">, </span><span class="s7">$class</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$properties </span><span class="s1">= </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">__serialize</span><span class="s1">())) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">Typerror</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'::__serialize() must return an array'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">goto </span><span class="s3">prepare_value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$properties </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s7">$sleep </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+            <span class="s7">$arrayValue </span><span class="s1">= (array) </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s7">$proto </span><span class="s1">= </span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$prototypes</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">((</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayIterator </span><span class="s1">|| </span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayObject</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$proto</span><span class="s1">) {</span>
+                <span class="s2">// ArrayIterator and ArrayObject need special care because their &quot;flags&quot;</span>
+                <span class="s2">// option changes the behavior of the (array) casting operator.</span>
+                <span class="s7">$properties </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">getArrayObjectProperties</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$arrayValue</span><span class="s0">, </span><span class="s7">$proto</span><span class="s1">)</span><span class="s0">;</span>
+
+                <span class="s2">// populates Registry::$prototypes[$class] with a new instance</span>
+                <span class="s3">Registry</span><span class="s1">::</span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$instantiableWithoutConstructor</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]</span><span class="s0">, </span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">SplObjectStorage </span><span class="s1">&amp;&amp; </span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$proto</span><span class="s1">) {</span>
+                <span class="s2">// By implementing Serializable, SplObjectStorage breaks</span>
+                <span class="s2">// internal references; let's deal with it on our own.</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s0">clone </span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$v</span><span class="s1">) {</span>
+                    <span class="s7">$properties</span><span class="s1">[] = </span><span class="s7">$v</span><span class="s0">;</span>
+                    <span class="s7">$properties</span><span class="s1">[] = </span><span class="s7">$value</span><span class="s1">[</span><span class="s7">$v</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$properties </span><span class="s1">= [</span><span class="s8">'SplObjectStorage' </span><span class="s1">=&gt; [</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s7">$properties</span><span class="s1">]]</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Serializable </span><span class="s1">|| </span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">__PHP_Incomplete_Class</span><span class="s1">) {</span>
+                <span class="s1">++</span><span class="s7">$objectsCount</span><span class="s0">;</span>
+                <span class="s7">$objectsPool</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">] = [</span><span class="s7">$id </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$objectsPool</span><span class="s1">)</span><span class="s0">, </span><span class="s3">serialize</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">, </span><span class="s1">[]</span><span class="s0">, </span><span class="s9">0</span><span class="s1">]</span><span class="s0">;</span>
+                <span class="s7">$value </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">goto </span><span class="s3">handle_value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__sleep'</span><span class="s1">)) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$sleep </span><span class="s1">= </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">__sleep</span><span class="s1">())) {</span>
+                    <span class="s3">trigger_error</span><span class="s1">(</span><span class="s8">'serialize(): __sleep should return an array only containing the names of instance-variables to serialize'</span><span class="s0">, </span><span class="s3">E_USER_NOTICE</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$value </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+                    <span class="s0">goto </span><span class="s3">handle_value</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$sleep </span><span class="s0">as </span><span class="s7">$name</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">property_exists</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$name</span><span class="s1">) &amp;&amp; !</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">hasProperty</span><span class="s1">(</span><span class="s7">$name</span><span class="s1">)) {</span>
+                        <span class="s7">$arrayValue</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s7">$name</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+                <span class="s7">$sleep </span><span class="s1">= </span><span class="s3">array_flip</span><span class="s1">(</span><span class="s7">$sleep</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$proto </span><span class="s1">= (array) </span><span class="s7">$proto</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$arrayValue </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$i </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+                <span class="s7">$n </span><span class="s1">= (string) </span><span class="s7">$name</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$n </span><span class="s1">|| </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">!== </span><span class="s7">$n</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]) {</span>
+                    <span class="s7">$c </span><span class="s1">= </span><span class="s8">'stdClass'</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'*' </span><span class="s1">=== </span><span class="s7">$n</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]) {</span>
+                    <span class="s7">$n </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$n</span><span class="s0">, </span><span class="s9">3</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$c </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getProperty</span><span class="s1">(</span><span class="s7">$n</span><span class="s1">)-&gt;</span><span class="s3">class</span><span class="s0">;</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s8">'Error' </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">) {</span>
+                        <span class="s7">$c </span><span class="s1">= </span><span class="s8">'TypeError'</span><span class="s0">;</span>
+                    <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'Exception' </span><span class="s1">=== </span><span class="s7">$c</span><span class="s1">) {</span>
+                        <span class="s7">$c </span><span class="s1">= </span><span class="s8">'ErrorException'</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$i </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$n</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$c </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$n</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s7">$i </span><span class="s1">- </span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s7">$n </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$n</span><span class="s0">, </span><span class="s9">1 </span><span class="s1">+ </span><span class="s7">$i</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$sleep</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$sleep</span><span class="s1">[</span><span class="s7">$n</span><span class="s1">]) || (</span><span class="s7">$i </span><span class="s1">&amp;&amp; </span><span class="s7">$c </span><span class="s1">!== </span><span class="s7">$class</span><span class="s1">)) {</span>
+                        <span class="s0">continue;</span>
+                    <span class="s1">}</span>
+                    <span class="s7">$sleep</span><span class="s1">[</span><span class="s7">$n</span><span class="s1">] = </span><span class="s3">false</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$proto</span><span class="s1">) || </span><span class="s7">$proto</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] !== </span><span class="s7">$v </span><span class="s1">|| </span><span class="s8">&quot;</span><span class="s0">\x00</span><span class="s8">Error</span><span class="s0">\x00</span><span class="s8">trace&quot; </span><span class="s1">=== </span><span class="s7">$name </span><span class="s1">|| </span><span class="s8">&quot;</span><span class="s0">\x00</span><span class="s8">Exception</span><span class="s0">\x00</span><span class="s8">trace&quot; </span><span class="s1">=== </span><span class="s7">$name</span><span class="s1">) {</span>
+                    <span class="s7">$properties</span><span class="s1">[</span><span class="s7">$c</span><span class="s1">][</span><span class="s7">$n</span><span class="s1">] = </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$sleep</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$sleep </span><span class="s0">as </span><span class="s7">$n </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$v</span><span class="s1">) {</span>
+                        <span class="s3">trigger_error</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'serialize(): &quot;%s&quot; returned as member variable from __sleep() but does not exist'</span><span class="s0">, </span><span class="s7">$n</span><span class="s1">)</span><span class="s0">, </span><span class="s3">E_USER_NOTICE</span><span class="s1">)</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s3">prepare_value</span><span class="s1">:</span>
+            <span class="s7">$objectsPool</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">] = [</span><span class="s7">$id </span><span class="s1">= \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$objectsPool</span><span class="s1">)]</span><span class="s0">;</span>
+            <span class="s7">$properties </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">prepare</span><span class="s1">(</span><span class="s7">$properties</span><span class="s0">, </span><span class="s7">$objectsPool</span><span class="s0">, </span><span class="s7">$refsPool</span><span class="s0">, </span><span class="s7">$objectsCount</span><span class="s0">, </span><span class="s7">$valueIsStatic</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">++</span><span class="s7">$objectsCount</span><span class="s0">;</span>
+            <span class="s7">$objectsPool</span><span class="s1">[</span><span class="s7">$value</span><span class="s1">] = [</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$class</span><span class="s0">, </span><span class="s7">$properties</span><span class="s0">, </span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__unserialize'</span><span class="s1">) ? -</span><span class="s7">$objectsCount </span><span class="s1">: (</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__wakeup'</span><span class="s1">) ? </span><span class="s7">$objectsCount </span><span class="s1">: </span><span class="s9">0</span><span class="s1">)]</span><span class="s0">;</span>
+
+            <span class="s7">$value </span><span class="s1">= </span><span class="s0">new </span><span class="s3">Reference</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s3">handle_value</span><span class="s1">:</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$isRef</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">; </span><span class="s2">// Break the hard reference created above</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!</span><span class="s7">$valueIsStatic</span><span class="s1">) {</span>
+                <span class="s7">$values</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$valuesAreStatic </span><span class="s1">= </span><span class="s7">$valueIsStatic </span><span class="s1">&amp;&amp; </span><span class="s7">$valuesAreStatic</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$values</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$indent </span><span class="s1">= </span><span class="s8">''</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">switch </span><span class="s1">(</span><span class="s3">true</span><span class="s1">) {</span>
+            <span class="s0">case </span><span class="s1">\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) || \</span><span class="s3">is_float</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">): </span><span class="s0">return </span><span class="s3">var_export</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s1">[] === </span><span class="s7">$value</span><span class="s1">: </span><span class="s0">return </span><span class="s8">'[]'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">: </span><span class="s0">return </span><span class="s8">'false'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">: </span><span class="s0">return </span><span class="s8">'true'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">: </span><span class="s0">return </span><span class="s8">'null'</span><span class="s0">;</span>
+            <span class="s0">case </span><span class="s8">'' </span><span class="s1">=== </span><span class="s7">$value</span><span class="s1">: </span><span class="s0">return </span><span class="s8">&quot;''&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt;= </span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">id</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s8">'$o['</span><span class="s1">.</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">id</span><span class="s1">.</span><span class="s8">']'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">count</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">value</span><span class="s0">, </span><span class="s7">$indent</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$value </span><span class="s1">= -</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">id</span><span class="s0">;</span>
+
+            <span class="s0">return </span><span class="s8">'&amp;$r['</span><span class="s1">.</span><span class="s7">$value</span><span class="s1">.</span><span class="s8">']'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$subIndent </span><span class="s1">= </span><span class="s7">$indent</span><span class="s1">.</span><span class="s8">'    '</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">&quot;'%s'&quot;</span><span class="s0">, </span><span class="s3">addcslashes</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s8">&quot;'</span><span class="s0">\\</span><span class="s8">&quot;</span><span class="s1">))</span><span class="s0">;</span>
+
+            <span class="s7">$code </span><span class="s1">= </span><span class="s3">preg_replace_callback</span><span class="s1">(</span><span class="s8">'/([\0\r\n]++)(.)/'</span><span class="s0">, function </span><span class="s1">(</span><span class="s7">$m</span><span class="s1">) </span><span class="s0">use </span><span class="s1">(</span><span class="s7">$subIndent</span><span class="s1">) {</span>
+                <span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] = </span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'</span><span class="s0">\'</span><span class="s8">.&quot;%s&quot;.</span><span class="s0">\'</span><span class="s8">'</span><span class="s0">, </span><span class="s3">str_replace</span><span class="s1">(</span>
+                    <span class="s1">[</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\r</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">, </span><span class="s8">'\n</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">]</span><span class="s0">,</span>
+                    <span class="s1">[</span><span class="s8">'\0'</span><span class="s0">, </span><span class="s8">'\r'</span><span class="s0">, </span><span class="s8">'\n'</span><span class="s0">, </span><span class="s8">'\n&quot;'</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">'.&quot;</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">]</span><span class="s0">,</span>
+                    <span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span>
+                <span class="s1">))</span><span class="s0">;</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">&quot;'&quot; </span><span class="s1">=== </span><span class="s7">$m</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]) {</span>
+                    <span class="s0">return </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">'n&quot;.</span><span class="s0">\'</span><span class="s8">' </span><span class="s1">=== </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s1">-</span><span class="s9">4</span><span class="s1">)) {</span>
+                    <span class="s0">return </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">&quot;.'&quot;</span><span class="s1">.</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]</span><span class="s0">, </span><span class="s1">-</span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">return </span><span class="s7">$m</span><span class="s1">[</span><span class="s9">1</span><span class="s1">].</span><span class="s7">$m</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]</span><span class="s0">;</span>
+            <span class="s1">}</span><span class="s0">, </span><span class="s7">$code</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s0">, </span><span class="s7">$count</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$count </span><span class="s1">&amp;&amp; </span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$code</span><span class="s0">, </span><span class="s8">&quot;''.&quot;</span><span class="s1">)) {</span>
+                <span class="s7">$code </span><span class="s1">= </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$code</span><span class="s0">, </span><span class="s9">3</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s7">$code</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)) {</span>
+            <span class="s7">$j </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$subIndent</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">) || </span><span class="s9">1 </span><span class="s1">!== </span><span class="s7">$k </span><span class="s1">- </span><span class="s7">$j</span><span class="s1">) {</span>
+                    <span class="s7">$code </span><span class="s1">.= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$k</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">).</span><span class="s8">' =&gt; '</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$k</span><span class="s1">) &amp;&amp; </span><span class="s7">$k </span><span class="s1">&gt; </span><span class="s7">$j</span><span class="s1">) {</span>
+                    <span class="s7">$j </span><span class="s1">= </span><span class="s7">$k</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">).</span><span class="s8">&quot;,</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">&quot;[</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$code</span><span class="s1">.</span><span class="s7">$indent</span><span class="s1">.</span><span class="s8">']'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Values</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">&quot;</span><span class="s0">\$</span><span class="s8">r = [],</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">values </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$v</span><span class="s1">) {</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">'$r['</span><span class="s1">.</span><span class="s7">$k</span><span class="s1">.</span><span class="s8">'] = '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$v</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">).</span><span class="s8">&quot;,</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">return </span><span class="s8">&quot;[</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$code</span><span class="s1">.</span><span class="s7">$indent</span><span class="s1">.</span><span class="s8">']'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Registry</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">exportRegistry</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$indent</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s3">Hydrator</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s3">self</span><span class="s1">::</span><span class="s3">exportHydrator</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$indent</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">throw new </span><span class="s1">\</span><span class="s3">UnexpectedValueException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Cannot export value of type &quot;%s&quot;.'</span><span class="s0">, </span><span class="s1">\</span><span class="s3">is_object</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) ? \</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) : \</span><span class="s3">gettype</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">exportRegistry</span><span class="s1">(</span><span class="s3">Registry </span><span class="s7">$value</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$indent</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$subIndent</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s7">$serializables </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$seen </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$prototypesAccess </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$factoriesAccess </span><span class="s1">= </span><span class="s9">0</span><span class="s0">;</span>
+        <span class="s7">$r </span><span class="s1">= </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">.</span><span class="s3">Registry</span><span class="s1">::</span><span class="s0">class;</span>
+        <span class="s7">$j </span><span class="s1">= -</span><span class="s9">1</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value </span><span class="s0">as </span><span class="s7">$k </span><span class="s1">=&gt; </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">':' </span><span class="s1">=== (</span><span class="s7">$class</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)) {</span>
+                <span class="s7">$serializables</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$class</span><span class="s0">;</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$instantiableWithoutConstructor</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'Serializable'</span><span class="s1">) &amp;&amp; !</span><span class="s3">method_exists</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'__unserialize'</span><span class="s1">)) {</span>
+                    <span class="s7">$serializables</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s8">'C:'</span><span class="s1">.\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s8">':&quot;'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'&quot;:0:{}'</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$serializables</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s8">'O:'</span><span class="s1">.\</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s8">':&quot;'</span><span class="s1">.</span><span class="s7">$class</span><span class="s1">.</span><span class="s8">'&quot;:0:{}'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'Throwable'</span><span class="s1">)) {</span>
+                    <span class="s7">$eol </span><span class="s1">= </span><span class="s3">is_subclass_of</span><span class="s1">(</span><span class="s7">$class</span><span class="s0">, </span><span class="s8">'Error'</span><span class="s1">) ? </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">Error</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">: </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">Exception</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">;</span>
+                    <span class="s7">$serializables</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">] = </span><span class="s3">substr_replace</span><span class="s1">(</span><span class="s7">$serializables</span><span class="s1">[</span><span class="s7">$k</span><span class="s1">]</span><span class="s0">, </span><span class="s8">'1:{s:'</span><span class="s1">.(</span><span class="s9">5 </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$eol</span><span class="s1">)).</span><span class="s8">':&quot;'</span><span class="s1">.</span><span class="s7">$eol</span><span class="s1">.</span><span class="s8">'trace&quot;;a:0:{}}'</span><span class="s0">, </span><span class="s1">-</span><span class="s9">4</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">continue;</span>
+            <span class="s1">}</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$subIndent</span><span class="s1">.(</span><span class="s9">1 </span><span class="s1">!== </span><span class="s7">$k </span><span class="s1">- </span><span class="s7">$j </span><span class="s1">? </span><span class="s7">$k</span><span class="s1">.</span><span class="s8">' =&gt; ' </span><span class="s1">: </span><span class="s8">''</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$j </span><span class="s1">= </span><span class="s7">$k</span><span class="s0">;</span>
+            <span class="s7">$eol </span><span class="s1">= </span><span class="s8">&quot;,</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+            <span class="s7">$c </span><span class="s1">= </span><span class="s8">'['</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s8">']'</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$seen</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]) {</span>
+                    <span class="s1">++</span><span class="s7">$prototypesAccess</span><span class="s0">;</span>
+                    <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'clone $p'</span><span class="s1">.</span><span class="s7">$c</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s1">++</span><span class="s7">$factoriesAccess</span><span class="s0">;</span>
+                    <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'$f'</span><span class="s1">.</span><span class="s7">$c</span><span class="s1">.</span><span class="s8">'()'</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s7">$seen</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$cloneable</span><span class="s1">[</span><span class="s7">$class</span><span class="s1">]) {</span>
+                    <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'clone ('</span><span class="s1">.(</span><span class="s7">$prototypesAccess</span><span class="s1">++ ? </span><span class="s8">'$p' </span><span class="s1">: </span><span class="s8">'($p = &amp;'</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::$prototypes)'</span><span class="s1">).</span><span class="s7">$c</span><span class="s1">.</span><span class="s8">' ?? '</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::p'</span><span class="s0">;</span>
+                <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                    <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'('</span><span class="s1">.(</span><span class="s7">$factoriesAccess</span><span class="s1">++ ? </span><span class="s8">'$f' </span><span class="s1">: </span><span class="s8">'($f = &amp;'</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::$factories)'</span><span class="s1">).</span><span class="s7">$c</span><span class="s1">.</span><span class="s8">' ?? '</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::f'</span><span class="s0">;</span>
+                    <span class="s7">$eol </span><span class="s1">= </span><span class="s8">'()'</span><span class="s1">.</span><span class="s7">$eol</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s7">$code </span><span class="s1">.= </span><span class="s8">'('</span><span class="s1">.</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$c</span><span class="s0">, </span><span class="s9">1</span><span class="s0">, </span><span class="s1">-</span><span class="s9">1</span><span class="s1">).</span><span class="s8">'))'</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$eol</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$prototypesAccess</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'($p = &amp;'</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::$prototypes)'</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::$prototypes'</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">1 </span><span class="s1">=== </span><span class="s7">$factoriesAccess</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'($f = &amp;'</span><span class="s1">.</span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::$factories)'</span><span class="s0">, </span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::$factories'</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s8">'' </span><span class="s1">!== </span><span class="s7">$code</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$code</span><span class="s1">.</span><span class="s7">$indent</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$serializables</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s7">$r</span><span class="s1">.</span><span class="s8">'::unserialize(['</span><span class="s1">.</span><span class="s7">$code</span><span class="s1">.</span><span class="s8">'], '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$serializables</span><span class="s0">, </span><span class="s7">$indent</span><span class="s1">).</span><span class="s8">')'</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$code </span><span class="s1">= </span><span class="s8">'['</span><span class="s1">.</span><span class="s7">$code</span><span class="s1">.</span><span class="s8">']'</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s8">'$o = '</span><span class="s1">.</span><span class="s7">$code</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">private static function </span><span class="s3">exportHydrator</span><span class="s1">(</span><span class="s3">Hydrator </span><span class="s7">$value</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$indent</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$subIndent</span><span class="s1">): </span><span class="s3">string</span>
+    <span class="s1">{</span>
+        <span class="s7">$code </span><span class="s1">= </span><span class="s8">''</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">properties </span><span class="s0">as </span><span class="s7">$class </span><span class="s1">=&gt; </span><span class="s7">$properties</span><span class="s1">) {</span>
+            <span class="s7">$code </span><span class="s1">.= </span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">'    '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">).</span><span class="s8">' =&gt; '</span><span class="s1">.</span><span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$properties</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">'    '</span><span class="s1">).</span><span class="s8">&quot;,</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$code </span><span class="s1">= [</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">registry</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">values</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s8">'' </span><span class="s1">!== </span><span class="s7">$code </span><span class="s1">? </span><span class="s8">&quot;[</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$code</span><span class="s1">.</span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s8">']' </span><span class="s1">: </span><span class="s8">'[]'</span><span class="s0">,</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">value</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s3">self</span><span class="s1">::</span><span class="s3">export</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">-&gt;</span><span class="s3">wakeups</span><span class="s0">, </span><span class="s7">$subIndent</span><span class="s1">)</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">.\</span><span class="s3">get_class</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">).</span><span class="s8">&quot;::hydrate(</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$subIndent</span><span class="s1">.</span><span class="s3">implode</span><span class="s1">(</span><span class="s8">&quot;,</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$subIndent</span><span class="s0">, </span><span class="s7">$code</span><span class="s1">).</span><span class="s8">&quot;</span><span class="s0">\n</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s7">$indent</span><span class="s1">.</span><span class="s8">')'</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\ArrayIterator|\ArrayObject $value</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">\ArrayIterator|\ArrayObject $proto</span>
+     <span class="s4">*/</span>
+    <span class="s0">private static function </span><span class="s3">getArrayObjectProperties</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, array </span><span class="s1">&amp;</span><span class="s7">$arrayValue</span><span class="s0">, </span><span class="s7">$proto</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s7">$reflector </span><span class="s1">= </span><span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayIterator </span><span class="s1">? </span><span class="s8">'ArrayIterator' </span><span class="s1">: </span><span class="s8">'ArrayObject'</span><span class="s0">;</span>
+        <span class="s7">$reflector </span><span class="s1">= </span><span class="s3">Registry</span><span class="s1">::</span><span class="s7">$reflectors</span><span class="s1">[</span><span class="s7">$reflector</span><span class="s1">] ?? </span><span class="s3">Registry</span><span class="s1">::</span><span class="s3">getClassReflector</span><span class="s1">(</span><span class="s7">$reflector</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$properties </span><span class="s1">= [</span>
+            <span class="s7">$arrayValue</span><span class="s0">,</span>
+            <span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'getFlags'</span><span class="s1">)-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">)</span><span class="s0">,</span>
+            <span class="s7">$value </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">ArrayObject </span><span class="s1">? </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'getIteratorClass'</span><span class="s1">)-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) : </span><span class="s8">'ArrayIterator'</span><span class="s0">,</span>
+        <span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s7">$reflector </span><span class="s1">= </span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">getMethod</span><span class="s1">(</span><span class="s8">'setFlags'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$proto</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">STD_PROP_LIST</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$properties</span><span class="s1">[</span><span class="s9">1</span><span class="s1">] &amp; \</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">STD_PROP_LIST</span><span class="s1">) {</span>
+            <span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s9">0</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$properties</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] = (array) </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s1">\</span><span class="s3">ArrayObject</span><span class="s1">::</span><span class="s3">STD_PROP_LIST</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$arrayValue </span><span class="s1">= (array) </span><span class="s7">$value</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">invoke</span><span class="s1">(</span><span class="s7">$value</span><span class="s0">, </span><span class="s7">$properties</span><span class="s1">[</span><span class="s9">1</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">([[]</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s8">'ArrayIterator'</span><span class="s1">] === </span><span class="s7">$properties</span><span class="s1">) {</span>
+            <span class="s7">$properties </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s8">'ArrayIterator' </span><span class="s1">=== </span><span class="s7">$properties</span><span class="s1">[</span><span class="s9">2</span><span class="s1">]) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$properties</span><span class="s1">[</span><span class="s9">2</span><span class="s1">])</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s7">$properties </span><span class="s1">= [</span><span class="s7">$reflector</span><span class="s1">-&gt;</span><span class="s3">class </span><span class="s1">=&gt; [</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">=&gt; </span><span class="s7">$properties</span><span class="s1">]]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$properties</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

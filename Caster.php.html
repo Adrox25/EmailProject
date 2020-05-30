@@ -1,0 +1,195 @@
+<html>
+<head>
+<title>Caster.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #6897bb;}
+.s8 { color: #6a8759;}
+.s9 { color: #9876aa;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Caster.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Caster</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">VarDumper</span><span class="s1">\</span><span class="s3">Cloner</span><span class="s1">\</span><span class="s3">Stub</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Helper for filtering out properties in casters.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Nicolas Grekas </span><span class="s6">&lt;p</span><span class="s4">@tchwork.com&gt;</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@final</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Caster</span>
+<span class="s1">{</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_VERBOSE </span><span class="s1">= </span><span class="s7">1</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_VIRTUAL </span><span class="s1">= </span><span class="s7">2</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_DYNAMIC </span><span class="s1">= </span><span class="s7">4</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_PUBLIC </span><span class="s1">= </span><span class="s7">8</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_PROTECTED </span><span class="s1">= </span><span class="s7">16</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_PRIVATE </span><span class="s1">= </span><span class="s7">32</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_NULL </span><span class="s1">= </span><span class="s7">64</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_EMPTY </span><span class="s1">= </span><span class="s7">128</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_NOT_IMPORTANT </span><span class="s1">= </span><span class="s7">256</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">EXCLUDE_STRICT </span><span class="s1">= </span><span class="s7">512</span><span class="s0">;</span>
+
+    <span class="s0">const </span><span class="s3">PREFIX_VIRTUAL </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">~</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">PREFIX_DYNAMIC </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">+</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">;</span>
+    <span class="s0">const </span><span class="s3">PREFIX_PROTECTED </span><span class="s1">= </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">*</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Casts objects to arrays and adds the dynamic property prefix.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $hasDebugInfo Whether the __debugInfo method exists on $obj or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The array-cast of the object, with prefixed dynamic properties</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">castObject</span><span class="s1">(</span><span class="s3">object </span><span class="s9">$obj</span><span class="s0">, </span><span class="s3">string </span><span class="s9">$class</span><span class="s0">, </span><span class="s3">bool </span><span class="s9">$hasDebugInfo </span><span class="s1">= </span><span class="s3">false</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$hasDebugInfo</span><span class="s1">) {</span>
+            <span class="s0">try </span><span class="s1">{</span>
+                <span class="s9">$debugInfo </span><span class="s1">= </span><span class="s9">$obj</span><span class="s1">-&gt;</span><span class="s3">__debugInfo</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">catch </span><span class="s1">(\</span><span class="s3">Exception </span><span class="s9">$e</span><span class="s1">) {</span>
+                <span class="s2">// ignore failing __debugInfo()</span>
+                <span class="s9">$hasDebugInfo </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s9">$a </span><span class="s1">= </span><span class="s9">$obj </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure </span><span class="s1">? [] : (array) </span><span class="s9">$obj</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$obj </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">__PHP_Incomplete_Class</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s9">$a</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$a</span><span class="s1">) {</span>
+            <span class="s0">static </span><span class="s9">$publicProperties </span><span class="s1">= []</span><span class="s0">;</span>
+
+            <span class="s9">$i </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+            <span class="s9">$prefixedKeys </span><span class="s1">= []</span><span class="s0">;</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$a </span><span class="s0">as </span><span class="s9">$k </span><span class="s1">=&gt; </span><span class="s9">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">!== (</span><span class="s9">$k</span><span class="s1">[</span><span class="s7">0</span><span class="s1">] ?? </span><span class="s8">''</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$publicProperties</span><span class="s1">[</span><span class="s9">$class</span><span class="s1">])) {</span>
+                        <span class="s0">foreach </span><span class="s1">((</span><span class="s0">new </span><span class="s1">\</span><span class="s3">ReflectionClass</span><span class="s1">(</span><span class="s9">$class</span><span class="s1">))-&gt;</span><span class="s3">getProperties</span><span class="s1">(\</span><span class="s3">ReflectionProperty</span><span class="s1">::</span><span class="s3">IS_PUBLIC</span><span class="s1">) </span><span class="s0">as </span><span class="s9">$prop</span><span class="s1">) {</span>
+                            <span class="s9">$publicProperties</span><span class="s1">[</span><span class="s9">$class</span><span class="s1">][</span><span class="s9">$prop</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                    <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$publicProperties</span><span class="s1">[</span><span class="s9">$class</span><span class="s1">][</span><span class="s9">$k</span><span class="s1">])) {</span>
+                        <span class="s9">$prefixedKeys</span><span class="s1">[</span><span class="s9">$i</span><span class="s1">] = </span><span class="s3">self</span><span class="s1">::</span><span class="s3">PREFIX_DYNAMIC</span><span class="s1">.</span><span class="s9">$k</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+                <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$k</span><span class="s1">[</span><span class="s7">16</span><span class="s1">]) &amp;&amp; </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">=== </span><span class="s9">$k</span><span class="s1">[</span><span class="s7">16</span><span class="s1">] &amp;&amp; </span><span class="s7">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s9">$k</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">class@anonymous</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">)) {</span>
+                    <span class="s9">$prefixedKeys</span><span class="s1">[</span><span class="s9">$i</span><span class="s1">] = </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">.</span><span class="s3">get_parent_class</span><span class="s1">(</span><span class="s9">$class</span><span class="s1">).</span><span class="s8">'@anonymous'</span><span class="s1">.</span><span class="s3">strrchr</span><span class="s1">(</span><span class="s9">$k</span><span class="s0">, </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot;</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s1">++</span><span class="s9">$i</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">$prefixedKeys</span><span class="s1">) {</span>
+                <span class="s9">$keys </span><span class="s1">= </span><span class="s3">array_keys</span><span class="s1">(</span><span class="s9">$a</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$prefixedKeys </span><span class="s0">as </span><span class="s9">$i </span><span class="s1">=&gt; </span><span class="s9">$k</span><span class="s1">) {</span>
+                    <span class="s9">$keys</span><span class="s1">[</span><span class="s9">$i</span><span class="s1">] = </span><span class="s9">$k</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s9">$a </span><span class="s1">= </span><span class="s3">array_combine</span><span class="s1">(</span><span class="s9">$keys</span><span class="s0">, </span><span class="s9">$a</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">$hasDebugInfo </span><span class="s1">&amp;&amp; \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s9">$debugInfo</span><span class="s1">)) {</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$debugInfo </span><span class="s0">as </span><span class="s9">$k </span><span class="s1">=&gt; </span><span class="s9">$v</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$k</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]) || </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">!== </span><span class="s9">$k</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]) {</span>
+                    <span class="s9">$k </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">PREFIX_VIRTUAL</span><span class="s1">.</span><span class="s9">$k</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">unset</span><span class="s1">(</span><span class="s9">$a</span><span class="s1">[</span><span class="s9">$k</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s9">$a</span><span class="s1">[</span><span class="s9">$k</span><span class="s1">] = </span><span class="s9">$v</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Filters out the specified properties.</span>
+     <span class="s4">*</span>
+     <span class="s4">* By default, a single match in the $filter bit field filters properties out, following an &quot;or&quot; logic.</span>
+     <span class="s4">* When EXCLUDE_STRICT is set, an &quot;and&quot; logic is applied: all bits must match for a property to be removed.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array    $a                The array containing the properties to filter</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int      $filter           A bit field of Caster::EXCLUDE_* constants specifying which properties to filter out</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string[] $listedProperties List of properties to exclude when Caster::EXCLUDE_VERBOSE is set, and to preserve when Caster::EXCLUDE_NOT_IMPORTANT is set</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int      &amp;$count           Set to the number of removed properties</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The filtered array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public static function </span><span class="s3">filter</span><span class="s1">(</span><span class="s0">array </span><span class="s9">$a</span><span class="s0">, </span><span class="s3">int </span><span class="s9">$filter</span><span class="s0">, array </span><span class="s9">$listedProperties </span><span class="s1">= []</span><span class="s0">, </span><span class="s1">?</span><span class="s3">int </span><span class="s1">&amp;</span><span class="s9">$count </span><span class="s1">= </span><span class="s7">0</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s9">$count </span><span class="s1">= </span><span class="s7">0</span><span class="s0">;</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s9">$a </span><span class="s0">as </span><span class="s9">$k </span><span class="s1">=&gt; </span><span class="s9">$v</span><span class="s1">) {</span>
+            <span class="s9">$type </span><span class="s1">= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_STRICT </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s9">$v</span><span class="s1">) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_NULL </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_EMPTY </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s9">$v </span><span class="s1">|| </span><span class="s8">'' </span><span class="s1">=== </span><span class="s9">$v </span><span class="s1">|| </span><span class="s8">'0' </span><span class="s1">=== </span><span class="s9">$v </span><span class="s1">|| </span><span class="s7">0 </span><span class="s1">=== </span><span class="s9">$v </span><span class="s1">|| </span><span class="s7">0.0 </span><span class="s1">=== </span><span class="s9">$v </span><span class="s1">|| [] === </span><span class="s9">$v</span><span class="s1">) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_EMPTY </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">((</span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_NOT_IMPORTANT </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s1">) &amp;&amp; !\</span><span class="s3">in_array</span><span class="s1">(</span><span class="s9">$k</span><span class="s0">, </span><span class="s9">$listedProperties</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_NOT_IMPORTANT</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">((</span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_VERBOSE </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s1">) &amp;&amp; \</span><span class="s3">in_array</span><span class="s1">(</span><span class="s9">$k</span><span class="s0">, </span><span class="s9">$listedProperties</span><span class="s0">, </span><span class="s3">true</span><span class="s1">)) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_VERBOSE</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(!</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$k</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]) || </span><span class="s8">&quot;</span><span class="s0">\0</span><span class="s8">&quot; </span><span class="s1">!== </span><span class="s9">$k</span><span class="s1">[</span><span class="s7">0</span><span class="s1">]) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_PUBLIC </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'~' </span><span class="s1">=== </span><span class="s9">$k</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_VIRTUAL </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'+' </span><span class="s1">=== </span><span class="s9">$k</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_DYNAMIC </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s8">'*' </span><span class="s1">=== </span><span class="s9">$k</span><span class="s1">[</span><span class="s7">1</span><span class="s1">]) {</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_PROTECTED </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+                <span class="s9">$type </span><span class="s1">|= </span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_PRIVATE </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">((</span><span class="s3">self</span><span class="s1">::</span><span class="s3">EXCLUDE_STRICT </span><span class="s1">&amp; </span><span class="s9">$filter</span><span class="s1">) ? </span><span class="s9">$type </span><span class="s1">=== </span><span class="s9">$filter </span><span class="s1">: </span><span class="s9">$type</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s9">$a</span><span class="s1">[</span><span class="s9">$k</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s1">++</span><span class="s9">$count</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public static function </span><span class="s3">castPhpIncompleteClass</span><span class="s1">(\</span><span class="s3">__PHP_Incomplete_Class </span><span class="s9">$c</span><span class="s0">, array </span><span class="s9">$a</span><span class="s0">, </span><span class="s3">Stub </span><span class="s9">$stub</span><span class="s0">, </span><span class="s3">bool </span><span class="s9">$isNested</span><span class="s1">): </span><span class="s0">array</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">isset</span><span class="s1">(</span><span class="s9">$a</span><span class="s1">[</span><span class="s8">'__PHP_Incomplete_Class_Name'</span><span class="s1">])) {</span>
+            <span class="s9">$stub</span><span class="s1">-&gt;</span><span class="s3">class </span><span class="s1">.= </span><span class="s8">'('</span><span class="s1">.</span><span class="s9">$a</span><span class="s1">[</span><span class="s8">'__PHP_Incomplete_Class_Name'</span><span class="s1">].</span><span class="s8">')'</span><span class="s0">;</span>
+            <span class="s0">unset</span><span class="s1">(</span><span class="s9">$a</span><span class="s1">[</span><span class="s8">'__PHP_Incomplete_Class_Name'</span><span class="s1">])</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s9">$a</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

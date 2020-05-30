@@ -1,0 +1,915 @@
+<html>
+<head>
+<title>Definition.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Definition.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Argument</span><span class="s1">\</span><span class="s3">BoundArgument</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">OutOfBoundsException</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* Definition represents a service definition.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Fabien Potencier </span><span class="s6">&lt;fabien</span><span class="s4">@symfony.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">Definition</span>
+<span class="s1">{</span>
+    <span class="s0">private </span><span class="s7">$class</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$file</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$factory</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$shared </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$deprecated </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$deprecationTemplate</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$properties </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$calls </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$instanceof </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$autoconfigured </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$configurator</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$tags </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$public </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$private </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$synthetic </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$abstract </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$lazy </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$decoratedService</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$autowired </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$changes </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$bindings </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">private </span><span class="s7">$errors </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">protected </span><span class="s7">$arguments </span><span class="s1">= []</span><span class="s0">;</span>
+
+    <span class="s0">private static </span><span class="s7">$defaultDeprecationTemplate </span><span class="s1">= </span><span class="s8">'The &quot;%service_id%&quot; service is deprecated. You should stop using it, as it will be removed in the future.'</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*</span>
+     <span class="s4">* Used to store the name of the inner id when using service decoration together with autowiring</span>
+     <span class="s4">*/</span>
+    <span class="s0">public </span><span class="s7">$innerServiceId</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@internal</span>
+     <span class="s4">*</span>
+     <span class="s4">* Used to store the behavior to follow when using service decoration and the decorated service is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public </span><span class="s7">$decorationOnInvalid</span><span class="s0">;</span>
+
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$class </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, array </span><span class="s7">$arguments </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$class</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">setClass</span><span class="s1">(</span><span class="s7">$class</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments </span><span class="s1">= </span><span class="s7">$arguments</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns all changes tracked for the Definition object.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of changes for this Definition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getChanges</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the tracked changes for the Definition object.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array $changes An array of changes for this Definition</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setChanges</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$changes</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes </span><span class="s1">= </span><span class="s7">$changes</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a factory.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array|Reference $factory A PHP function, reference or an array containing a class/Reference and a method to call</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setFactory</span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'factory'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$factory</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$factory</span><span class="s0">, </span><span class="s8">'::'</span><span class="s1">)) {</span>
+            <span class="s7">$factory </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'::'</span><span class="s0">, </span><span class="s7">$factory</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$factory </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+            <span class="s7">$factory </span><span class="s1">= [</span><span class="s7">$factory</span><span class="s0">, </span><span class="s8">'__invoke'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">factory </span><span class="s1">= </span><span class="s7">$factory</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the factory.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|array|null The PHP function or an array containing a class/Reference and a method to call</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getFactory</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">factory</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the service that this service is decorating.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $id        The decorated service id, use null to remove decoration</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $renamedId The new decorated service id</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException in case the decorated service id and the new decorated service id are equals</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDecoratedService</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$id</span><span class="s0">, </span><span class="s1">?</span><span class="s3">string </span><span class="s7">$renamedId </span><span class="s1">= </span><span class="s3">null</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$priority </span><span class="s1">= </span><span class="s9">0</span><span class="s0">, </span><span class="s3">int </span><span class="s7">$invalidBehavior </span><span class="s1">= </span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$renamedId </span><span class="s1">&amp;&amp; </span><span class="s7">$id </span><span class="s1">=== </span><span class="s7">$renamedId</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The decorated service inner name for &quot;%s&quot; must be different than the service name itself.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'decorated_service'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$id</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decoratedService </span><span class="s1">= </span><span class="s3">null</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decoratedService </span><span class="s1">= [</span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$renamedId</span><span class="s0">, </span><span class="s1">(int) </span><span class="s7">$priority</span><span class="s1">]</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">ContainerInterface</span><span class="s1">::</span><span class="s3">EXCEPTION_ON_INVALID_REFERENCE </span><span class="s1">!== </span><span class="s7">$invalidBehavior</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decoratedService</span><span class="s1">[] = </span><span class="s7">$invalidBehavior</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the service that this service is decorating.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|null An array composed of the decorated service id, the new id for it and the priority of decoration, null if no service is decorated</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDecoratedService</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">decoratedService</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the service class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setClass</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$class</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'class'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">class </span><span class="s1">= </span><span class="s7">$class</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the service class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The service class</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getClass</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">class</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the arguments to pass to the service constructor/factory method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setArguments</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$arguments</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments </span><span class="s1">= </span><span class="s7">$arguments</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the properties to define when creating the service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setProperties</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$properties</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">properties </span><span class="s1">= </span><span class="s7">$properties</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the properties to define when creating the service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getProperties</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">properties</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a specific property.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setProperty</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">properties</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds an argument to pass to the service constructor/factory method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed $argument An argument</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addArgument</span><span class="s1">(</span><span class="s7">$argument</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[] = </span><span class="s7">$argument</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Replaces a specific argument.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|string $index</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed      $argument</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">OutOfBoundsException When the replaced argument does not exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">replaceArgument</span><span class="s1">(</span><span class="s7">$index</span><span class="s0">, </span><span class="s7">$argument</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">OutOfBoundsException</span><span class="s1">(</span><span class="s8">'Cannot replace arguments if none have been configured yet.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$index</span><span class="s1">) &amp;&amp; (</span><span class="s7">$index </span><span class="s1">&lt; </span><span class="s9">0 </span><span class="s1">|| </span><span class="s7">$index </span><span class="s1">&gt; \</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">) - </span><span class="s9">1</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">OutOfBoundsException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The index &quot;%d&quot; is not in the range [0, %d].'</span><span class="s0">, </span><span class="s7">$index</span><span class="s0">, </span><span class="s1">\</span><span class="s3">count</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">) - </span><span class="s9">1</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$index</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">OutOfBoundsException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The argument &quot;%s&quot; doesn</span><span class="s0">\'</span><span class="s8">t exist.'</span><span class="s0">, </span><span class="s7">$index</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">] = </span><span class="s7">$argument</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a specific argument.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|string $key</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">mixed      $value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setArgument</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s7">$value</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s7">$value</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the arguments to pass to the service constructor/factory method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array The array of arguments</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getArguments</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets an argument to pass to the service constructor/factory method.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|string $index</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">mixed The argument value</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">OutOfBoundsException When the argument does not exist</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getArgument</span><span class="s1">(</span><span class="s7">$index</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(!\</span><span class="s3">array_key_exists</span><span class="s1">(</span><span class="s7">$index</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">OutOfBoundsException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The argument &quot;%s&quot; doesn</span><span class="s0">\'</span><span class="s8">t exist.'</span><span class="s0">, </span><span class="s7">$index</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">arguments</span><span class="s1">[</span><span class="s7">$index</span><span class="s1">]</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the methods to call after service initialization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setMethodCalls</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$calls </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$calls </span><span class="s0">as </span><span class="s7">$call</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addMethodCall</span><span class="s1">(</span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">1</span><span class="s1">]</span><span class="s0">, </span><span class="s7">$call</span><span class="s1">[</span><span class="s9">2</span><span class="s1">] ?? </span><span class="s3">false</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a method to call after service initialization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $method       The method name to call</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">array  $arguments    An array of arguments to pass to the method call</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool   $returnsClone Whether the call returns the service instance or not</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException on empty $method param</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addMethodCall</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$method</span><span class="s0">, array </span><span class="s7">$arguments </span><span class="s1">= []</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$returnsClone </span><span class="s1">= </span><span class="s3">false</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s0">empty</span><span class="s1">(</span><span class="s7">$method</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Method name cannot be empty.'</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls</span><span class="s1">[] = </span><span class="s7">$returnsClone </span><span class="s1">? [</span><span class="s7">$method</span><span class="s0">, </span><span class="s7">$arguments</span><span class="s0">, </span><span class="s3">true</span><span class="s1">] : [</span><span class="s7">$method</span><span class="s0">, </span><span class="s7">$arguments</span><span class="s1">]</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Removes a method to call after service initialization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">removeMethodCall</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$call</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] === </span><span class="s7">$method</span><span class="s1">) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s0">break;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Check if the current definition has a given method to call after service initialization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasMethodCall</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$method</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls </span><span class="s0">as </span><span class="s7">$call</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$call</span><span class="s1">[</span><span class="s9">0</span><span class="s1">] === </span><span class="s7">$method</span><span class="s1">) {</span>
+                <span class="s0">return </span><span class="s3">true</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the methods to call after service initialization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of method calls</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getMethodCalls</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">calls</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the definition templates to conditionally apply on the current definition, keyed by parent interface/class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">ChildDefinition[] $instanceof</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setInstanceofConditionals</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$instanceof</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof </span><span class="s1">= </span><span class="s7">$instanceof</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the definition templates to conditionally apply on the current definition, keyed by parent interface/class.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ChildDefinition[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getInstanceofConditionals</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">instanceof</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets whether or not instanceof conditionals should be prepended with a global set.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAutoconfigured</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$autoconfigured</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'autoconfigured'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">autoconfigured </span><span class="s1">= </span><span class="s7">$autoconfigured</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isAutoconfigured</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">autoconfigured</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets tags for this definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setTags</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$tags</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags </span><span class="s1">= </span><span class="s7">$tags</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns all tags.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of tags</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTags</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets a tag by name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array An array of attributes</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getTag</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">]) ? </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">] : []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds a tag for this definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addTag</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, array </span><span class="s7">$attributes </span><span class="s1">= [])</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">][] = </span><span class="s7">$attributes</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this definition has a tag with the given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">hasTag</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return isset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Clears all tags for a given name.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clearTag</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">unset</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags</span><span class="s1">[</span><span class="s7">$name</span><span class="s1">])</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Clears the tags for this definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">clearTags</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">tags </span><span class="s1">= []</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a file to require before creating the service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setFile</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$file</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'file'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file </span><span class="s1">= </span><span class="s7">$file</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the file to require before creating the service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string|null The full pathname to include</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getFile</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">file</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets if the service must be shared or not.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setShared</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$shared</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'shared'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">shared </span><span class="s1">= </span><span class="s7">$shared</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this service is shared.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isShared</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">shared</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the visibility of this service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPublic</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$boolean</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'public'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">public </span><span class="s1">= </span><span class="s7">$boolean</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">private </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this service is public facing.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isPublic</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">public</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets if this service is private.</span>
+     <span class="s4">*</span>
+     <span class="s4">* When set, the &quot;private&quot; state has a higher precedence than &quot;public&quot;.</span>
+     <span class="s4">* In version 3.4, a &quot;private&quot; service always remains publicly accessible,</span>
+     <span class="s4">* but triggers a deprecation notice when accessed from the container,</span>
+     <span class="s4">* so that the service can be made really private in 4.0.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setPrivate</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$boolean</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">private </span><span class="s1">= </span><span class="s7">$boolean</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this service is private.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isPrivate</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">private</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the lazy flag of this service.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setLazy</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$lazy</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'lazy'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lazy </span><span class="s1">= </span><span class="s7">$lazy</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this service is lazy.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isLazy</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">lazy</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets whether this definition is synthetic, that is not constructed by the</span>
+     <span class="s4">* container, but dynamically injected.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setSynthetic</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$boolean</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">synthetic </span><span class="s1">= </span><span class="s7">$boolean</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this definition is synthetic, that is not constructed by the</span>
+     <span class="s4">* container, but dynamically injected.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isSynthetic</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">synthetic</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this definition is abstract, that means it merely serves as a</span>
+     <span class="s4">* template for other definitions.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAbstract</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$boolean</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">abstract </span><span class="s1">= </span><span class="s7">$boolean</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this definition is abstract, that means it merely serves as a</span>
+     <span class="s4">* template for other definitions.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isAbstract</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">abstract</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this definition is deprecated, that means it should not be called</span>
+     <span class="s4">* anymore.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $template Template message to use if the definition is deprecated</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidArgumentException when the message template is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$status </span><span class="s1">= </span><span class="s3">true</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$template </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$template</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s8">'#[\r\n]|\*/#'</span><span class="s0">, </span><span class="s7">$template</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'Invalid characters found in deprecation template.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$template</span><span class="s0">, </span><span class="s8">'%service_id%'</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s8">'The deprecation template must contain the &quot;%service_id%&quot; placeholder.'</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deprecationTemplate </span><span class="s1">= </span><span class="s7">$template</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'deprecated'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deprecated </span><span class="s1">= </span><span class="s7">$status</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Whether this definition is deprecated, that means it should not be called</span>
+     <span class="s4">* anymore.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isDeprecated</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deprecated</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Message to use if this definition is deprecated.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $id Service id relying on this definition</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">string</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getDeprecationMessage</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$id</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s3">str_replace</span><span class="s1">(</span><span class="s8">'%service_id%'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deprecationTemplate </span><span class="s1">?: </span><span class="s3">self</span><span class="s1">::</span><span class="s7">$defaultDeprecationTemplate</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a configurator to call after the service is fully initialized.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|array|Reference $configurator A PHP function, reference or an array containing a class/Reference and a method to call</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setConfigurator</span><span class="s1">(</span><span class="s7">$configurator</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'configurator'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$configurator</span><span class="s1">) &amp;&amp; </span><span class="s3">false </span><span class="s1">!== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$configurator</span><span class="s0">, </span><span class="s8">'::'</span><span class="s1">)) {</span>
+            <span class="s7">$configurator </span><span class="s1">= </span><span class="s3">explode</span><span class="s1">(</span><span class="s8">'::'</span><span class="s0">, </span><span class="s7">$configurator</span><span class="s0">, </span><span class="s9">2</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(</span><span class="s7">$configurator </span><span class="s0">instanceof </span><span class="s3">Reference</span><span class="s1">) {</span>
+            <span class="s7">$configurator </span><span class="s1">= [</span><span class="s7">$configurator</span><span class="s0">, </span><span class="s8">'__invoke'</span><span class="s1">]</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurator </span><span class="s1">= </span><span class="s7">$configurator</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets the configurator to call after the service is fully initialized.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">callable|array|null</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getConfigurator</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">configurator</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Is the definition autowired?</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">bool</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">isAutowired</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">autowired</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Enables/disables autowiring.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setAutowired</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$autowired</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">changes</span><span class="s1">[</span><span class="s8">'autowired'</span><span class="s1">] = </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">autowired </span><span class="s1">= </span><span class="s7">$autowired</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Gets bindings.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array|BoundArgument[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getBindings</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bindings</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets bindings.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Bindings map $named or FQCN arguments to values that should be</span>
+     <span class="s4">* injected in the matching parameters (of the constructor, of methods</span>
+     <span class="s4">* called and of controller actions).</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setBindings</span><span class="s1">(</span><span class="s0">array </span><span class="s7">$bindings</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$bindings </span><span class="s0">as </span><span class="s7">$key </span><span class="s1">=&gt; </span><span class="s7">$binding</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">&lt; </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$key</span><span class="s0">, </span><span class="s8">'$'</span><span class="s1">) &amp;&amp; </span><span class="s7">$key </span><span class="s1">!== </span><span class="s7">$k </span><span class="s1">= </span><span class="s3">preg_replace</span><span class="s1">(</span><span class="s8">'/[ \t]*\$/'</span><span class="s0">, </span><span class="s8">' $'</span><span class="s0">, </span><span class="s7">$key</span><span class="s1">)) {</span>
+                <span class="s0">unset</span><span class="s1">(</span><span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">])</span><span class="s0">;</span>
+                <span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$key </span><span class="s1">= </span><span class="s7">$k</span><span class="s1">] = </span><span class="s7">$binding</span><span class="s0">;</span>
+            <span class="s1">}</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$binding </span><span class="s0">instanceof </span><span class="s3">BoundArgument</span><span class="s1">) {</span>
+                <span class="s7">$bindings</span><span class="s1">[</span><span class="s7">$key</span><span class="s1">] = </span><span class="s0">new </span><span class="s3">BoundArgument</span><span class="s1">(</span><span class="s7">$binding</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">bindings </span><span class="s1">= </span><span class="s7">$bindings</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Add an error that occurred when building this Definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|\Closure|self $error</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addError</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$error </span><span class="s0">instanceof </span><span class="s3">self</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors </span><span class="s1">= </span><span class="s3">array_merge</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s0">, </span><span class="s7">$error</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s1">[] = </span><span class="s7">$error</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns any errors that occurred while building this Definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">array</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getErrors</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors </span><span class="s0">as </span><span class="s7">$i </span><span class="s1">=&gt; </span><span class="s7">$error</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$error </span><span class="s0">instanceof </span><span class="s1">\</span><span class="s3">Closure</span><span class="s1">) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = (string) </span><span class="s7">$error</span><span class="s1">()</span><span class="s0">;</span>
+            <span class="s1">} </span><span class="s0">elseif </span><span class="s1">(!\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$error</span><span class="s1">)) {</span>
+                <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s1">[</span><span class="s7">$i</span><span class="s1">] = (string) </span><span class="s7">$error</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s0">public function </span><span class="s3">hasErrors</span><span class="s1">(): </span><span class="s3">bool</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s1">(bool) </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">errors</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

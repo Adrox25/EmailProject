@@ -1,0 +1,115 @@
+<html>
+<head>
+<title>CheckDefinitionValidityPass.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CheckDefinitionValidityPass.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Compiler</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">ContainerBuilder</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">EnvParameterException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">DependencyInjection</span><span class="s1">\</span><span class="s3">Loader</span><span class="s1">\</span><span class="s3">FileLoader</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* This pass validates each definition individually only taking the information</span>
+ <span class="s4">* into account which is contained in the definition itself.</span>
+ <span class="s4">*</span>
+ <span class="s4">* Later passes can rely on the following, and specifically do not need to</span>
+ <span class="s4">* perform these checks themselves:</span>
+ <span class="s4">*</span>
+ <span class="s4">* - non synthetic, non abstract services always have a class set</span>
+ <span class="s4">* - synthetic services are always public</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">CheckDefinitionValidityPass </span><span class="s0">implements </span><span class="s3">CompilerPassInterface</span>
+<span class="s1">{</span>
+    <span class="s4">/**</span>
+     <span class="s4">* Processes the ContainerBuilder to validate the Definition.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">RuntimeException When the Definition is invalid</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">process</span><span class="s1">(</span><span class="s3">ContainerBuilder </span><span class="s7">$container</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getDefinitions</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$definition</span><span class="s1">) {</span>
+            <span class="s2">// synthetic service is public</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isSynthetic</span><span class="s1">() &amp;&amp; !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">()) {</span>
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A synthetic service (&quot;%s&quot;) must be public.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// non-synthetic, non-abstract service has class</span>
+            <span class="s0">if </span><span class="s1">(!</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isAbstract</span><span class="s1">() &amp;&amp; !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isSynthetic</span><span class="s1">() &amp;&amp; !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getClass</span><span class="s1">() &amp;&amp; (!</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">() || !</span><span class="s3">preg_match</span><span class="s1">(</span><span class="s3">FileLoader</span><span class="s1">::</span><span class="s3">ANONYMOUS_ID_REGEXP</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))) {</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getFactory</span><span class="s1">()) {</span>
+                    <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Please add the class to service &quot;%s&quot; even if it is constructed by a factory since we might need to add method calls based on compile-time checks.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">class_exists</span><span class="s1">(</span><span class="s7">$id</span><span class="s1">) || </span><span class="s3">interface_exists</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s3">false</span><span class="s1">)) {</span>
+                    <span class="s0">if </span><span class="s1">(</span><span class="s9">0 </span><span class="s1">=== </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">) &amp;&amp; </span><span class="s9">1 </span><span class="s1">&lt; </span><span class="s3">substr_count</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s8">'</span><span class="s0">\\</span><span class="s8">'</span><span class="s1">)) {</span>
+                        <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The definition for &quot;%s&quot; has no class attribute, and appears to reference a class or interface. Please specify the class attribute explicitly or remove the leading backslash by renaming the service to &quot;%s&quot; to get rid of this error.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s9">1</span><span class="s1">)))</span><span class="s0">;</span>
+                    <span class="s1">}</span>
+
+                    <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The definition for &quot;%s&quot; has no class attribute, and appears to reference a class or interface in the global namespace. Leaving out the &quot;class&quot; attribute is only allowed for namespaced classes. Please specify the class attribute explicitly to get rid of this error.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'The definition for &quot;%s&quot; has no class. If you intend to inject this service dynamically at runtime, please mark it as synthetic=true. If this is an abstract definition solely used by child definitions, please add abstract=true, otherwise specify a class to get rid of this error.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s2">// tag attribute values must be scalars</span>
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">getTags</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$name </span><span class="s1">=&gt; </span><span class="s7">$tags</span><span class="s1">) {</span>
+                <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$tags </span><span class="s0">as </span><span class="s7">$attributes</span><span class="s1">) {</span>
+                    <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$attributes </span><span class="s0">as </span><span class="s7">$attribute </span><span class="s1">=&gt; </span><span class="s7">$value</span><span class="s1">) {</span>
+                        <span class="s0">if </span><span class="s1">(!</span><span class="s3">is_scalar</span><span class="s1">(</span><span class="s7">$value</span><span class="s1">) &amp;&amp; </span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$value</span><span class="s1">) {</span>
+                            <span class="s0">throw new </span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A &quot;tags&quot; attribute must be of a scalar-type for service &quot;%s&quot;, tag &quot;%s&quot;, attribute &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$id</span><span class="s0">, </span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$attribute</span><span class="s1">))</span><span class="s0">;</span>
+                        <span class="s1">}</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">() &amp;&amp; !</span><span class="s7">$definition</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()) {</span>
+                <span class="s7">$resolvedId </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">resolveEnvPlaceholders</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$usedEnvs</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$usedEnvs</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">EnvParameterException</span><span class="s1">([</span><span class="s7">$resolvedId</span><span class="s1">]</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s8">'A service name (&quot;%s&quot;) cannot contain dynamic values.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">getAliases</span><span class="s1">() </span><span class="s0">as </span><span class="s7">$id </span><span class="s1">=&gt; </span><span class="s7">$alias</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">isPublic</span><span class="s1">() &amp;&amp; !</span><span class="s7">$alias</span><span class="s1">-&gt;</span><span class="s3">isPrivate</span><span class="s1">()) {</span>
+                <span class="s7">$resolvedId </span><span class="s1">= </span><span class="s7">$container</span><span class="s1">-&gt;</span><span class="s3">resolveEnvPlaceholders</span><span class="s1">(</span><span class="s7">$id</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s7">$usedEnvs</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$usedEnvs</span><span class="s1">) {</span>
+                    <span class="s0">throw new </span><span class="s3">EnvParameterException</span><span class="s1">([</span><span class="s7">$resolvedId</span><span class="s1">]</span><span class="s0">, </span><span class="s3">null</span><span class="s0">, </span><span class="s8">'An alias name (&quot;%s&quot;) cannot contain dynamic values.'</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<html>
+<head>
+<title>ArrayNodeDefinition.php</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #808080;}
+.s3 { color: #a9b7c6;}
+.s4 { color: #629755; font-style: italic;}
+.s5 { color: #629755; font-weight: bold; font-style: italic;}
+.s6 { color: #77b767; font-style: italic;}
+.s7 { color: #9876aa;}
+.s8 { color: #6a8759;}
+.s9 { color: #6897bb;}
+.ls0 { height: 1px; border-width: 0; color: #4d4d4d; background-color:#4d4d4d}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ArrayNodeDefinition.php</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?php</span>
+
+<span class="s2">/* 
+ * This file is part of the Symfony package. 
+ * 
+ * (c) Fabien Potencier &lt;fabien@symfony.com&gt; 
+ * 
+ * For the full copyright and license information, please view the LICENSE 
+ * file that was distributed with this source code. 
+ */</span>
+<hr class="ls0"><span class="s0">namespace </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Builder</span><span class="s0">;</span>
+
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">ArrayNode</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">Exception</span><span class="s1">\</span><span class="s3">InvalidDefinitionException</span><span class="s0">;</span>
+<span class="s0">use </span><span class="s3">Symfony</span><span class="s1">\</span><span class="s3">Component</span><span class="s1">\</span><span class="s3">Config</span><span class="s1">\</span><span class="s3">Definition</span><span class="s1">\</span><span class="s3">PrototypedArrayNode</span><span class="s0">;</span>
+<hr class="ls0"><span class="s4">/**</span>
+ <span class="s4">* This class provides a fluent interface for defining an array node.</span>
+ <span class="s4">*</span>
+ <span class="s4">* </span><span class="s5">@author </span><span class="s4">Johannes M. Schmitt </span><span class="s6">&lt;schmittjoh</span><span class="s4">@gmail.com&gt;</span>
+ <span class="s4">*/</span>
+<span class="s0">class </span><span class="s3">ArrayNodeDefinition </span><span class="s0">extends </span><span class="s3">NodeDefinition </span><span class="s0">implements </span><span class="s3">ParentNodeDefinitionInterface</span>
+<span class="s1">{</span>
+    <span class="s0">protected </span><span class="s7">$performDeepMerging </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$ignoreExtraKeys </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$removeExtraKeys </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$children </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$prototype</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$atLeastOne </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$allowNewKeys </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$key</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$removeKeyItem</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$addDefaults </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$addDefaultChildren </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$nodeBuilder</span><span class="s0">;</span>
+    <span class="s0">protected </span><span class="s7">$normalizeKeys </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">__construct</span><span class="s1">(?</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">NodeParentInterface </span><span class="s7">$parent </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s3">parent</span><span class="s1">::</span><span class="s3">__construct</span><span class="s1">(</span><span class="s7">$name</span><span class="s0">, </span><span class="s7">$parent</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nullEquivalent </span><span class="s1">= []</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">trueEquivalent </span><span class="s1">= []</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">setBuilder</span><span class="s1">(</span><span class="s3">NodeBuilder </span><span class="s7">$builder</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodeBuilder </span><span class="s1">= </span><span class="s7">$builder</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">children</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getNodeBuilder</span><span class="s1">()</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a prototype for child nodes.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">prototype</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$type</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype </span><span class="s1">= </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">getNodeBuilder</span><span class="s1">()-&gt;</span><span class="s3">node</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$type</span><span class="s1">)-&gt;</span><span class="s3">setParent</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">VariableNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">variablePrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'variable'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ScalarNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">scalarPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'scalar'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">BooleanNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">booleanPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'boolean'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">IntegerNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">integerPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'integer'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">FloatNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">floatPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'float'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">ArrayNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">arrayPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'array'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">EnumNodeDefinition</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">enumPrototype</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">(</span><span class="s8">'enum'</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds the default value if the node is not set in the configuration.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is applicable to concrete nodes only (not to prototype nodes).</span>
+     <span class="s4">* If this function has been called and the node is not set during the finalization</span>
+     <span class="s4">* phase, it's default value will be derived from its children default values.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addDefaultsIfNotSet</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaults </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds children with a default value when none are defined.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is applicable to prototype nodes only.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">int|string|array|null $children The number of children|The child name|The children names to be added</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">addDefaultChildrenIfNoneSet</span><span class="s1">(</span><span class="s7">$children </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren </span><span class="s1">= </span><span class="s7">$children</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Requires the node to have at least one element.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is applicable to prototype nodes only.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">requiresAtLeastOneElement</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">atLeastOne </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Disallows adding news keys in a subsequent configuration.</span>
+     <span class="s4">*</span>
+     <span class="s4">* If used all keys have to be defined in the same configuration file.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">disallowNewKeysInSubsequentConfigs</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">allowNewKeys </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets a normalization rule for XML configurations.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string      $singular The key to remap</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string|null $plural   The plural of the key for irregular plurals</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">fixXmlConfig</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$singular</span><span class="s0">, </span><span class="s3">string </span><span class="s7">$plural </span><span class="s1">= </span><span class="s3">null</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">()-&gt;</span><span class="s3">remap</span><span class="s1">(</span><span class="s7">$singular</span><span class="s0">, </span><span class="s7">$plural</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets the attribute which value is to be used as key.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This is useful when you have an indexed array that should be an</span>
+     <span class="s4">* associative array. You can select an item from within the array</span>
+     <span class="s4">* to be the key of the particular item. For example, if &quot;id&quot; is the</span>
+     <span class="s4">* &quot;key&quot;, then:</span>
+     <span class="s4">*</span>
+     <span class="s4">*     [</span>
+     <span class="s4">*         ['id' =&gt; 'my_name', 'foo' =&gt; 'bar'],</span>
+     <span class="s4">*     ];</span>
+     <span class="s4">*</span>
+     <span class="s4">*   becomes</span>
+     <span class="s4">*</span>
+     <span class="s4">*     [</span>
+     <span class="s4">*         'my_name' =&gt; ['foo' =&gt; 'bar'],</span>
+     <span class="s4">*     ];</span>
+     <span class="s4">*</span>
+     <span class="s4">* If you'd like &quot;'id' =&gt; 'my_name'&quot; to still be present in the resulting</span>
+     <span class="s4">* array, then you can set the second argument of this method to false.</span>
+     <span class="s4">*</span>
+     <span class="s4">* This method is applicable to prototype nodes only.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $name          The name of the key</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool   $removeKeyItem Whether or not the key item should be removed</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">useAttributeAsKey</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$name</span><span class="s0">, </span><span class="s3">bool </span><span class="s7">$removeKeyItem </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">key </span><span class="s1">= </span><span class="s7">$name</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeKeyItem </span><span class="s1">= </span><span class="s7">$removeKeyItem</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets whether the node can be unset.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">canBeUnset</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$allow </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">()-&gt;</span><span class="s3">allowUnset</span><span class="s1">(</span><span class="s7">$allow</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds an &quot;enabled&quot; boolean to enable the current section.</span>
+     <span class="s4">*</span>
+     <span class="s4">* By default, the section is disabled. If any configuration is specified then</span>
+     <span class="s4">* the node will be automatically enabled:</span>
+     <span class="s4">*</span>
+     <span class="s4">* enableableArrayNode: {enabled: true, ...}   # The config is enabled &amp; default values get overridden</span>
+     <span class="s4">* enableableArrayNode: ~                      # The config is enabled &amp; use the default values</span>
+     <span class="s4">* enableableArrayNode: true                   # The config is enabled &amp; use the default values</span>
+     <span class="s4">* enableableArrayNode: {other: value, ...}    # The config is enabled &amp; default values get overridden</span>
+     <span class="s4">* enableableArrayNode: {enabled: false, ...}  # The config is disabled</span>
+     <span class="s4">* enableableArrayNode: false                  # The config is disabled</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">canBeEnabled</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">addDefaultsIfNotSet</span><span class="s1">()</span>
+            <span class="s1">-&gt;</span><span class="s3">treatFalseLike</span><span class="s1">([</span><span class="s8">'enabled' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">treatTrueLike</span><span class="s1">([</span><span class="s8">'enabled' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">treatNullLike</span><span class="s1">([</span><span class="s8">'enabled' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">beforeNormalization</span><span class="s1">()</span>
+                <span class="s1">-&gt;</span><span class="s3">ifArray</span><span class="s1">()</span>
+                <span class="s1">-&gt;</span><span class="s3">then</span><span class="s1">(</span><span class="s0">function </span><span class="s1">(</span><span class="s7">$v</span><span class="s1">) {</span>
+                    <span class="s7">$v</span><span class="s1">[</span><span class="s8">'enabled'</span><span class="s1">] = </span><span class="s0">isset</span><span class="s1">(</span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'enabled'</span><span class="s1">]) ? </span><span class="s7">$v</span><span class="s1">[</span><span class="s8">'enabled'</span><span class="s1">] : </span><span class="s3">true</span><span class="s0">;</span>
+
+                    <span class="s0">return </span><span class="s7">$v</span><span class="s0">;</span>
+                <span class="s1">})</span>
+            <span class="s1">-&gt;</span><span class="s3">end</span><span class="s1">()</span>
+            <span class="s1">-&gt;</span><span class="s3">children</span><span class="s1">()</span>
+                <span class="s1">-&gt;</span><span class="s3">booleanNode</span><span class="s1">(</span><span class="s8">'enabled'</span><span class="s1">)</span>
+                    <span class="s1">-&gt;</span><span class="s3">defaultFalse</span><span class="s1">()</span>
+        <span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Adds an &quot;enabled&quot; boolean to enable the current section.</span>
+     <span class="s4">*</span>
+     <span class="s4">* By default, the section is enabled.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">canBeDisabled</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span>
+            <span class="s1">-&gt;</span><span class="s3">addDefaultsIfNotSet</span><span class="s1">()</span>
+            <span class="s1">-&gt;</span><span class="s3">treatFalseLike</span><span class="s1">([</span><span class="s8">'enabled' </span><span class="s1">=&gt; </span><span class="s3">false</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">treatTrueLike</span><span class="s1">([</span><span class="s8">'enabled' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">treatNullLike</span><span class="s1">([</span><span class="s8">'enabled' </span><span class="s1">=&gt; </span><span class="s3">true</span><span class="s1">])</span>
+            <span class="s1">-&gt;</span><span class="s3">children</span><span class="s1">()</span>
+                <span class="s1">-&gt;</span><span class="s3">booleanNode</span><span class="s1">(</span><span class="s8">'enabled'</span><span class="s1">)</span>
+                    <span class="s1">-&gt;</span><span class="s3">defaultTrue</span><span class="s1">()</span>
+        <span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Disables the deep merging of the node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">performNoDeepMerging</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">performDeepMerging </span><span class="s1">= </span><span class="s3">false</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Allows extra config keys to be specified under an array without</span>
+     <span class="s4">* throwing an exception.</span>
+     <span class="s4">*</span>
+     <span class="s4">* Those config values are ignored and removed from the resulting</span>
+     <span class="s4">* array. This should be used only in special cases where you want</span>
+     <span class="s4">* to send an entire configuration array through a special tree that</span>
+     <span class="s4">* processes only part of the array.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">bool $remove Whether to remove the extra keys</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">ignoreExtraKeys</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$remove </span><span class="s1">= </span><span class="s3">true</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreExtraKeys </span><span class="s1">= </span><span class="s3">true</span><span class="s0">;</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeExtraKeys </span><span class="s1">= </span><span class="s7">$remove</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Sets whether to enable key normalization.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">$this</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">normalizeKeys</span><span class="s1">(</span><span class="s3">bool </span><span class="s7">$bool</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalizeKeys </span><span class="s1">= </span><span class="s7">$bool</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">append</span><span class="s1">(</span><span class="s3">NodeDefinition </span><span class="s7">$node</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children</span><span class="s1">[</span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">] = </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setParent</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Returns a node builder to be used to add children and prototype.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NodeBuilder The node builder</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">getNodeBuilder</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodeBuilder</span><span class="s1">) {</span>
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodeBuilder </span><span class="s1">= </span><span class="s0">new </span><span class="s3">NodeBuilder</span><span class="s1">()</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nodeBuilder</span><span class="s1">-&gt;</span><span class="s3">setParent</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">)</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* {</span><span class="s5">@inheritdoc</span><span class="s4">}</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">createNode</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">) {</span>
+            <span class="s7">$node </span><span class="s1">= </span><span class="s0">new </span><span class="s3">ArrayNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pathSeparator</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validateConcreteNode</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setAddIfNotSet</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaults</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">foreach </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children </span><span class="s0">as </span><span class="s7">$child</span><span class="s1">) {</span>
+                <span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s7">$node</span><span class="s0">;</span>
+                <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">addChild</span><span class="s1">(</span><span class="s7">$child</span><span class="s1">-&gt;</span><span class="s3">getNode</span><span class="s1">())</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">} </span><span class="s0">else </span><span class="s1">{</span>
+            <span class="s7">$node </span><span class="s1">= </span><span class="s0">new </span><span class="s3">PrototypedArrayNode</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">parent</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pathSeparator</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validatePrototypeNode</span><span class="s1">(</span><span class="s7">$node</span><span class="s1">)</span><span class="s0">;</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">key</span><span class="s1">) {</span>
+                <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setKeyAttribute</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">key</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeKeyItem</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">atLeastOne </span><span class="s1">|| </span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">allowEmptyValue</span><span class="s1">) {</span>
+                <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setMinNumberOfElements</span><span class="s1">(</span><span class="s9">1</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">default</span><span class="s1">) {</span>
+                <span class="s0">if </span><span class="s1">(!\</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue</span><span class="s1">)) {</span>
+                    <span class="s0">throw new </span><span class="s1">\</span><span class="s3">InvalidArgumentException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'%s: the default value of an array node has to be an array.'</span><span class="s0">, </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()))</span><span class="s0">;</span>
+                <span class="s1">}</span>
+
+                <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setDefaultValue</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">defaultValue</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">) {</span>
+                <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setAddChildrenIfNoneSet</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">)</span><span class="s0">;</span>
+                <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype </span><span class="s0">instanceof static </span><span class="s1">&amp;&amp; </span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">) {</span>
+                    <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">addDefaultsIfNotSet</span><span class="s1">()</span><span class="s0">;</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">parent </span><span class="s1">= </span><span class="s7">$node</span><span class="s0">;</span>
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setPrototype</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">prototype</span><span class="s1">-&gt;</span><span class="s3">getNode</span><span class="s1">())</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setAllowNewKeys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">allowNewKeys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">addEquivalentValue</span><span class="s1">(</span><span class="s3">null</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">nullEquivalent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">addEquivalentValue</span><span class="s1">(</span><span class="s3">true</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">trueEquivalent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">addEquivalentValue</span><span class="s1">(</span><span class="s3">false</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">falseEquivalent</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setPerformDeepMerging</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">performDeepMerging</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setRequired</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">required</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setDeprecated</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">deprecationMessage</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setIgnoreExtraKeys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">ignoreExtraKeys</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">removeExtraKeys</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setNormalizeKeys</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalizeKeys</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">) {</span>
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setNormalizationClosures</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">-&gt;</span><span class="s3">before</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setXmlRemappings</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">normalization</span><span class="s1">-&gt;</span><span class="s3">remappings</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">) {</span>
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setAllowOverwrite</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">-&gt;</span><span class="s3">allowOverwrite</span><span class="s1">)</span><span class="s0">;</span>
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setAllowFalse</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">merge</span><span class="s1">-&gt;</span><span class="s3">allowFalse</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">) {</span>
+            <span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">setFinalValidationClosures</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">validation</span><span class="s1">-&gt;</span><span class="s3">rules</span><span class="s1">)</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$node</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validate the configuration of a concrete node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidDefinitionException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">validateConcreteNode</span><span class="s1">(</span><span class="s3">ArrayNode </span><span class="s7">$node</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">key</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;useAttributeAsKey() is not applicable to concrete nodes at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">allowEmptyValue</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;cannotBeEmpty() is not applicable to concrete nodes at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">true </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">atLeastOne</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;requiresAtLeastOneElement() is not applicable to concrete nodes at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">default</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;defaultValue() is not applicable to concrete nodes at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;addDefaultChildrenIfNoneSet() is not applicable to concrete nodes at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Validate the configuration of a prototype node.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@throws </span><span class="s4">InvalidDefinitionException</span>
+     <span class="s4">*/</span>
+    <span class="s0">protected function </span><span class="s3">validatePrototypeNode</span><span class="s1">(</span><span class="s3">PrototypedArrayNode </span><span class="s7">$node</span><span class="s1">)</span>
+    <span class="s1">{</span>
+        <span class="s7">$path </span><span class="s1">= </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">getPath</span><span class="s1">()</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaults</span><span class="s1">) {</span>
+            <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;addDefaultsIfNotSet() is not applicable to prototype nodes at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">) {</span>
+            <span class="s0">if </span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">default</span><span class="s1">) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'A default value and default children might not be used together at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">!== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">key </span><span class="s1">&amp;&amp; (</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren </span><span class="s1">|| \</span><span class="s3">is_int</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">) &amp;&amp; </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren </span><span class="s1">&gt; </span><span class="s9">0</span><span class="s1">)) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;addDefaultChildrenIfNoneSet() should set default children names as -&gt;useAttributeAsKey() is used at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+
+            <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">key </span><span class="s1">&amp;&amp; (\</span><span class="s3">is_string</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">) || \</span><span class="s3">is_array</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">addDefaultChildren</span><span class="s1">))) {</span>
+                <span class="s0">throw new </span><span class="s3">InvalidDefinitionException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'-&gt;addDefaultChildrenIfNoneSet() might not set default children names as -&gt;useAttributeAsKey() is not used at path &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$path</span><span class="s1">))</span><span class="s0">;</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* </span><span class="s5">@return </span><span class="s4">NodeDefinition[]</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">getChildNodeDefinitions</span><span class="s1">()</span>
+    <span class="s1">{</span>
+        <span class="s0">return </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children</span><span class="s0">;</span>
+    <span class="s1">}</span>
+
+    <span class="s4">/**</span>
+     <span class="s4">* Finds a node defined by the given $nodePath.</span>
+     <span class="s4">*</span>
+     <span class="s4">* </span><span class="s5">@param </span><span class="s4">string $nodePath The path of the node to find. e.g &quot;doctrine.orm.mappings&quot;</span>
+     <span class="s4">*/</span>
+    <span class="s0">public function </span><span class="s3">find</span><span class="s1">(</span><span class="s3">string </span><span class="s7">$nodePath</span><span class="s1">): </span><span class="s3">NodeDefinition</span>
+    <span class="s1">{</span>
+        <span class="s7">$firstPathSegment </span><span class="s1">= (</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$pathSeparatorPos </span><span class="s1">= </span><span class="s3">strpos</span><span class="s1">(</span><span class="s7">$nodePath</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pathSeparator</span><span class="s1">))</span>
+            <span class="s1">? </span><span class="s7">$nodePath</span>
+            <span class="s1">: </span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$nodePath</span><span class="s0">, </span><span class="s9">0</span><span class="s0">, </span><span class="s7">$pathSeparatorPos</span><span class="s1">)</span><span class="s0">;</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">null </span><span class="s1">=== </span><span class="s7">$node </span><span class="s1">= (</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">children</span><span class="s1">[</span><span class="s7">$firstPathSegment</span><span class="s1">] ?? </span><span class="s3">null</span><span class="s1">)) {</span>
+            <span class="s0">throw new </span><span class="s1">\</span><span class="s3">RuntimeException</span><span class="s1">(</span><span class="s3">sprintf</span><span class="s1">(</span><span class="s8">'Node with name &quot;%s&quot; does not exist in the current node &quot;%s&quot;.'</span><span class="s0">, </span><span class="s7">$firstPathSegment</span><span class="s0">, </span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">name</span><span class="s1">))</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">if </span><span class="s1">(</span><span class="s3">false </span><span class="s1">=== </span><span class="s7">$pathSeparatorPos</span><span class="s1">) {</span>
+            <span class="s0">return </span><span class="s7">$node</span><span class="s0">;</span>
+        <span class="s1">}</span>
+
+        <span class="s0">return </span><span class="s7">$node</span><span class="s1">-&gt;</span><span class="s3">find</span><span class="s1">(</span><span class="s3">substr</span><span class="s1">(</span><span class="s7">$nodePath</span><span class="s0">, </span><span class="s7">$pathSeparatorPos </span><span class="s1">+ \</span><span class="s3">strlen</span><span class="s1">(</span><span class="s7">$this</span><span class="s1">-&gt;</span><span class="s3">pathSeparator</span><span class="s1">)))</span><span class="s0">;</span>
+    <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>
